@@ -75,7 +75,9 @@ export default function QuoteForm() {
             <option value="" disabled>
               Select a product
             </option>
-            {PRODUCTS.map((p) => (
+            {/* High-Speed Line Compatible is a real product (shown on /products)
+                but intentionally excluded from this dropdown per client request. */}
+            {PRODUCTS.filter((p) => p.slug !== "high-speed-line-compatible").map((p) => (
               <option key={p.slug} value={p.name}>
                 {p.name}
               </option>
