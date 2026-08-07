@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colors — sampled directly from the client's vector logo file */
+  --color-orange: #F1531C;
+  --color-orange-deep: #C43D10;
+  --color-orange-light: #FF8C5A;
+  --color-navy: #27438E;
+  --color-navy-tint: #EEF1F8;
+  --color-ink: #132B52;
+  --color-steel: #B9C2CC;
+  --color-porcelain: #FAF9F6;
+  --color-graphite: #1B2430;
+  --color-muted: #64707D;
+
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-brandmono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-logo: var(--font-baloo), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: auto;
+}
+
+body {
+  background: var(--color-porcelain);
+  color: var(--color-graphite);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, 8px); }
+}
