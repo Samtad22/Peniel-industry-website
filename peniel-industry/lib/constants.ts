@@ -35,6 +35,14 @@ export const NAV_LINKS = [
 
 export const CONTACT_CTA = { href: "/contact", label: "Get a Quote" };
 
+export const SOCIAL_LINKS = {
+  linkedin: "https://www.linkedin.com/in/peniel-industry-plc-07776b428/",
+  instagram: "https://www.instagram.com/penielindustry/",
+  // Add the Facebook page URL here once it's live — the footer will pick
+  // it up automatically, no other code changes needed.
+  facebook: null as string | null,
+} as const;
+
 export const PRODUCTS = [
   {
     slug: "standard-crown-corks",
