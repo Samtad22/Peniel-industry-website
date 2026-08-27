@@ -14,7 +14,7 @@ export const COMPANY = {
   addressLine: "Bole Lemi Industrial Park, Addis Ababa, Ethiopia",
   city: "Addis Ababa",
   country: "Ethiopia",
-  phone: "+251 11 123 4567",
+  phone: "+251 11 668 9255",
   email: "info@penielindustry.org",
   coordinates: { lat: 8.9714, lng: 38.8568 },
   tagline: "Precision-manufactured crown corks for Ethiopia's beverage industry.",
