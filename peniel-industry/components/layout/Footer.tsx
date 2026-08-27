@@ -46,7 +46,7 @@ export default function Footer() {
             {(SOCIAL_LINKS.linkedin || SOCIAL_LINKS.instagram || SOCIAL_LINKS.facebook) && (
               <div className="mt-5 flex items-center gap-3">
                 {SOCIAL_LINKS.linkedin && (
-                  
+                  <a
                     href={SOCIAL_LINKS.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -57,7 +57,7 @@ export default function Footer() {
                   </a>
                 )}
                 {SOCIAL_LINKS.instagram && (
-                  
+                  <a
                     href={SOCIAL_LINKS.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -68,7 +68,7 @@ export default function Footer() {
                   </a>
                 )}
                 {SOCIAL_LINKS.facebook && (
-                  
+                  <a
                     href={SOCIAL_LINKS.facebook}
                     target="_blank"
                     rel="noopener noreferrer"
