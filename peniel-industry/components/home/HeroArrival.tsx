@@ -47,7 +47,7 @@ export default function HeroArrival() {
           <Reveal delay={160}>
             <p className="mb-8 max-w-lg text-lg leading-relaxed text-white/94 [text-shadow:0_2px_12px_rgba(0,0,0,0.2)]">
               {COMPANY.legalName} manufactures premium-quality crown corks for breweries, soft drink
-              producers, and bottled water companies across Ethiopia — built on advanced manufacturing
+              producers, and bottled water companies across Ethiopia, built on advanced manufacturing
               technology and strict quality standards.
             </p>
           </Reveal>

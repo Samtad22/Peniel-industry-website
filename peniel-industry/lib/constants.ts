@@ -174,6 +174,6 @@ export const FAQS = [
   },
   {
     q: "How do I request a quote or samples?",
-    a: "Use the quote request form on our Contact page, or reach us directly by phone or email — details are on that page.",
+    a: "Use the quote request form on our Contact page, or reach us directly by phone or email. Details are on that page.",
   },
 ] as const;

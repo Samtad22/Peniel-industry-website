@@ -32,7 +32,7 @@ export default function Header() {
       }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Peniel Industry PLC — Home">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Peniel Industry PLC home">
           <LogoMark size={32} />
           <span
             className="font-logo text-[19px] font-extrabold tracking-[-0.03em]"

@@ -44,8 +44,8 @@ const baloo = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${COMPANY.legalName} — Crown Cork Manufacturer, Ethiopia`,
-    template: `%s — ${COMPANY.legalName}`,
+    default: `${COMPANY.legalName} | Crown Cork Manufacturer, Ethiopia`,
+    template: `%s | ${COMPANY.legalName}`,
   },
   description: COMPANY.tagline,
   openGraph: {

@@ -11,7 +11,7 @@ import ScallopDivider from "@/components/ui/ScallopDivider";
 import { COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: `${COMPANY.legalName} — Crown Cork Manufacturer, Ethiopia`,
+  title: `${COMPANY.legalName} | Crown Cork Manufacturer, Ethiopia`,
   description:
     "Peniel Industry PLC manufactures premium-quality crown corks for breweries, soft drink producers, and bottled water companies across Ethiopia.",
   alternates: { canonical: "/" },

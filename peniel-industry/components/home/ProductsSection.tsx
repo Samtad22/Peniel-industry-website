@@ -16,8 +16,8 @@ export default function ProductsSection() {
         </Reveal>
         <Reveal delay={140}>
           <p className="mb-12 max-w-xl text-base leading-relaxed text-muted">
-            Every crown cork we manufacture is built to protect what&apos;s inside the bottle — from
-            carbonation to freshness — while performing flawlessly on modern high-speed bottling lines.
+            Every crown cork we manufacture is built to protect what&apos;s inside the bottle, from
+            carbonation to freshness, while performing flawlessly on modern high-speed bottling lines.
           </p>
         </Reveal>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -21,7 +21,7 @@ export default function SustainabilityPage() {
       <PageHero
         eyebrow="Sustainability"
         title="Manufacturing responsibly, for the long term"
-        intro="As a manufacturer serving Ethiopia's beverage industry, we recognize our responsibility to operate efficiently and reduce our environmental footprint — while strengthening the local industrial base we're part of."
+        intro="As a manufacturer serving Ethiopia's beverage industry, we recognize our responsibility to operate efficiently and reduce our environmental footprint, while strengthening the local industrial base we're part of."
       />
 
       <section className="bg-porcelain px-6 py-20">
@@ -52,7 +52,7 @@ export default function SustainabilityPage() {
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
             <h2 className="mb-5 text-[clamp(1.7rem,3vw,2.3rem)] font-extrabold text-navy">
-              A responsibility we take seriously — and a work in progress
+              A responsibility we take seriously, and a work in progress
             </h2>
           </Reveal>
           <Reveal delay={80}>

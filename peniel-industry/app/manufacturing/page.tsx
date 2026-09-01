@@ -65,7 +65,7 @@ export default function ManufacturingPage() {
                   {COMPANY.legalName} operates advanced manufacturing facilities at{" "}
                   {COMPANY.addressLine}, dedicated exclusively to crown cork production. Automated
                   stamping and forming equipment works alongside multi-point inspection to keep
-                  every batch within tight, controlled tolerances — from the first tinplate coil to
+                  every batch within tight, controlled tolerances, from the first tinplate coil to
                   the finished, packed cap.
                 </p>
               </Reveal>

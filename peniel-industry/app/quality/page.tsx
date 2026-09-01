@@ -20,7 +20,7 @@ export default function QualityPage() {
       <PageHero
         eyebrow="Quality Control"
         title="Every cap reflects one standard: precision, consistency, reliability"
-        intro="Multi-point inspection runs throughout the production process — not only at the end of the line — backed by strict, standards-driven quality assurance and food-grade compliant liners and coatings."
+        intro="Multi-point inspection runs throughout the production process, not only at the end of the line, and is backed by strict, standards-driven quality assurance and food-grade compliant liners and coatings."
       />
 
       <section className="bg-porcelain px-6 py-20">
@@ -52,7 +52,7 @@ export default function QualityPage() {
           <Reveal delay={140}>
             <p className="text-[16px] leading-relaxed text-white/75">
               Rather than relying on a single inspection at the end of the line, quality checks are
-              built into the production process itself — from raw tinplate handling through
+              built into the production process itself, from raw tinplate handling through
               forming, coating, and printing, up to final packing. This is the same disciplined
               approach behind every batch we ship, regardless of order size.
             </p>
@@ -72,7 +72,7 @@ export default function QualityPage() {
                 food-safety management standards) are not yet documented for publication on this
                 site.{" "}
                 <span className="font-semibold text-graphite">
-                  [Verification required — to be added once certification documentation is
+                  [Verification required: to be added once certification documentation is
                   supplied.]
                 </span>{" "}
                 If you need certification details for a procurement process, please contact us

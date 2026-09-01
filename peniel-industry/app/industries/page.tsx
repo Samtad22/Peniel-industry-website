@@ -83,7 +83,7 @@ export default function IndustriesPage() {
           </Reveal>
           <Reveal delay={80}>
             <p className="mb-8 text-[15.5px] leading-relaxed text-muted">
-              Reach out and tell us about your product — we&apos;re happy to discuss whether our
+              Reach out and tell us about your product. We&apos;re happy to discuss whether our
               crown corks are a fit.
             </p>
           </Reveal>

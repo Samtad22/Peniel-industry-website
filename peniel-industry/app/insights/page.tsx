@@ -60,8 +60,8 @@ export default function InsightsPage() {
           </Reveal>
           <Reveal delay={100}>
             <p className="text-[14.5px] leading-relaxed text-muted">
-              A downloadable resource library — product spec sheets, technical drawings, and
-              guides — is in progress and will be published here once available.{" "}
+              A downloadable resource library with product spec sheets, technical drawings, and
+              guides is in progress and will be published here once available.{" "}
               <span className="font-semibold text-graphite">[Verification required]</span> In the
               meantime, contact our team directly for any technical documentation you need.
             </p>

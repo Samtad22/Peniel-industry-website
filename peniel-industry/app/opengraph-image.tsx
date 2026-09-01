@@ -6,7 +6,7 @@ import { COMPANY } from "@/lib/constants";
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = `${COMPANY.legalName} — Crown Cork Manufacturer, Ethiopia`;
+export const alt = `${COMPANY.legalName} | Crown Cork Manufacturer, Ethiopia`;
 
 function toDataUri(relativePath: string, mime: string) {
   const filePath = join(process.cwd(), "public", relativePath);

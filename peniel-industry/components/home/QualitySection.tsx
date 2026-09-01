@@ -16,8 +16,8 @@ export default function QualitySection() {
           </Reveal>
           <Reveal delay={140}>
             <p className="max-w-xl text-base leading-relaxed text-muted">
-              Multi-point inspection runs throughout the production process — not only at the end of
-              the line — backed by strict, standards-driven quality assurance and food-grade
+              Multi-point inspection runs throughout the production process, not only at the end of
+              the line, and is backed by strict, standards-driven quality assurance and food-grade
               compliant liners and coatings.
             </p>
           </Reveal>

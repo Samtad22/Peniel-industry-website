@@ -17,7 +17,7 @@ export default function MapEmbed({ className = "" }: { className?: string }) {
     >
       <iframe
         src={src}
-        title={`Map location — ${COMPANY.addressLine}`}
+        title={`Map location: ${COMPANY.addressLine}`}
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
         className="h-full w-full border-0 grayscale-[15%]"

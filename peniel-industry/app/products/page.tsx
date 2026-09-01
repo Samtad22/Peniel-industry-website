@@ -22,7 +22,7 @@ export default function ProductsPage() {
       <PageHero
         eyebrow="Our Products"
         title="Crown corks, engineered for performance"
-        intro="Every crown cork we manufacture is built to protect what's inside the bottle — from carbonation to freshness — while performing flawlessly on modern high-speed bottling lines."
+        intro="Every crown cork we manufacture is built to protect what's inside the bottle, from carbonation to freshness, while performing flawlessly on modern high-speed bottling lines."
       />
 
       <section className="bg-porcelain px-6 py-20">

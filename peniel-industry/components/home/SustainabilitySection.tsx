@@ -20,7 +20,7 @@ export default function SustainabilitySection() {
         <Reveal delay={140}>
           <p className="mb-12 max-w-xl text-[16.5px] leading-relaxed text-muted">
             As a manufacturer serving Ethiopia&apos;s beverage industry, we recognize our
-            responsibility to operate efficiently and reduce our environmental footprint — while
+            responsibility to operate efficiently and reduce our environmental footprint, while
             strengthening the local industrial base we&apos;re part of.
           </p>
         </Reveal>

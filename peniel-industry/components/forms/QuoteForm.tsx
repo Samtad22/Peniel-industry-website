@@ -41,7 +41,7 @@ export default function QuoteForm() {
         </span>
         <h3 className="mb-2 text-xl font-bold text-graphite">Request received</h3>
         <p className="mx-auto max-w-sm text-[15px] leading-relaxed text-muted">
-          Thank you — our team will get back to you shortly. If your request is urgent, you can
+          Thank you! Our team will get back to you shortly. If your request is urgent, you can
           also reach us directly by phone or email.
         </p>
         <button
@@ -98,7 +98,7 @@ export default function QuoteForm() {
             name="message"
             required
             rows={5}
-            placeholder="Tell us about your requirements — product specs, timeline, or anything else that helps us prepare a quote."
+            placeholder="Tell us about your requirements: product specs, timeline, or anything else that helps us prepare a quote."
             className="resize-none rounded-[10px] border border-[#E7E9EC] px-3.5 py-2.5 text-[14.5px] text-graphite outline-none focus:border-orange"
           />
         </div>
