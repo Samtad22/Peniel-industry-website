@@ -20,7 +20,7 @@ export const COMPANY = {
   tagline: "Precision-manufactured crown corks for Ethiopia's beverage industry.",
 } as const;
 
-export const SITE_URL = "https://www.penielindustry.org";
+export const SITE_URL = "https://penielindustry.org";
 
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
