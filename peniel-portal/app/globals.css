@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  /* Peniel brand — same tokens as the marketing site (peniel-industry/) */
+  --color-orange: #F1531C;
+  --color-orange-deep: #C43D10;
+  --color-navy: #27438E;
+  --color-navy-deep: #1D3370;
+  --color-navy-tint: #EEF1F8;
+  --color-ink: #132B52;
+  --color-steel: #B9C2CC;
+  --color-line: #E3E7EC;
+  --color-porcelain: #FAF9F6;
+  --color-graphite: #1B2430;
+  --color-muted: #64707D;
+
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--color-porcelain);
+  color: var(--color-graphite);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+}
