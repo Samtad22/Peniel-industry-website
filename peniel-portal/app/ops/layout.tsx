@@ -19,6 +19,8 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             <Image src="/img/logo-icon.png" alt="" width={30} height={30} className="rounded-full bg-white p-0.5" />
             <span className="font-display text-[15px] font-semibold">Peniel Ops</span>
           </Link>
+          {/* Narrow screens: the sidebar footer below is hidden, so sign-out lives here. */}
+          <SignOutButton className="text-white/80 md:hidden" />
         </div>
         <nav aria-label="Ops" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-visible">
           {nav.map((item) => (
