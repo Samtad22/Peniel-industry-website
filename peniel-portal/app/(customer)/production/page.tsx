@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import ProductionView, { type BatchRow, type ProductionTab, type StockRow } from "@/components/customer/ProductionView";
+import ProductionView, { type BatchRow, type BookingRow, type ProductionTab, type StockRow } from "@/components/customer/ProductionView";
 import { brandSpec, type CustomerBrand } from "@/lib/customer-orders";
 import { addisDateISO } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
+import { addisLocalNow } from "@/lib/inventory";
 import { addDays, lastDays, projectCompletion } from "@/lib/production-math";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,7 +24,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   const today = addisDateISO(new Date());
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: brands }, { data: daily }, { data: batches }, { data: stock }] = await Promise.all([
+  const [{ data: orders }, { data: brands }, { data: daily }, { data: batches }, { data: stock }, { data: bookings }] = await Promise.all([
     supabase
       .from("customer_orders")
       .select("id, order_no, brand_id, brand_name, quantity, completed_qty, status, due_date")
@@ -47,6 +48,12 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       .select("id, brand_name, batch_no, quantity, ready_since, status, order_no, customer_reason, updated_at")
       .order("ready_since", { ascending: false })
       .returns<(StockRow & { updated_at: string })[]>(),
+    supabase
+      .from("customer_pickup_bookings")
+      .select("id, requested_at, proposed_time, status, delivery_note_no, batch_nos, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .returns<{ id: string; requested_at: string; proposed_time: string | null; status: BookingRow["status"]; delivery_note_no: string | null; batch_nos: string[] }[]>(),
   ]);
 
   const spec = new Map((brands ?? []).map((b) => [b.id, [brandSpec(b), b.liner].filter(Boolean).join(" · ")]));
@@ -104,6 +111,15 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           sampled: recentBatches.reduce((s, b) => s + Number(b.sample_size), 0),
         },
         stock: (stock ?? []).map((s) => ({ ...s, quantity: Number(s.quantity) })),
+        bookings: (bookings ?? []).map((b) => ({
+          id: b.id,
+          requested_at: b.requested_at,
+          proposed_time: b.proposed_time,
+          status: b.status,
+          delivery_note_no: b.delivery_note_no,
+          batches: b.batch_nos,
+        })),
+        pickupMin: addisLocalNow(),
       }}
     />
   );
