@@ -15,6 +15,11 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
+    if (error && error.status !== 400) {
+      // Not a wrong password: a config or service problem. Log the reason
+      // (never the email or password) so it shows in the Vercel logs.
+      console.error("Sign-in failed:", { status: error.status, code: error.code, name: error.name, message: error.message });
+    }
     return error && error.status !== 400
       ? { error: "Sign-in is unavailable right now. Please try again in a few minutes." }
       : { error: "That email and password don't match an account." };
