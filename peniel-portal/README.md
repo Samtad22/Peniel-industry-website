@@ -6,7 +6,7 @@ and the full specification is in [docs/PORTAL_SPEC.md](docs/PORTAL_SPEC.md).
 
 The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 
-## Status: Phase 2 (Orders)
+## Status: Phase 3 (Production and quality)
 
 | Area | Where |
 |---|---|
@@ -16,10 +16,12 @@ The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 | Customer views and customer write functions | `supabase/migrations/…04_customer_access.sql` |
 | Private file buckets (`company_id/…`, 20 MB, PDF/JPG/PNG/XLSX/DOCX) | `supabase/migrations/…05_storage.sql` |
 | Orders: submit with PO, status rules, reject reasons, order audit for staff | `supabase/migrations/20260924000001_orders.sql` |
+| Production & QC: publish stamps, frozen published entries, `qc_save_inspection` | `supabase/migrations/20260925000001_production_quality.sql` |
 | Seed data (Habesha + 2 other breweries) | `supabase/seed.sql` |
 | Sign-in, invite, set password, forgot password | `app/login`, `app/auth`, `app/forgot-password` |
-| Customer: Orders home + detail, order page, New order (4 steps), Catalog | `app/(customer)` |
-| Staff: Dashboard, Order inbox, Orders, order page, Customers, Settings | `app/ops` |
+| Customer: Orders home + detail, order page, New order (4 steps), Catalog, Production (Output / Quality / Stock) | `app/(customer)` |
+| Staff: Dashboard, Order inbox, Orders, order page, Production, Quality control, Customers, Settings | `app/ops` |
+| Tablet production entry for the floor | `app/production-entry` |
 | File downloads (checked, then a 60-second signed URL) | `app/files/attachments/[id]` |
 | Isolation and rules tests | `tests/db` |
 

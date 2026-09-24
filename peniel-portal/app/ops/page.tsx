@@ -1,4 +1,5 @@
 import DashboardView, { type DashboardData, type DashOrder } from "@/components/ops/DashboardView";
+import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addisDateISO, formatNowLine, greeting } from "@/lib/format";
@@ -38,6 +39,8 @@ type MessageRow = {
 
 export default async function OpsDashboard() {
   const profile = await requireStaff();
+  // Production's home is "Production — today" (design 1b).
+  if (profile.role === "production") redirect("/ops/production");
   const supabase = await createClient();
   const now = new Date();
   const today = addisDateISO(now);

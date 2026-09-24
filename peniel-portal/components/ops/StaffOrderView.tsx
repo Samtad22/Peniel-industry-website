@@ -111,7 +111,11 @@ export default function StaffOrderView({
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <h5 className="m-0">Linked production records</h5>
+                <h5 className="m-0">
+                  <a href={`/ops/production/${o.id}`} className="text-text">
+                    Linked production records →
+                  </a>
+                </h5>
                 <InternalOnly />
               </div>
               <div className="border-t-2 border-divider text-[13px]">
