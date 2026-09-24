@@ -21,6 +21,7 @@ export default async function SettingsPage() {
       .from("hold_reason_presets")
       .select("id, text")
       .eq("active", true)
+      .eq("kind", "hold")
       .order("sort_order")
       .returns<{ id: string; text: string }[]>(),
   ]);

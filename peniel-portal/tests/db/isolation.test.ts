@@ -48,6 +48,17 @@ before(async () => {
 
 after(() => pool.end());
 
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/** An attachment entry for customer_submit_order. */
+const attachment = (path: string) => ({
+  path,
+  name: path.split("/").pop(),
+  size: 1000,
+  mime: "application/pdf",
+  type: "purchase_order",
+});
+
 describe("customer views", () => {
   test("the spec's customer views all exist", () => {
     for (const v of [
@@ -252,7 +263,11 @@ describe("signed-out (anon) access", () => {
   test("anon cannot call customer functions", async () => {
     assert.equal(
       await errorCode(
-        as(null, (db) => db.query("select * from public.customer_create_order($1, 'PO', 1)", [HAB_BRAND_HABESHA])),
+        as(null, (db) =>
+          db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'pickup', null, '[]')", [
+            HAB_BRAND_HABESHA,
+          ]),
+        ),
       ),
       "42501",
     );
@@ -273,25 +288,121 @@ describe("customer write functions", () => {
     }
   });
 
-  test("create order: own brand works and is always `submitted`", async () => {
+  test("submit order: own brand with an uploaded PO works and is always `submitted`", async () => {
+    const po = `${HAB}/uploads/u1/HB-PO-9.pdf`;
     await as(habesha, async (db) => {
+      await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [po]);
       const { rows } = await db.query(
-        "select * from public.customer_create_order($1, ' HB-PO-9 ', 1000000, '2026-12-01')",
-        [HAB_BRAND_FETA],
+        "select * from public.customer_submit_order($1, ' HB-PO-9 ', 1000000, null, 'pickup', null, $2)",
+        [HAB_BRAND_FETA, JSON.stringify([attachment(po)])],
       );
       assert.match(rows[0].order_no, /^PN-\d{2}-\d{4}$/);
       const mine = await db.query("select status, po_number from public.customer_orders where id = $1", [rows[0].id]);
       assert.deepEqual(mine.rows[0], { status: "submitted", po_number: "HB-PO-9" });
+      const files = await db.query("select file_name, type from public.customer_order_attachments where order_id = $1", [
+        rows[0].id,
+      ]);
+      assert.deepEqual(files.rows, [{ file_name: "HB-PO-9.pdf", type: "purchase_order" }]);
     });
   });
 
-  test("create order: another company's brand is refused", async () => {
+  test("submit order: another company's brand is refused", async () => {
+    const po = `${HAB}/uploads/u2/po.pdf`;
     for (const brand of [DSH_BRAND, "00000000-0000-4000-8000-000000000000"]) {
       assert.equal(
-        await errorCode(as(habesha, (db) => db.query("select * from public.customer_create_order($1, 'PO', 1)", [brand]))),
+        await errorCode(
+          as(habesha, async (db) => {
+            await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [po]);
+            return db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'pickup', null, $2)", [
+              brand,
+              JSON.stringify([attachment(po)]),
+            ]);
+          }),
+        ),
         "42501",
       );
     }
+  });
+
+  test("submit order: a purchase order file is required", async () => {
+    const spec = `${HAB}/uploads/u3/spec.xlsx`;
+    await as(habesha, async (db) => {
+      await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [spec]);
+      await assert.rejects(
+        db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'pickup', null, $2)", [
+          HAB_BRAND_FETA,
+          JSON.stringify([{ ...attachment(spec), type: "specification", mime: XLSX }]),
+        ]),
+        /Attach your purchase order/,
+      );
+    });
+    await as(habesha, async (db) => {
+      await assert.rejects(
+        db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'pickup', null, '[]')", [HAB_BRAND_FETA]),
+        /Attach your purchase order/,
+      );
+    });
+  });
+
+  test("submit order: files must be in your own company folder and really uploaded", async () => {
+    // Dashen's file exists, but is not Habesha's to attach.
+    const dashenFile = `${DSH}/uploads/d1/po.pdf`;
+    await pool.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [dashenFile]);
+    for (const path of [dashenFile, `${HAB}/uploads/never-uploaded/po.pdf`, `${HAB}/uploads/../${DSH}/uploads/d1/po.pdf`]) {
+      assert.equal(
+        await errorCode(
+          as(habesha, (db) =>
+            db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'pickup', null, $2)", [
+              HAB_BRAND_FETA,
+              JSON.stringify([attachment(path)]),
+            ]),
+          ),
+        ),
+        "42501",
+        `could attach ${path}`,
+      );
+    }
+  });
+
+  test("submit order: one PO file can go on several orders", async () => {
+    const po = `${HAB}/uploads/u4/shared-po.pdf`;
+    await as(habesha, async (db) => {
+      await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [po]);
+      for (const brand of [HAB_BRAND_FETA, HAB_BRAND_HABESHA]) {
+        await db.query("select * from public.customer_submit_order($1, 'HB-PO-10', 500000, null, 'pickup', null, $2)", [
+          brand,
+          JSON.stringify([attachment(po)]),
+        ]);
+      }
+      const { rows } = await db.query("select count(*)::int as n from public.customer_order_attachments where file_path = $1", [
+        po,
+      ]);
+      assert.equal(rows[0].n, 2);
+    });
+  });
+
+  test("submit order: delivery needs an address, and dates cannot be in the past", async () => {
+    const po = `${HAB}/uploads/u5/po.pdf`;
+    await as(habesha, async (db) => {
+      await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [po]);
+      await assert.rejects(
+        db.query("select * from public.customer_submit_order($1, 'PO', 1, null, 'delivery', ' ', $2)", [
+          HAB_BRAND_FETA,
+          JSON.stringify([attachment(po)]),
+        ]),
+        /delivery address is required/,
+      );
+    });
+    await as(habesha, async (db) => {
+      await db.query("insert into storage.objects (bucket_id, name) values ('order-attachments', $1)", [po]);
+      await assert.rejects(
+        db.query("select * from public.customer_submit_order($1, 'PO', 1, '2020-01-01', 'pickup', null, $2)", [
+          HAB_BRAND_FETA,
+          JSON.stringify([attachment(po)]),
+        ]),
+        /in the past/,
+      );
+    });
   });
 
   test("attachments: only into your own company and order folder", async () => {
@@ -308,7 +419,7 @@ describe("customer write functions", () => {
     });
 
     // upload into Dashen's folder, or into own folder under Dashen's order
-    for (const path of [`${DSH}/${DSH_ORDER}/x.pdf`, `${HAB}/${DSH_ORDER}/x.pdf`, `${HAB}/x.pdf`]) {
+    for (const path of [`${DSH}/${DSH_ORDER}/x.pdf`, `${HAB}/${DSH_ORDER}/x.pdf`, `${HAB}/x.pdf`, `${DSH}/uploads/u/x.pdf`]) {
       assert.equal(
         await errorCode(
           as(habesha, (db) =>
@@ -412,5 +523,15 @@ describe("customer write functions", () => {
       ),
       "42501",
     );
+    // only your own company's conversations can be marked as read
+    assert.equal(
+      await errorCode(as(dashen, (db) => db.query("select public.customer_mark_thread_read($1)", [thread]))),
+      "42501",
+    );
+    await as(habesha, async (db) => {
+      await db.query("select public.customer_mark_thread_read($1)", [thread]);
+      const { rows } = await db.query("select bool_and(read_by_customer) as all_read from public.customer_messages");
+      assert.equal(rows[0].all_read, true);
+    });
   });
 });

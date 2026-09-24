@@ -6,7 +6,7 @@ and the full specification is in [docs/PORTAL_SPEC.md](docs/PORTAL_SPEC.md).
 
 The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 
-## Status: Phase 1 (Foundation)
+## Status: Phase 2 (Orders)
 
 | Area | Where |
 |---|---|
@@ -15,13 +15,25 @@ The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 | Row Level Security (staff by role, customers get nothing directly) | `supabase/migrations/…03_rls.sql` |
 | Customer views and customer write functions | `supabase/migrations/…04_customer_access.sql` |
 | Private file buckets (`company_id/…`, 20 MB, PDF/JPG/PNG/XLSX/DOCX) | `supabase/migrations/…05_storage.sql` |
+| Orders: submit with PO, status rules, reject reasons, order audit for staff | `supabase/migrations/20260924000001_orders.sql` |
 | Seed data (Habesha + 2 other breweries) | `supabase/seed.sql` |
 | Sign-in, invite, set password, forgot password | `app/login`, `app/auth`, `app/forgot-password` |
-| Customer layout, Orders list | `app/(customer)` |
-| Staff layout, overview, Users (invites) | `app/ops` |
-| Isolation tests | `tests/db` |
+| Customer: Orders home + detail, order page, New order (4 steps), Catalog | `app/(customer)` |
+| Staff: Dashboard, Order inbox, Orders, order page, Customers, Settings | `app/ops` |
+| File downloads (checked, then a 60-second signed URL) | `app/files/attachments/[id]` |
+| Isolation and rules tests | `tests/db` |
 
-Pages for later phases show a "Coming in Phase N" placeholder.
+Pages for later phases show a "Planned · Phase N" placeholder.
+
+### How an order with its PO is placed
+
+The browser uploads each file straight to Storage, into
+`order-attachments/{company_id}/uploads/…` (Storage policies allow a customer
+nowhere else). On submit, one database call, `customer_submit_order`, checks
+every file is really in that company's folder, requires a purchase order, and
+creates the order and its attachments together. A failed upload therefore never
+leaves an order without its PO. "Order another brand on this PO" reuses the
+same PO file on the new order.
 
 ## How the data is protected
 
