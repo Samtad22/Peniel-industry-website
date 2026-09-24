@@ -1,11 +1,11 @@
-import ComingSoon from "@/components/ui/ComingSoon";
+import CustomerPlanned from "@/components/customer/CustomerPlanned";
 
-export const metadata = { title: "Production" };
+export const metadata = { title: "Your orders in production" };
 
 export default function Page() {
   return (
-    <ComingSoon title="Production" phase={3}>
-      Daily output, quality results and finished stock for your orders.
-    </ComingSoon>
+    <CustomerPlanned section="Production" title="Your orders in production" phase={3}>
+      {"Daily output, completed against ordered, reject rates, defects by type and your finished stock at Peniel — updated by Peniel as your orders run."}
+    </CustomerPlanned>
   );
 }

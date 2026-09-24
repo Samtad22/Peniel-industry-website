@@ -1,11 +1,11 @@
-import ComingSoon from "@/components/ui/ComingSoon";
+import CustomerPlanned from "@/components/customer/CustomerPlanned";
 
-export const metadata = { title: "Artwork" };
+export const metadata = { title: "Your artwork" };
 
 export default function Page() {
   return (
-    <ComingSoon title="Artwork" phase={4}>
-      Proofs waiting for your approval and approved artwork for each brand.
-    </ComingSoon>
+    <CustomerPlanned section="Artwork" title="Your artwork" phase={4}>
+      {"Proofs waiting for your approval, approved artwork for each brand, and the proof history."}
+    </CustomerPlanned>
   );
 }

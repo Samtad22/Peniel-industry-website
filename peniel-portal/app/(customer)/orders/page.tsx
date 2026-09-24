@@ -1,76 +1,80 @@
 import type { Metadata } from "next";
-import PageHeader from "@/components/ui/PageHeader";
-import StatusBadge from "@/components/ui/StatusBadge";
+import OrdersHomeView, { type CustomerOrderRow } from "@/components/customer/OrdersHomeView";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatQty } from "@/lib/format";
-import type { OrderStatus } from "@/lib/order-status";
+import { OPEN_STATUSES, ORDER_STATUSES, type OrderStatus } from "@/lib/order-status";
 
 export const metadata: Metadata = { title: "Orders" };
 
 type Row = {
   id: string;
   order_no: string;
-  brand_name: string;
   po_number: string;
+  brand_id: string;
+  brand_name: string;
   quantity: number;
-  completed_qty: number;
   due_date: string | null;
   requested_date: string | null;
   status: OrderStatus;
   customer_reason: string | null;
 };
 
-export default async function OrdersPage() {
+type Brand = { id: string; size: string; finish: string | null; liner: string };
+
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status } = await searchParams;
+  const filter = ORDER_STATUSES.includes(status as OrderStatus) ? (status as OrderStatus) : null;
   const supabase = await createClient();
-  // customer_orders is already limited to this user's company, in the database.
-  const { data, error } = await supabase
-    .from("customer_orders")
-    .select("id, order_no, brand_name, po_number, quantity, completed_qty, due_date, requested_date, status, customer_reason")
-    .order("created_at", { ascending: false })
-    .returns<Row[]>();
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+
+  // Every query goes through the customer_* views: already limited to this
+  // user's company, with no internal columns (CLAUDE.md rules 1–2).
+  const [{ data: orders, error }, { data: brands }, { data: delivered }] = await Promise.all([
+    supabase
+      .from("customer_orders")
+      .select("id, order_no, po_number, brand_id, brand_name, quantity, due_date, requested_date, status, customer_reason")
+      .order("created_at", { ascending: false })
+      .returns<Row[]>(),
+    supabase.from("customer_brands").select("id, size, finish, liner").returns<Brand[]>(),
+    supabase
+      .from("customer_order_timeline")
+      .select("order_id")
+      .eq("status", "delivered")
+      .gte("created_at", yearStart)
+      .returns<{ order_id: string }[]>(),
+  ]);
+
+  if (error) {
+    return (
+      <p className="m-10 bg-accent px-4 py-3 text-[14px] text-bg">We couldn&apos;t load your orders. Please refresh.</p>
+    );
+  }
+
+  const spec = new Map((brands ?? []).map((b) => [b.id, [b.size, b.finish, b.liner].filter(Boolean).join(" · ")]));
+  const rows: CustomerOrderRow[] = (orders ?? []).map((o) => ({
+    id: o.id,
+    order_no: o.order_no,
+    po_number: o.po_number,
+    product: [o.brand_name, spec.get(o.brand_id)].filter(Boolean).join(" · "),
+    quantity: Number(o.quantity),
+    due_date: o.due_date ?? o.requested_date,
+    status: o.status,
+    customer_reason: o.customer_reason,
+  }));
+
+  const deliveredIds = new Set((delivered ?? []).map((d) => d.order_id));
 
   return (
-    <>
-      <PageHeader title="Orders" description="All orders for your company, newest first." />
-      {error ? (
-        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">We couldn&apos;t load your orders. Please refresh.</p>
-      ) : !data?.length ? (
-        <p className="rounded-xl border border-line bg-white p-8 text-sm text-muted">No orders yet.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-line bg-navy-tint/60 text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Order</th>
-                <th className="px-4 py-3 font-medium">Brand</th>
-                <th className="px-4 py-3 font-medium">PO</th>
-                <th className="px-4 py-3 text-right font-medium">Completed / ordered</th>
-                <th className="px-4 py-3 font-medium">Due</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {data.map((o) => (
-                <tr key={o.id} className="align-top">
-                  <td className="px-4 py-3 font-mono text-xs text-ink">{o.order_no}</td>
-                  <td className="px-4 py-3 font-medium text-ink">{o.brand_name}</td>
-                  <td className="px-4 py-3 text-muted">{o.po_number}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {formatQty(o.completed_qty)} / {formatQty(o.quantity)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(o.due_date ?? o.requested_date)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={o.status} />
-                    {o.status === "on_hold" && o.customer_reason && (
-                      <p className="mt-1 max-w-xs text-xs text-muted">{o.customer_reason}</p>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+    <OrdersHomeView
+      d={{
+        orders: rows,
+        filter,
+        kpis: {
+          open: rows.filter((o) => OPEN_STATUSES.includes(o.status)).length,
+          inProduction: rows.filter((o) => o.status === "in_production" || o.status === "quality_check").length,
+          awaiting: rows.filter((o) => o.status === "awaiting_approval").length,
+          deliveredYtd: rows.filter((o) => deliveredIds.has(o.id)).reduce((s, o) => s + o.quantity, 0),
+        },
+      }}
+    />
   );
 }

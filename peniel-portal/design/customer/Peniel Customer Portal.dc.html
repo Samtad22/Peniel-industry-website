@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/modernist-8e4fea89-7cd3-449c-91d3-15c3f72c6f38/styles.css">
+<script src="_ds/modernist-8e4fea89-7cd3-449c-91d3-15c3f72c6f38/_ds_bundle.js"></script>
+<style>body{margin:0;background:#dcdada}a{color:var(--color-accent)}a:hover{color:var(--color-accent-600)}.dv-turn{padding:40px 44px 32px;border-bottom:2px solid var(--color-divider);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#201e1d;color:#fff;text-decoration:none}.dv-tname{font:800 15px/1.2 Archivo,sans-serif;color:#201e1d}.dv-grp{font:800 12px/1 Archivo,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#201e1d;margin:36px 0 14px;padding-top:14px;border-top:2px solid rgba(32,30,29,.4)}.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.1);color:#201e1d;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 Archivo,sans-serif;color:rgba(0,0,0,.6)}.dv-card{max-width:100%;background:var(--color-bg);box-shadow:var(--shadow-md);overflow:hidden}.dv-opt:target .dv-oid{background:#ec3013;color:#fff}.dv-next{margin:28px 0 0;font:13px/1.5 Archivo,sans-serif;color:rgba(0,0,0,.55)}</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Customer portal · round 2 (logged in as Habesha Brewery S.C.)</span></div>
+
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,360px));border-top:2px solid var(--color-divider);font-size:13px;line-height:1.5;margin-bottom:8px">
+<div style="padding:16px 24px 0 0"><h6 style="color:var(--color-accent)">Customer-scoped</h6><p>Every figure here comes from this customer's own orders. There are no plant totals, downtime, raw-material levels or other customers' data. Staff publish Production data, and each tab shows "Last updated by Peniel".</p></div>
+<div style="padding:16px 24px 0;border-left:2px solid var(--color-divider)"><h6 style="color:var(--color-accent)">Order statuses</h6><div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ legend }}" as="p" hint-placeholder-count="10"><span style="{{ p.style }}">{{ p.label }}</span></sc-for></div></div>
+<div style="padding:16px 24px 0;border-left:2px solid var(--color-divider)"><h6 style="color:var(--color-accent)">Kept from round 1</h6><p>The "Brand your crown" flow stays as it is in <a href="Peniel Mockups.dc.html#1c">Peniel Mockups 1c</a>. Custom-printed orders link to it. All data is sample data for Habesha Brewery S.C.</p></div>
+</div>
+
+<div class="dv-grp">Login &amp; orders</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Login (unchanged design)</div>
+<div class="dv-card" style="width:1440px;height:800px;display:grid;grid-template-columns:1fr 1fr">
+<div style="padding:48px;display:flex;flex-direction:column;justify-content:space-between;border-right:2px solid var(--color-divider)">
+<div style="display:flex;align-items:center;gap:12px"><img src="peniel-industry/public/img/logo-icon.png" alt="" style="width:36px;height:36px"><b style="font-size:18px">Peniel Industry PLC</b></div>
+<div style="display:flex;flex-direction:column;gap:20px;max-width:420px">
+<h1 style="font-size:48px;margin:0">Log in</h1>
+<div class="seg" style="align-self:flex-start"><label class="seg-opt"><input type="radio" name="who" checked>Customer</label><label class="seg-opt"><input type="radio" name="who">Peniel staff</label></div>
+<div class="field"><label>Email or customer ID</label><input class="input" value="procurement@habesha.et" style="min-height:44px"></div>
+<div class="field"><label style="display:flex;justify-content:space-between">Password<a href="#1a" style="font-size:12px">Forgot password?</a></label><input class="input" type="password" value="password123" style="min-height:44px"></div>
+<a class="btn btn-primary btn-block" href="#1b" style="color:var(--color-bg);justify-content:space-between;padding:14px 16px;font-size:15px">Log in<span>→</span></a>
+<div style="font-size:13px;opacity:.7;border-top:1px solid var(--color-divider);padding-top:16px">New customer? <a href="Peniel Mockups.dc.html#1d">Request an account</a> with your first quote.</div>
+</div>
+<div style="font-size:12px;opacity:.55">Bole Lemi Industrial Park · +251 11 668 9255</div>
+</div>
+<div style="position:relative;background:var(--color-accent)">
+<div class="grayscale" style="position:absolute;inset:0;background:url(peniel-industry/public/img/hero-facility.jpg) center/cover;mix-blend-mode:multiply;opacity:.55"></div>
+<div style="position:absolute;left:48px;right:48px;bottom:48px;color:var(--color-bg);display:flex;flex-direction:column;gap:16px"><h2 style="font-size:56px;line-height:.98;margin:0">Order, track, approve artwork.</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-bg);font-size:14px"><span style="padding-top:12px">Orders with your PO attached</span><span style="padding-top:12px">Batch QC certificates</span><span style="padding-top:12px">Print proofs</span></div></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Orders home. PN-24-0817 selected (In production).</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--color-divider)">
+<div style="padding:20px 40px"><h6 style="margin:0;opacity:.6">Open orders</h6><div style="font-size:44px;font-weight:800;line-height:1.1">8</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">In production</h6><div style="font-size:44px;font-weight:800;line-height:1.1">1</div></div>
+<a href="#1c" style="padding:20px 40px;border-left:2px solid var(--color-divider);background:var(--color-accent);color:var(--color-bg);text-decoration:none;display:block"><h6 style="margin:0">Awaiting your approval</h6><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:44px;font-weight:800;line-height:1.1">1</span><span style="font-size:13px">Review proof →</span></div></a>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Delivered YTD (crowns)</h6><div style="font-size:44px;font-weight:800;line-height:1.1">96.4M</div></div>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,8fr) minmax(0,5fr)">
+<div style="padding:24px 32px 40px 40px;border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><h3 style="margin:0">Orders</h3><input class="input" placeholder="Search order or PO number" style="width:300px"></div>
+<div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ chipsHome }}" as="c" hint-placeholder-count="8"><span style="{{ c.style }}">{{ c.label }}<b style="opacity:.6">{{ c.n }}</b></span></sc-for></div>
+<div>
+<div style="display:grid;grid-template-columns:92px 112px minmax(0,1fr) 96px 100px 184px;gap:12px;padding:8px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Order no.</span><span>Customer PO</span><span>Product</span><span style="text-align:right">Quantity</span><span>Due</span><span>Status</span></div>
+<sc-for list="{{ rowsHome }}" as="o" hint-placeholder-count="10"><div style="{{ o.rowStyle }}"><b>{{ o.no }}</b><span>{{ o.po }}</span><span>{{ o.product }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ o.qty }}</span><span>{{ o.due }}</span><span><span style="{{ o.pill.style }}">{{ o.pill.label }}</span></span></div></sc-for>
+</div>
+<div style="font-size:12px;color:var(--color-neutral-700)">Showing 10 of 10 orders · 2026</div>
+</div>
+<div style="padding:24px 40px 40px 32px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h6 style="margin:0;color:var(--color-accent-700)">PN-24-0817 · PO HB-PO-88213</h6><h3 style="margin:4px 0 0">26 mm · Printed · 2 colours</h3><div style="font-size:13px;opacity:.7">PVC-free liner · 12,000,000 crowns · due 14 Oct 2026</div></div><span style="{{ pillProd.style }}">{{ pillProd.label }}</span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="height:10px;background:var(--color-surface);position:relative"><div style="position:absolute;inset:0 37% 0 0;background:var(--color-accent)"></div></div><div style="font-size:13px;display:flex;justify-content:space-between"><span>7.6M of 12.0M produced</span><b>63%</b></div></div>
+<div><h6 style="margin:0 0 4px">Progress</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ tlProd }}" as="s" hint-placeholder-count="7"><div style="{{ s.rowStyle }}"><span style="{{ s.dot }}"></span><span style="{{ s.labelStyle }}">{{ s.label }}</span><span style="{{ s.dateStyle }}">{{ s.date }}</span></div></sc-for></div></div>
+<div><h6 style="margin:0 0 4px">Attachments</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ attach }}" as="f" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:40px 1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span style="font:600 10px ui-monospace,monospace;padding:3px 0;background:var(--color-surface)">{{ f.ext }}</span><span><b>{{ f.name }}</b><br><span style="opacity:.6">{{ f.type }} · {{ f.size }}</span></span><a href="#1b" style="font-size:13px;text-decoration:none">↓</a><span></span></div></sc-for></div></div>
+<div><h6 style="margin:0 0 4px">QC certificates by batch</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ certs }}" as="c" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><b>Batch {{ c.batch }}</b><span style="{{ c.pill.style }}">{{ c.pill.label }}</span><span style="{{ c.linkStyle }}">{{ c.link }}</span></div></sc-for></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><a class="btn btn-secondary" href="#1b" style="justify-content:space-between;color:var(--color-text)">QC certificate<span>↓</span></a><a class="btn btn-secondary" href="#1f" style="justify-content:space-between;color:var(--color-text)">Reorder<span>↻</span></a><a class="btn btn-primary" href="#1b" style="justify-content:space-between;color:var(--color-bg)">Message Peniel<span>→</span></a></div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1c"><div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Orders home. PN-24-0821 selected, awaiting your approval, proof inline.</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--color-divider)">
+<div style="padding:20px 40px"><h6 style="margin:0;opacity:.6">Open orders</h6><div style="font-size:44px;font-weight:800;line-height:1.1">8</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">In production</h6><div style="font-size:44px;font-weight:800;line-height:1.1">1</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider);background:var(--color-accent);color:var(--color-bg)"><h6 style="margin:0">Awaiting your approval</h6><div style="font-size:44px;font-weight:800;line-height:1.1">1</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Delivered YTD (crowns)</h6><div style="font-size:44px;font-weight:800;line-height:1.1">96.4M</div></div>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,8fr) minmax(0,5fr)">
+<div style="padding:24px 32px 40px 40px;border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><h3 style="margin:0">Orders</h3><input class="input" placeholder="Search order or PO number" style="width:300px"></div>
+<div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ chipsAppr }}" as="c" hint-placeholder-count="8"><span style="{{ c.style }}">{{ c.label }}<b style="opacity:.6">{{ c.n }}</b></span></sc-for></div>
+<div>
+<div style="display:grid;grid-template-columns:92px 112px minmax(0,1fr) 96px 100px 184px;gap:12px;padding:8px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Order no.</span><span>Customer PO</span><span>Product</span><span style="text-align:right">Quantity</span><span>Due</span><span>Status</span></div>
+<sc-for list="{{ rowsAppr }}" as="o" hint-placeholder-count="10"><div style="{{ o.rowStyle }}"><b>{{ o.no }}</b><span>{{ o.po }}</span><span>{{ o.product }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ o.qty }}</span><span>{{ o.due }}</span><span><span style="{{ o.pill.style }}">{{ o.pill.label }}</span></span></div></sc-for>
+</div>
+</div>
+<div style="padding:24px 40px 40px 32px;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h6 style="margin:0;color:var(--color-accent-700)">PN-24-0821 · PO HB-PO-88240</h6><h3 style="margin:4px 0 0">26 mm · Printed · 3 colours</h3><div style="font-size:13px;opacity:.7">PVC-free liner · 6,000,000 crowns · due 02 Nov 2026</div></div><span style="{{ pillAppr.style }}">{{ pillAppr.label }}</span></div>
+<div style="border:2px solid var(--color-text)">
+<div style="padding:10px 14px;background:var(--color-text);color:var(--color-bg);display:flex;justify-content:space-between;font-size:13px"><b>Artwork proof v2 · Habesha 3-colour Meskel</b><span>Sent 21 Sep by Peniel pre-press</span></div>
+<div style="display:grid;grid-template-columns:230px 1fr">
+<div style="background:var(--color-surface);display:grid;place-items:center;padding:20px;position:relative"><div style="width:190px;height:190px;border-radius:50%;background:var(--color-accent);box-shadow:inset 0 0 0 10px var(--color-accent-700),inset 0 0 0 12px #c9a227,var(--shadow-md);display:grid;place-items:center"><div style="width:120px;height:120px;border:2px dashed var(--color-bg);border-radius:50%;display:grid;place-items:center;color:var(--color-bg);font:600 11px ui-monospace,monospace;text-align:center">[ proof v2<br>artwork ]</div></div><span style="position:absolute;left:10px;bottom:8px;font:10px ui-monospace,monospace;opacity:.6">TOP · 1:1 · Ø 26 mm</span></div>
+<div style="padding:14px;display:flex;flex-direction:column;gap:0;font-size:13px">
+<div style="display:grid;grid-template-columns:84px 1fr;padding:6px 0;border-bottom:1px solid var(--color-divider)"><span style="opacity:.6">Colours</span><span>PMS 485 C · PMS 871 C gold · Black</span></div>
+<div style="display:grid;grid-template-columns:84px 1fr;padding:6px 0;border-bottom:1px solid var(--color-divider)"><span style="opacity:.6">Print area</span><span>Ø 22 mm, top only</span></div>
+<div style="display:grid;grid-template-columns:84px 1fr;padding:6px 0;border-bottom:1px solid var(--color-divider)"><span style="opacity:.6">Changes</span><span>Gold ring thickened to 0.8 mm, as you asked on v1</span></div>
+<div style="padding:8px 0 0;color:var(--color-accent-700);font-weight:800">Approve by 25 Sep to keep the 02 Nov due date.</div>
+<a href="#1q" style="font-size:12px;margin-top:6px">Compare with v1 →</a>
+</div>
+</div>
+<div style="padding:14px;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:10px">
+<div class="field"><label>Comment (required if you request changes)</label><textarea class="input" placeholder="e.g. Move the logo 1 mm up" style="min-height:64px"></textarea></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><a class="btn btn-primary" href="#1c" style="justify-content:space-between;color:var(--color-bg);padding:12px 14px">Approve proof<span>✓</span></a><a class="btn btn-secondary" href="#1c" style="justify-content:space-between;color:var(--color-text);padding:12px 14px">Request changes<span>↺</span></a></div>
+</div>
+</div>
+<div><h6 style="margin:0 0 4px">Progress</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ tlAppr }}" as="s" hint-placeholder-count="7"><div style="{{ s.rowStyle }}"><span style="{{ s.dot }}"></span><span style="{{ s.labelStyle }}">{{ s.label }}</span><span style="{{ s.dateStyle }}">{{ s.date }}</span></div></sc-for></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><a class="btn btn-secondary" href="#1c" style="justify-content:space-between;color:var(--color-text)">Attachments (2)<span>↓</span></a><a class="btn btn-secondary" href="#1c" style="justify-content:space-between;color:var(--color-text)">Message Peniel<span>→</span></a></div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1d"><div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Empty state: no orders yet</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--color-divider);color:var(--color-neutral-600)">
+<div style="padding:20px 40px"><h6 style="margin:0">Open orders</h6><div style="font-size:44px;font-weight:800;line-height:1.1">0</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0">In production</h6><div style="font-size:44px;font-weight:800;line-height:1.1">0</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0">Awaiting your approval</h6><div style="font-size:44px;font-weight:800;line-height:1.1">0</div></div>
+<div style="padding:20px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0">Delivered YTD (crowns)</h6><div style="font-size:44px;font-weight:800;line-height:1.1">0</div></div>
+</div>
+<div style="padding:64px 40px 32px;display:flex;flex-direction:column;gap:16px;max-width:720px">
+<h6 style="margin:0;color:var(--color-accent)">Orders</h6>
+<h1 style="font-size:56px;line-height:1;margin:0">No orders yet.</h1>
+<p style="font-size:17px;margin:0">Place your first order from the catalog and attach your PO. It shows up here as soon as you submit it.</p>
+<div style="display:flex;gap:10px;margin-top:8px"><a class="btn btn-primary" href="#1e" style="color:var(--color-bg);width:240px;justify-content:space-between;padding:14px 16px">+ Place your first order<span>→</span></a><a class="btn btn-secondary" href="#1p" style="color:var(--color-text);width:200px;justify-content:space-between;padding:14px 16px">Browse catalog<span>→</span></a></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);margin:24px 40px 48px;border-top:2px solid var(--color-text)">
+<div style="padding:20px 24px 0 0"><div style="font-size:36px;font-weight:800;color:var(--color-accent)">01</div><h5 style="margin:6px 0 4px">Choose a product, attach your PO</h5><div style="font-size:13px">From the catalog, a reorder, or a custom-printed crown.</div></div>
+<div style="padding:20px 24px 0;border-left:2px solid var(--color-divider)"><div style="font-size:36px;font-weight:800;color:var(--color-accent)">02</div><h5 style="margin:6px 0 4px">Approve the artwork proof</h5><div style="font-size:13px">For printed crowns only. Approve or request changes in the portal.</div></div>
+<div style="padding:20px 24px 0;border-left:2px solid var(--color-divider)"><div style="font-size:36px;font-weight:800;color:var(--color-accent)">03</div><h5 style="margin:6px 0 4px">Track production, download QC</h5><div style="font-size:13px">See each stage and download a certificate for every batch.</div></div>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">New order (4 steps + confirmation)</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1e"><div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Step 1: Product</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;border-bottom:2px solid var(--color-divider);display:flex;gap:40px;align-items:flex-end"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Orders</h6><h1 style="font-size:48px;margin:0">New order</h1></div><div style="display:flex;border:2px solid var(--color-text)"><sc-for list="{{ step1 }}" as="s" hint-placeholder-count="4"><span style="{{ s.style }}">{{ s.label }}</span></sc-for></div></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 360px">
+<div style="padding:32px 40px 40px;border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:24px">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--color-text)">
+<label style="padding:18px;display:flex;flex-direction:column;gap:6px;background:var(--color-text);color:var(--color-bg);cursor:pointer"><span style="display:flex;gap:8px;align-items:center;font-weight:800"><span style="width:14px;height:14px;border-radius:50%;background:var(--color-accent);box-shadow:inset 0 0 0 3px var(--color-text),0 0 0 1.5px var(--color-bg)"></span>From catalog</span><span style="font-size:13px;opacity:.8">Standard, solid colour or high-speed crowns</span></label>
+<label style="padding:18px;display:flex;flex-direction:column;gap:6px;border-left:2px solid var(--color-text);cursor:pointer"><span class="radio" style="font-weight:800"><input type="radio" name="m1"><span class="dot"></span>Reorder a previous order</span><span style="font-size:13px;opacity:.7">Same specs, new quantity and date</span></label>
+<a href="Peniel Mockups.dc.html#1c" style="padding:18px;display:flex;flex-direction:column;gap:6px;border-left:2px solid var(--color-text);color:var(--color-text);text-decoration:none"><span style="font-weight:800;display:flex;justify-content:space-between">Custom printed<span style="color:var(--color-accent)">→</span></span><span style="font-size:13px;opacity:.7">Opens "Brand your crown" to set artwork and colours</span></a>
+</div>
+<div><h4 style="margin:0 0 12px">Choose a product</h4>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider)">
+<sc-for list="{{ pickProducts }}" as="p" hint-placeholder-count="4"><label style="{{ p.cellStyle }}"><span style="{{ p.swatch }}"></span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700)">{{ p.kicker }}</span><b style="font-size:15px">{{ p.name }}</b><span style="font-size:12px;opacity:.7">{{ p.note }}</span></label></sc-for>
+</div></div>
+<div><h4 style="margin:0 0 12px">Or reorder a recent order</h4>
+<div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ reorderRows }}" as="o" hint-placeholder-count="3"><label style="display:grid;grid-template-columns:28px 110px minmax(0,1fr) 120px 110px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--color-divider);font-size:14px;cursor:pointer"><span class="radio"><input type="radio" name="ro"><span class="dot"></span></span><b>{{ o.no }}</b><span>{{ o.product }}</span><span>{{ o.qty }}</span><span style="opacity:.6">{{ o.due }}</span></label></sc-for></div></div>
+<div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--color-divider);padding-top:20px"><a class="btn btn-ghost" href="#1b">← Cancel</a><a class="btn btn-primary" href="#1f" style="color:var(--color-bg);width:260px;justify-content:space-between;padding:14px 16px">Next: specs &amp; quantity<span>→</span></a></div>
+</div>
+<aside style="padding:32px 32px 40px;background:var(--color-surface)"><h6 style="margin:0 0 10px">Order summary</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ sum1 }}" as="r" hint-placeholder-count="9"><div style="display:grid;grid-template-columns:110px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span style="opacity:.6">{{ r.k }}</span><span style="{{ r.vStyle }}">{{ r.v }}</span></div></sc-for></div></aside>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1f"><div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Step 2: Specs &amp; quantity</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;border-bottom:2px solid var(--color-divider);display:flex;gap:40px;align-items:flex-end"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Orders</h6><h1 style="font-size:48px;margin:0">New order</h1></div><div style="display:flex;border:2px solid var(--color-text)"><sc-for list="{{ step2 }}" as="s" hint-placeholder-count="4"><span style="{{ s.style }}">{{ s.label }}</span></sc-for></div></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 360px">
+<div style="padding:32px 40px 40px;border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:22px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+<div class="field"><label>Size</label><div class="seg"><label class="seg-opt"><input type="radio" name="sz" checked>26 mm</label><label class="seg-opt" style="opacity:.45;cursor:not-allowed"><input type="radio" name="sz" disabled>29 mm · on request</label></div></div>
+<div class="field"><label>Liner</label><div class="seg"><label class="seg-opt"><input type="radio" name="lnr" checked>PVC-free</label><label class="seg-opt"><input type="radio" name="lnr">PVC</label></div></div>
+<div class="field"><label>Finish</label><div class="seg"><label class="seg-opt"><input type="radio" name="fin">Plain tin</label><label class="seg-opt"><input type="radio" name="fin" checked>Solid colour</label><label class="seg-opt"><input type="radio" name="fin">Printed</label></div></div>
+</div>
+<div class="field"><label>Colour</label><div style="display:flex;gap:8px;align-items:center"><span style="width:44px;height:44px;background:var(--color-accent);outline:2px solid var(--color-text);outline-offset:2px"></span><span style="width:44px;height:44px;background:var(--color-text)"></span><span style="width:44px;height:44px;background:#c9a227"></span><span style="width:44px;height:44px;background:#1f5f3a"></span><span style="width:44px;height:44px;background:var(--color-neutral-100);border:1px solid var(--color-divider)"></span><input class="input" value="PMS 485 C" style="width:160px;min-height:44px;margin-left:8px"><span style="font-size:12px;opacity:.6">Your saved brand colours</span></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+<div class="field"><label>Quantity (crowns)</label><input class="input" value="4,000,000" style="min-height:44px;font-size:18px;font-weight:800"><div style="font-size:12px;opacity:.7;margin-top:6px">Minimum 1,000,000 · packed 10,000 per carton = 400 cartons</div></div>
+<div class="field"><label>Requested delivery date</label><input class="input" value="20 Nov 2026" style="min-height:44px"><div style="font-size:12px;opacity:.7;margin-top:6px">Earliest for solid colour: 28 Oct 2026</div></div>
+</div>
+<div class="field"><label>Fulfilment</label><div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--color-divider)">
+<label style="padding:14px;display:flex;flex-direction:column;gap:4px;font-size:13px;cursor:pointer"><span class="radio"><input type="radio" name="ff"><span class="dot"></span><b>Pickup at Bole Lemi</b></span><span style="opacity:.7">Collect from Peniel's warehouse, Addis Ababa</span></label>
+<label style="padding:14px;display:flex;flex-direction:column;gap:4px;font-size:13px;border-left:1px solid var(--color-divider);background:var(--color-accent-100);cursor:pointer"><span class="radio"><input type="radio" name="ff" checked><span class="dot"></span><b>Delivery</b></span><span style="opacity:.7">Peniel arranges transport to your site</span></label>
+</div></div>
+<div class="field"><label>Delivery address</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><select class="input"><option>Habesha Brewery · Debre Birhan plant</option></select><input class="input" value="Receiving: Dawit Alemu · +251 91 555 0192"></div><textarea class="input" style="margin-top:10px;min-height:60px">Gate 2, Debre Birhan Industrial Zone, Amhara. Deliveries Mon–Fri, 08:00–16:00.</textarea></div>
+<div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--color-divider);padding-top:20px"><a class="btn btn-ghost" href="#1e">← Back</a><a class="btn btn-primary" href="#1g" style="color:var(--color-bg);width:260px;justify-content:space-between;padding:14px 16px">Next: PO &amp; attachments<span>→</span></a></div>
+</div>
+<aside style="padding:32px 32px 40px;background:var(--color-surface)"><h6 style="margin:0 0 10px">Order summary</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ sum2 }}" as="r" hint-placeholder-count="9"><div style="display:grid;grid-template-columns:110px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span style="opacity:.6">{{ r.k }}</span><span style="{{ r.vStyle }}">{{ r.v }}</span></div></sc-for></div></aside>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1g"><div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Step 3: PO &amp; attachments, with the error state (PO upload failed)</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;border-bottom:2px solid var(--color-divider);display:flex;gap:40px;align-items:flex-end"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Orders</h6><h1 style="font-size:48px;margin:0">New order</h1></div><div style="display:flex;border:2px solid var(--color-text)"><sc-for list="{{ step3 }}" as="s" hint-placeholder-count="4"><span style="{{ s.style }}">{{ s.label }}</span></sc-for></div></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 360px">
+<div style="padding:32px 40px 40px;border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:22px">
+<div style="padding:14px 16px;background:var(--color-accent);color:var(--color-bg);display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:center"><b style="font-size:15px">Your purchase order didn't upload.</b><a class="btn" href="#1g" style="background:var(--color-bg);color:var(--color-text);grid-row:span 2">Retry upload ↻</a><span style="font-size:13px">HB-PO-88274-signed.pdf is 24.6 MB. The limit is 20 MB per file. Compress or split the file, then try again.</span></div>
+<div class="field" style="max-width:420px"><label>Customer PO number <b style="color:var(--color-accent-700)">*</b></label><input class="input" value="HB-PO-88274" style="min-height:44px;font-weight:800"></div>
+<div class="field"><label>Attachments</label><div style="border:2px dashed var(--color-divider);padding:28px;display:flex;justify-content:space-between;align-items:center;background:var(--color-neutral-100)"><div><b style="font-size:16px">Drag files here or <a href="#1g">browse</a></b><div style="font-size:12px;opacity:.7;margin-top:4px">PDF, JPG, PNG, XLSX, DOCX · up to 20 MB each · a purchase order is required</div></div><span style="font:600 11px ui-monospace,monospace;opacity:.5">↑ UPLOAD</span></div></div>
+<div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 90px 190px 40px;gap:12px;padding:8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span></span><span>File</span><span>Size</span><span>Type</span><span></span></div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 90px 190px 40px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--color-divider);font-size:14px;background:var(--color-accent-100)"><span style="font:600 10px ui-monospace,monospace;padding:4px 0;background:var(--color-accent);color:var(--color-bg);text-align:center">PDF</span><span><b>HB-PO-88274-signed.pdf</b><br><span style="font-size:12px;color:var(--color-accent-800);font-weight:800">Upload failed · file too large (24.6 MB &gt; 20 MB)</span></span><span style="color:var(--color-accent-800)">24.6 MB</span><select class="input"><option>Purchase order</option></select><a href="#1g" style="font-size:18px;text-decoration:none;color:var(--color-text)">×</a></div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 90px 190px 40px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><span style="font:600 10px ui-monospace,monospace;padding:4px 0;background:var(--color-surface);text-align:center">XLSX</span><span><b>delivery-schedule-nov.xlsx</b><br><span style="font-size:12px;opacity:.6">Uploaded ✓</span></span><span>38 KB</span><select class="input"><option>Specification</option></select><a href="#1g" style="font-size:18px;text-decoration:none;color:var(--color-text)">×</a></div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 90px 190px 40px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><span style="font:600 10px ui-monospace,monospace;padding:4px 0;background:var(--color-surface);text-align:center">DOCX</span><span><b>carton-labelling-notes.docx</b><br><span style="font-size:12px;opacity:.6">Uploading… 64%</span><span style="display:block;height:3px;background:var(--color-surface);margin-top:6px;position:relative"><span style="position:absolute;inset:0 36% 0 0;background:var(--color-text)"></span></span></span><span>1.1 MB</span><select class="input"><option>Other</option></select><a href="#1g" style="font-size:18px;text-decoration:none;color:var(--color-text)">×</a></div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--color-divider);padding-top:20px"><a class="btn btn-ghost" href="#1f">← Back</a><div style="display:flex;align-items:center;gap:14px"><span style="font-size:12px;color:var(--color-accent-800)">Add a purchase order file to continue</span><button class="btn btn-primary" disabled="" style="width:260px;justify-content:space-between;padding:14px 16px">Next: review<span>→</span></button></div></div>
+</div>
+<aside style="padding:32px 32px 40px;background:var(--color-surface)"><h6 style="margin:0 0 10px">Order summary</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ sum3 }}" as="r" hint-placeholder-count="9"><div style="display:grid;grid-template-columns:110px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span style="opacity:.6">{{ r.k }}</span><span style="{{ r.vStyle }}">{{ r.v }}</span></div></sc-for></div></aside>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1h"><div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Step 4: Review &amp; submit</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;border-bottom:2px solid var(--color-divider);display:flex;gap:40px;align-items:flex-end"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Orders</h6><h1 style="font-size:48px;margin:0">New order</h1></div><div style="display:flex;border:2px solid var(--color-text)"><sc-for list="{{ step4 }}" as="s" hint-placeholder-count="4"><span style="{{ s.style }}">{{ s.label }}</span></sc-for></div></div>
+<div style="padding:32px 40px 40px;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:40px">
+<div class="card" style="padding:0;gap:0">
+<div style="padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--color-divider)"><div><div class="card-kicker">Review</div><h2 style="margin:4px 0 0">4,000,000 × 26 mm solid-colour crowns</h2></div><span style="font-size:13px">PO <b>HB-PO-88274</b></span></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr)">
+<sc-for list="{{ review }}" as="r" hint-placeholder-count="9"><div style="padding:16px 24px;border-bottom:1px solid var(--color-divider);border-right:1px solid var(--color-divider)"><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.6">{{ r.k }}</div><div style="font-size:15px;font-weight:800;margin-top:4px">{{ r.v }}</div><a href="{{ r.edit }}" style="font-size:12px">Edit</a></div></sc-for>
+</div>
+<div style="padding:16px 24px"><h6 style="margin:0 0 6px">Attachments</h6><div style="display:flex;flex-direction:column;font-size:13px"><span style="padding:6px 0;border-bottom:1px solid var(--color-divider)"><b>HB-PO-88274.pdf</b> · Purchase order · 3.8 MB</span><span style="padding:6px 0;border-bottom:1px solid var(--color-divider)"><b>delivery-schedule-nov.xlsx</b> · Specification · 38 KB</span><span style="padding:6px 0"><b>carton-labelling-notes.docx</b> · Other · 1.1 MB</span></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="border-top:2px solid var(--color-text);padding-top:14px;display:flex;flex-direction:column;gap:8px;font-size:14px"><h4 style="margin:0">What happens next</h4><span>1. Peniel confirms the order and dates within 1 business day.</span><span>2. We email a pro forma invoice. It also appears in Documents.</span><span>3. Production is scheduled and you can track it under Orders.</span></div>
+<label class="radio" style="font-size:13px;align-items:flex-start;border-top:1px solid var(--color-divider);padding-top:14px"><input type="checkbox" checked><span class="dot" style="border-radius:0;margin-top:2px"></span><span>I confirm the specs and quantity match PO HB-PO-88274, and I accept Peniel's <a href="#1h">terms of sale</a>.</span></label>
+<a class="btn btn-primary" href="#1i" style="color:var(--color-bg);justify-content:space-between;padding:16px;font-size:16px">Submit order<span>→</span></a>
+<a class="btn btn-ghost" href="#1g" style="align-self:flex-start">← Back to attachments</a>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1i"><div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Confirmation. The new order appears in the table as Submitted.</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="orders" hint-size="1440px,62px"></dc-import>
+<div style="background:var(--color-accent);color:var(--color-bg);padding:40px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:32px;align-items:end">
+<div><h6 style="margin:0 0 10px">✓ Order submitted</h6><h1 style="font-size:64px;line-height:1;margin:0;letter-spacing:-.03em">PN-24-0830</h1><p style="font-size:18px;margin:12px 0 0">Peniel will confirm within 1 business day. We sent a copy to procurement@habesha.et.</p></div>
+<div style="display:flex;gap:8px"><a class="btn" href="#1i" style="background:var(--color-bg);color:var(--color-text);width:200px;justify-content:space-between;padding:14px 16px">View order<span>→</span></a><a class="btn" href="#1e" style="border-color:var(--color-bg);color:var(--color-bg);width:200px;justify-content:space-between;padding:14px 16px">Place another<span>+</span></a></div>
+</div>
+<div style="padding:24px 40px 40px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Orders</h3><input class="input" placeholder="Search order or PO number" style="width:300px"></div>
+<div>
+<div style="display:grid;grid-template-columns:92px 112px minmax(0,1fr) 96px 100px 184px;gap:12px;padding:8px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Order no.</span><span>Customer PO</span><span>Product</span><span style="text-align:right">Quantity</span><span>Due</span><span>Status</span></div>
+<sc-for list="{{ rowsConfirm }}" as="o" hint-placeholder-count="5"><div style="{{ o.rowStyle }}"><b>{{ o.no }}</b><span>{{ o.po }}</span><span>{{ o.product }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ o.qty }}</span><span>{{ o.due }}</span><span><span style="{{ o.pill.style }}">{{ o.pill.label }}</span></span></div></sc-for>
+</div>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">Production (customer-scoped)</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1j"><div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>Output</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="production" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;align-items:flex-end;gap:24px;border-bottom:2px solid var(--color-divider)"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Production</h6><h1 style="font-size:48px;margin:0">Your orders in production</h1></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><div class="seg"><label class="seg-opt"><input type="radio" name="pt1" checked>Output</label><label class="seg-opt"><input type="radio" name="pt1">Quality</label><label class="seg-opt"><input type="radio" name="pt1">Stock</label></div><span style="font-size:12px;color:var(--color-neutral-700)">Last updated by Peniel · 23 Sep 2026, 16:40 EAT</span></div></div>
+<sc-for list="{{ outputOrders }}" as="o" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:300px repeat(3,160px) minmax(0,1fr);border-bottom:2px solid var(--color-divider)">
+<div style="padding:24px 24px 24px 40px;display:flex;flex-direction:column;gap:8px"><b style="font-size:18px">{{ o.no }}</b><span style="font-size:13px;opacity:.7">{{ o.product }}</span><span><span style="{{ o.pill.style }}">{{ o.pill.label }}</span></span></div>
+<div style="padding:24px 20px;border-left:1px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Produced / ordered</h6><div style="font-size:26px;font-weight:800;line-height:1.2">{{ o.made }}</div><div style="font-size:13px">of {{ o.ordered }}</div><div style="height:6px;background:var(--color-surface);margin-top:8px"><div style="{{ o.bar }}"></div></div></div>
+<div style="padding:24px 20px;border-left:1px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Produced today</h6><div style="font-size:26px;font-weight:800;line-height:1.2">{{ o.today }}</div></div>
+<div style="padding:24px 20px;border-left:1px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Expected completion</h6><div style="font-size:18px;font-weight:800;line-height:1.3">{{ o.eta }}</div><div style="font-size:12px;opacity:.7">{{ o.etaNote }}</div></div>
+<div style="padding:24px 40px 24px 24px;border-left:1px solid var(--color-divider);display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;font-size:12px;opacity:.7"><span>Daily output · last 14 days</span><span>{{ o.peak }}</span></div>
+<sc-if value="{{ o.hasBars }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:flex-end;gap:4px;height:72px;border-bottom:2px solid var(--color-text)"><sc-for list="{{ o.bars }}" as="b" hint-placeholder-count="14"><div style="{{ b }}"></div></sc-for></div><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.6"><span>10 Sep</span><span>23 Sep</span></div></sc-if>
+<sc-if value="{{ o.noBars }}" hint-placeholder-val="{{ false }}"><div style="height:72px;border:2px dashed var(--color-divider);display:flex;align-items:center;padding:0 16px;font-size:13px;opacity:.7">Not started. Production slot 06 Oct, Line 1.</div></sc-if>
+</div>
+</div>
+</sc-for>
+<div style="padding:16px 40px 28px;font-size:12px;color:var(--color-neutral-700)">Shows your active orders only. Delivered orders are under Orders.</div>
+</div></div>
+
+<div class="dv-opt" id="1k"><div class="dv-olabel"><a class="dv-oid" href="#1k">1k</a>Quality: your batches only</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="production" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;align-items:flex-end;gap:24px;border-bottom:2px solid var(--color-divider)"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Production</h6><h1 style="font-size:48px;margin:0">Quality of your batches</h1></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><div class="seg"><label class="seg-opt"><input type="radio" name="pt2">Output</label><label class="seg-opt"><input type="radio" name="pt2" checked>Quality</label><label class="seg-opt"><input type="radio" name="pt2">Stock</label></div><span style="font-size:12px;color:var(--color-neutral-700)">Last updated by Peniel · 23 Sep 2026, 16:40 EAT</span></div></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:2px solid var(--color-divider)">
+<div style="padding:24px 24px 24px 40px;border-right:2px solid var(--color-divider)"><h4 style="margin:0 0 2px">Reject rate per batch</h4><div style="font-size:12px;opacity:.6;margin-bottom:14px">Last 14 batches · limit 0.50%</div>
+<div style="position:relative;height:170px;display:flex;align-items:flex-end;gap:5px;border-bottom:2px solid var(--color-text)"><div style="position:absolute;left:0;right:0;bottom:62.5%;border-top:2px dashed var(--color-accent)"></div><span style="position:absolute;right:0;bottom:calc(62.5% + 4px);font-size:11px;color:var(--color-accent-700)">0.50%</span><sc-for list="{{ rejectBars }}" as="b" hint-placeholder-count="14"><div style="{{ b }}"></div></sc-for></div>
+<div style="font-size:12px;margin-top:8px"><b style="color:var(--color-accent-700)">Batch 0817-04 at 0.71%</b> is held for re-inspection.</div></div>
+<div style="padding:24px;border-right:2px solid var(--color-divider)"><h4 style="margin:0 0 2px">Defects by type</h4><div style="font-size:12px;opacity:.6;margin-bottom:14px">Last 30 days · 241 rejects of 98.2k sampled</div>
+<div style="display:flex;flex-direction:column;gap:10px;font-size:13px"><sc-for list="{{ defects }}" as="d" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:130px 1fr 36px;align-items:center;gap:10px"><span>{{ d.label }}</span><div style="height:16px"><div style="{{ d.bar }}"></div></div><b style="text-align:right">{{ d.n }}</b></div></sc-for></div></div>
+<div style="padding:24px 40px 24px 24px"><h4 style="margin:0 0 2px">Crown height</h4><div style="font-size:12px;opacity:.6;margin-bottom:14px">Your last 12 batches · spec 6.00 ± 0.15 mm</div>
+<div style="position:relative;height:170px;border-left:2px solid var(--color-text);border-bottom:2px solid var(--color-text)">
+<div style="position:absolute;left:0;right:0;top:12.5%;border-top:2px dashed var(--color-accent)"></div><span style="position:absolute;right:4px;top:calc(12.5% - 17px);font-size:11px;color:var(--color-accent-700)">USL 6.15</span>
+<div style="position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--color-divider)"></div><span style="position:absolute;right:4px;top:calc(50% - 17px);font-size:11px;opacity:.6">6.00</span>
+<div style="position:absolute;left:0;right:0;top:87.5%;border-top:2px dashed var(--color-accent)"></div><span style="position:absolute;right:4px;top:calc(87.5% - 17px);font-size:11px;color:var(--color-accent-700)">LSL 5.85</span>
+<svg viewBox="0 0 300 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polyline fill="none" stroke="#201e1d" stroke-width="2" vector-effect="non-scaling-stroke" points="{{ heightPts }}"></polyline></svg>
+</div>
+<div style="font-size:12px;margin-top:8px">All 12 batches are within spec. 0817-04 came closest at 6.12 mm.</div></div>
+</div>
+<div style="padding:24px 40px 40px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h4 style="margin:0">Batch inspections</h4><div class="seg"><label class="seg-opt"><input type="radio" name="bq" checked>All</label><label class="seg-opt"><input type="radio" name="bq">Released</label><label class="seg-opt"><input type="radio" name="bq">Held</label></div></div>
+<div style="display:grid;grid-template-columns:100px 120px 130px 130px 170px 100px 130px minmax(0,1fr);gap:12px;padding:8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Batch</span><span>Order</span><span>Date</span><span>Crown height</span><span>Removal torque</span><span>Reject %</span><span>Result</span><span>Certificate</span></div>
+<sc-for list="{{ batchRows }}" as="b" hint-placeholder-count="8"><div style="display:grid;grid-template-columns:100px 120px 130px 130px 170px 100px 130px minmax(0,1fr);gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><b>{{ b.batch }}</b><span>{{ b.order }}</span><span>{{ b.date }}</span><span>{{ b.height }} mm</span><span>{{ b.torque }} lbf·in</span><span style="{{ b.rejStyle }}">{{ b.rej }}</span><span><span style="{{ b.pill.style }}">{{ b.pill.label }}</span></span><span style="{{ b.linkStyle }}">{{ b.link }}</span></div></sc-for>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1l"><div class="dv-olabel"><a class="dv-oid" href="#1l">1l</a>Stock: your finished crowns at Peniel's warehouse</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="production" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;align-items:flex-end;gap:24px;border-bottom:2px solid var(--color-divider)"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Production</h6><h1 style="font-size:48px;margin:0">Your stock at Peniel</h1></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px"><div class="seg"><label class="seg-opt"><input type="radio" name="pt3">Output</label><label class="seg-opt"><input type="radio" name="pt3">Quality</label><label class="seg-opt"><input type="radio" name="pt3" checked>Stock</label></div><span style="font-size:12px;color:var(--color-neutral-700)">Last updated by Peniel · 23 Sep 2026, 16:40 EAT</span></div></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:2px solid var(--color-divider)">
+<div style="padding:22px 40px;background:var(--color-text);color:var(--color-bg)"><h6 style="margin:0">Available for pickup</h6><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:44px;font-weight:800;line-height:1.1">10.0M</span><a href="#1l" style="color:var(--color-bg);font-size:13px">Book pickup →</a></div></div>
+<div style="padding:22px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Reserved for dispatch</h6><div style="font-size:44px;font-weight:800;line-height:1.1">4.0M</div></div>
+<div style="padding:22px 40px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">On hold (QC)</h6><div style="font-size:44px;font-weight:800;line-height:1.1">0.6M</div></div>
+</div>
+<div style="padding:24px 40px 40px">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 130px 150px 130px 170px 150px;gap:12px;padding:8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Product</span><span>Batch</span><span style="text-align:right">Quantity</span><span>Location</span><span>Ready since</span><span>Status</span><span>For order</span></div>
+<sc-for list="{{ stockRows }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 130px 150px 130px 170px 150px;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><b>{{ s.product }}</b><span>{{ s.batch }}</span><span style="text-align:right;font-variant-numeric:tabular-nums">{{ s.qty }}</span><span>{{ s.loc }}</span><span>{{ s.since }}</span><span><span style="{{ s.pill.style }}">{{ s.pill.label }}</span></span><span>{{ s.order }}</span></div></sc-for>
+<div style="font-size:12px;color:var(--color-neutral-700);margin-top:12px">Pickup at Bole Lemi Industrial Park, Mon–Sat, 08:00–17:00. Bring the order number and PO.</div>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">Documents</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1m"><div class="dv-olabel"><a class="dv-oid" href="#1m">1m</a>Documents library</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="documents" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--color-divider)"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Documents</h6><h1 style="font-size:48px;margin:0">Documents</h1></div><input class="input" placeholder="Search file name or order no." style="width:300px;min-height:40px"><a class="btn btn-primary" href="#1n" style="color:var(--color-bg);padding:11px 16px">↑ Upload document</a></div>
+<div style="display:grid;grid-template-columns:280px minmax(0,1fr)">
+<aside style="padding:20px 24px 40px 40px;border-right:2px solid var(--color-divider)"><h6 style="margin:0 0 8px">Type</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ docTypes }}" as="t" hint-placeholder-count="8"><div style="{{ t.style }}"><span>{{ t.label }}</span><span>{{ t.n }}</span></div></sc-for></div>
+<h6 style="margin:24px 0 8px">Order</h6><select class="input"><option>All orders</option></select></aside>
+<div style="padding:20px 40px 40px 32px">
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 200px 120px 120px 80px 40px;gap:12px;padding:8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span></span><span>File</span><span>Type</span><span>Order no.</span><span>Date</span><span style="text-align:right">Size</span><span></span></div>
+<sc-for list="{{ docs }}" as="d" hint-placeholder-count="9"><div style="display:grid;grid-template-columns:44px minmax(0,1fr) 200px 120px 120px 80px 40px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><span style="font:600 10px ui-monospace,monospace;padding:4px 0;background:var(--color-surface);text-align:center">{{ d.ext }}</span><b>{{ d.name }}</b><span><span class="tag tag-neutral">{{ d.type }}</span></span><span>{{ d.order }}</span><span>{{ d.date }}</span><span style="text-align:right;opacity:.7">{{ d.size }}</span><a href="#1m" style="text-decoration:none;font-weight:800">↓</a></div></sc-for>
+<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-neutral-700);margin-top:12px"><span>9 of 26 documents</span><a href="#1m">Load more</a></div>
+</div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1n"><div class="dv-olabel"><a class="dv-oid" href="#1n">1n</a>Upload document dialog</div>
+<div class="dv-card" style="width:560px;background:var(--color-neutral-700);padding:40px">
+<div class="dialog" style="width:100%">
+<div class="dialog-title">Upload document</div>
+<div style="border:2px dashed var(--color-divider);padding:16px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;font-size:14px;background:var(--color-bg)"><span style="font:600 10px ui-monospace,monospace;padding:4px 0;background:var(--color-surface);text-align:center">PDF</span><span><b>HB-PO-88247-rev1.pdf</b><br><span style="font-size:12px;opacity:.6">412 KB · ready</span></span><a href="#1n" style="color:var(--color-text);text-decoration:none">×</a></div>
+<div class="field"><label>Document type</label><select class="input"><option>Purchase order</option></select></div>
+<div class="field"><label>Attach to order</label><select class="input"><option>PN-24-0824 · HB-PO-88247 · Solid red</option></select></div>
+<div class="field"><label>Note for Peniel (optional)</label><textarea class="input" style="min-height:60px">Revised PO: quantity reduced to 3.5M.</textarea></div>
+<div class="dialog-actions"><a class="btn btn-secondary" href="#1m" style="color:var(--color-text)">Cancel</a><a class="btn btn-primary" href="#1m" style="color:var(--color-bg);width:160px;justify-content:space-between">Upload<span>↑</span></a></div>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1o"><div class="dv-olabel"><a class="dv-oid" href="#1o">1o</a>Empty state: no documents</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="documents" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;align-items:flex-end;gap:16px;border-bottom:2px solid var(--color-divider)"><div style="flex:1"><h6 style="color:var(--color-accent);margin:0 0 8px">Documents</h6><h1 style="font-size:48px;margin:0">Documents</h1></div><a class="btn btn-primary" href="#1n" style="color:var(--color-bg);padding:11px 16px">↑ Upload document</a></div>
+<div style="padding:64px 40px 72px;display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:64px">
+<div style="display:flex;flex-direction:column;gap:14px"><h2 style="font-size:40px;margin:0">No documents yet.</h2><p style="font-size:16px;margin:0">Pro forma invoices, invoices, delivery notes and QC certificates appear here automatically as your orders move forward. You can also upload POs and specifications yourself.</p><a class="btn btn-secondary" href="#1n" style="color:var(--color-text);width:240px;justify-content:space-between;padding:12px 16px">Upload your first document<span>↑</span></a></div>
+<div style="border-top:2px solid var(--color-text);font-size:14px"><div style="display:grid;grid-template-columns:1fr auto;padding:10px 0;border-bottom:1px solid var(--color-divider)"><span>Purchase orders</span><span style="opacity:.5">Uploaded by you</span></div><div style="display:grid;grid-template-columns:1fr auto;padding:10px 0;border-bottom:1px solid var(--color-divider)"><span>Pro forma invoices · Invoices</span><span style="opacity:.5">From Peniel finance</span></div><div style="display:grid;grid-template-columns:1fr auto;padding:10px 0;border-bottom:1px solid var(--color-divider)"><span>Delivery notes</span><span style="opacity:.5">At dispatch</span></div><div style="display:grid;grid-template-columns:1fr auto;padding:10px 0;border-bottom:1px solid var(--color-divider)"><span>QC certificates</span><span style="opacity:.5">Per released batch</span></div><div style="display:grid;grid-template-columns:1fr auto;padding:10px 0"><span>Artwork proofs · Compliance declarations</span><span style="opacity:.5">From Peniel quality</span></div></div>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">Catalog &amp; artwork (logged in)</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1p"><div class="dv-olabel"><a class="dv-oid" href="#1p">1p</a>Catalog: "Add to quote" becomes "Add to order"</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="catalog" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--color-divider)"><div><h6 style="color:var(--color-accent);margin:0 0 8px">Catalog</h6><h1 style="font-size:48px;margin:0">Crown cork catalog</h1></div><div style="font-size:13px;opacity:.7">Ordering as Habesha Brewery S.C. · prices appear on your pro forma</div></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr)">
+<sc-for list="{{ catalog }}" as="p" hint-placeholder-count="6"><div style="padding:24px 40px 28px;border-bottom:2px solid var(--color-divider);border-right:2px solid var(--color-divider);display:flex;flex-direction:column;gap:12px"><div style="{{ p.ph }}">{{ p.phLabel }}</div><div class="card-kicker">{{ p.kicker }}</div><h4 style="margin:0">{{ p.name }}</h4><div style="font-size:13px;border-top:1px solid var(--color-divider)"><sc-for list="{{ p.specs }}" as="s" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:100px 1fr;padding:6px 0;border-bottom:1px solid var(--color-divider)"><span style="opacity:.6">{{ s.k }}</span><span>{{ s.v }}</span></div></sc-for></div><a class="{{ p.btnClass }}" href="{{ p.href }}" style="{{ p.btnStyle }}">{{ p.cta }}<span>{{ p.icon }}</span></a></div></sc-for>
+</div>
+</div></div>
+
+<div class="dv-opt" id="1q"><div class="dv-olabel"><a class="dv-oid" href="#1q">1q</a>Artwork: saved artworks and proof history</div>
+<div class="dv-card" style="width:1440px">
+<dc-import name="PortalNav" active="artwork" hint-size="1440px,62px"></dc-import>
+<div style="padding:28px 40px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--color-divider)"><div><h6 style="color:var(--color-accent);margin:0 0 8px">Artwork</h6><h1 style="font-size:48px;margin:0">Your artwork</h1></div><a class="btn btn-primary" href="Peniel Mockups.dc.html#1c" style="color:var(--color-bg);width:240px;justify-content:space-between;padding:12px 16px">+ New artwork (Brand your crown)<span>→</span></a></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:2px solid var(--color-divider)">
+<sc-for list="{{ artworks }}" as="a" hint-placeholder-count="3"><div style="padding:24px 40px;border-right:2px solid var(--color-divider);display:grid;grid-template-columns:140px 1fr;gap:20px;align-items:center"><div style="aspect-ratio:1;background:var(--color-surface);display:grid;place-items:center"><div style="{{ a.crown }}"><span style="width:62%;height:62%;border:2px dashed var(--color-bg);border-radius:50%"></span></div></div><div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:16px">{{ a.name }}</b><span style="font-size:13px;opacity:.7">{{ a.detail }}</span><span><span style="{{ a.pill.style }}">{{ a.pill.label }}</span></span><a href="#1q" style="font-size:13px">{{ a.action }}</a></div></div></sc-for>
+</div>
+<div style="padding:24px 40px 40px"><h4 style="margin:0 0 10px">Proof history</h4>
+<div style="display:grid;grid-template-columns:90px minmax(0,1fr) 130px 130px 200px 160px 60px;gap:12px;padding:8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Proof</span><span>Artwork</span><span>Order</span><span>Sent</span><span>Status</span><span>Decided by</span><span></span></div>
+<sc-for list="{{ proofs }}" as="p" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:90px minmax(0,1fr) 130px 130px 200px 160px 60px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--color-divider);font-size:14px"><b>{{ p.v }}</b><span>{{ p.art }}</span><span>{{ p.order }}</span><span>{{ p.sent }}</span><span><span style="{{ p.pill.style }}">{{ p.pill.label }}</span></span><span>{{ p.by }}</span><a href="#1q" style="text-decoration:none;font-weight:800">↓</a></div></sc-for>
+</div>
+</div></div>
+
+</div>
+
+<div class="dv-grp">Mobile 390</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1r"><div class="dv-olabel"><a class="dv-oid" href="#1r">1r</a>Orders list</div>
+<div class="dv-card" style="width:390px;min-height:844px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 16px 10px 20px;border-bottom:2px solid var(--color-divider)"><img src="peniel-industry/public/img/logo-icon.png" alt="" style="width:26px;height:26px"><b style="flex:1">Orders</b><a class="btn btn-primary" href="#1e" style="color:var(--color-bg);min-height:44px">+ New</a></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid var(--color-divider)">
+<div style="padding:12px 20px"><h6 style="margin:0;opacity:.6">Open</h6><div style="font-size:28px;font-weight:800;line-height:1.1">8</div></div>
+<div style="padding:12px 20px;border-left:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">In production</h6><div style="font-size:28px;font-weight:800;line-height:1.1">1</div></div>
+<a href="#1c" style="padding:12px 20px;border-top:2px solid var(--color-divider);background:var(--color-accent);color:var(--color-bg);text-decoration:none;display:block"><h6 style="margin:0">To approve</h6><div style="font-size:28px;font-weight:800;line-height:1.1">1 →</div></a>
+<div style="padding:12px 20px;border-left:2px solid var(--color-divider);border-top:2px solid var(--color-divider)"><h6 style="margin:0;opacity:.6">Delivered YTD</h6><div style="font-size:28px;font-weight:800;line-height:1.1">96.4M</div></div>
+</div>
+<div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:10px"><input class="input" placeholder="Search order or PO number" style="min-height:44px"><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px"><sc-for list="{{ chipsHome }}" as="c" hint-placeholder-count="6"><span style="{{ c.style }}">{{ c.label }}<b style="opacity:.6">{{ c.n }}</b></span></sc-for></div></div>
+<div style="padding:4px 20px;flex:1"><sc-for list="{{ rowsMobile }}" as="o" hint-placeholder-count="7"><a href="#1s" style="display:flex;flex-direction:column;gap:4px;padding:14px 0;border-bottom:1px solid var(--color-divider);color:var(--color-text);text-decoration:none;min-height:44px"><span style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:15px">{{ o.no }}</b><span style="{{ o.pill.style }}">{{ o.pill.label }}</span></span><span style="font-size:13px">{{ o.product }}</span><span style="font-size:12px;opacity:.65;display:flex;justify-content:space-between"><span>PO {{ o.po }}</span><span>{{ o.qtyShort }} · due {{ o.due }}</span></span></a></sc-for></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--color-divider);font-size:12px"><span style="padding:12px 14px;min-height:56px;color:var(--color-accent);font-weight:800;border-top:3px solid var(--color-accent);margin-top:-2px">Orders</span><span style="padding:12px 14px">Production</span><span style="padding:12px 14px">Documents</span><span style="padding:12px 14px">More</span></div>
+</div></div>
+
+<div class="dv-opt" id="1s"><div class="dv-olabel"><a class="dv-oid" href="#1s">1s</a>Order detail</div>
+<div class="dv-card" style="width:390px;min-height:844px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:6px;padding:6px 16px 6px 6px;border-bottom:2px solid var(--color-divider)"><a href="#1r" style="width:44px;height:44px;display:grid;place-items:center;font-size:20px;color:var(--color-text);text-decoration:none">←</a><b style="flex:1">PN-24-0817</b><span style="{{ pillProd.style }}">{{ pillProd.label }}</span></div>
+<div style="padding:18px 20px;display:flex;flex-direction:column;gap:10px;border-bottom:2px solid var(--color-divider)"><span style="font-size:12px;opacity:.7">PO HB-PO-88213 · due 14 Oct 2026</span><h3 style="margin:0">26 mm · Printed · 2 colours</h3><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:40px;font-weight:800;line-height:1">63%</span><span style="font-size:13px">7.6M of 12.0M produced</span></div><div style="height:10px;background:var(--color-surface);position:relative"><div style="position:absolute;inset:0 37% 0 0;background:var(--color-accent)"></div></div></div>
+<div style="padding:6px 20px"><sc-for list="{{ tlProd }}" as="s" hint-placeholder-count="7"><div style="{{ s.rowStyle }}"><span style="{{ s.dot }}"></span><span style="{{ s.labelStyle }}">{{ s.label }}</span><span style="{{ s.dateStyle }}">{{ s.date }}</span></div></sc-for></div>
+<div style="padding:12px 20px"><h6 style="margin:0 0 4px">Attachments</h6><div style="border-top:2px solid var(--color-divider)"><sc-for list="{{ attach }}" as="f" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:40px 1fr 44px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px;min-height:48px"><span style="font:600 10px ui-monospace,monospace;padding:3px 0;background:var(--color-surface);text-align:center">{{ f.ext }}</span><span><b>{{ f.name }}</b><br><span style="opacity:.6">{{ f.type }} · {{ f.size }}</span></span><span style="text-align:center;font-weight:800;color:var(--color-accent)">↓</span></div></sc-for></div></div>
+<div style="padding:12px 20px 20px;margin-top:auto;border-top:2px solid var(--color-divider);display:flex;flex-direction:column;gap:8px"><a class="btn btn-secondary" href="#1s" style="min-height:48px;justify-content:space-between;color:var(--color-text)">QC certificates (2 released)<span>↓</span></a><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><a class="btn btn-secondary" href="#1f" style="min-height:48px;justify-content:space-between;color:var(--color-text)">Reorder<span>↻</span></a><a class="btn btn-primary" href="#1s" style="min-height:48px;justify-content:space-between;color:var(--color-bg)">Message<span>→</span></a></div></div>
+</div></div>
+
+</div>
+<p class="dv-next">Try next: "add a Message Peniel thread view" · "mobile versions of <a class="dv-oid" href="#1c">1c</a> proof approval and <a class="dv-oid" href="#1k">1k</a> Quality" · "add invoices and payment status to Documents"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const B = {display:'inline-flex',alignItems:'center',gap:6,fontSize:11,lineHeight:'16px',padding:'3px 10px',whiteSpace:'nowrap',letterSpacing:'.02em',border:'1px solid transparent'};
+const PS = {
+  'Submitted':{borderColor:'var(--color-text)'},
+  'Under review':{background:'var(--color-neutral-200)',color:'var(--color-neutral-800)'},
+  'Awaiting your approval':{background:'var(--color-accent)',color:'var(--color-bg)',fontWeight:800},
+  'Scheduled':{border:'1px dashed var(--color-neutral-600)',color:'var(--color-neutral-800)'},
+  'In production':{background:'var(--color-accent-100)',color:'var(--color-accent-800)',borderColor:'var(--color-accent-300)'},
+  'QC inspection':{borderColor:'var(--color-accent)',color:'var(--color-accent-700)'},
+  'Ready for pickup':{background:'var(--color-text)',color:'var(--color-bg)'},
+  'Dispatched':{background:'var(--color-neutral-300)',color:'var(--color-text)'},
+  'Delivered':{color:'var(--color-neutral-700)',paddingLeft:0},
+  'On hold':{background:'var(--color-accent-800)',color:'var(--color-bg)'},
+  'Released':{background:'var(--color-neutral-200)',color:'var(--color-neutral-800)'},
+  'Held':{background:'var(--color-accent-800)',color:'var(--color-bg)'},
+  'Available for pickup':{background:'var(--color-text)',color:'var(--color-bg)'},
+  'Reserved':{borderColor:'var(--color-text)'},
+  'Approved':{background:'var(--color-neutral-200)',color:'var(--color-neutral-800)'},
+  'Changes requested':{borderColor:'var(--color-accent)',color:'var(--color-accent-700)'},
+  'Superseded':{color:'var(--color-neutral-600)',textDecoration:'line-through',paddingLeft:0},
+  'Draft':{border:'1px dashed var(--color-neutral-600)',color:'var(--color-neutral-800)'},
+};
+const LBL = {'Delivered':'✓ Delivered','On hold':'❚❚ On hold','Awaiting your approval':'● Awaiting your approval','Held':'❚❚ Held'};
+const pill = s => ({label: LBL[s] || s, style: {...B, ...(PS[s] || {})}});
+const STATUSES = ['Submitted','Under review','Awaiting your approval','Scheduled','In production','QC inspection','Ready for pickup','Dispatched','Delivered','On hold'];
+
+const ORDERS = [
+  ['PN-24-0817','HB-PO-88213','26 mm · Printed · 2 col','12,000,000','14 Oct 2026','In production','12.0M'],
+  ['PN-24-0821','HB-PO-88240','26 mm · Printed · 3 col','6,000,000','02 Nov 2026','Awaiting your approval','6.0M'],
+  ['PN-24-0826','HB-PO-88251','26 mm · Plain tin · PVC-free','8,000,000','06 Oct 2026','QC inspection','8.0M'],
+  ['PN-24-0824','HB-PO-88247','26 mm · Solid red · PVC-free','4,000,000','20 Nov 2026','Scheduled','4.0M'],
+  ['PN-24-0828','HB-PO-88266','26 mm · Solid gold · PVC','3,000,000','28 Nov 2026','Under review','3.0M'],
+  ['PN-24-0812','HB-PO-88190','26 mm · Printed · 2 col','10,000,000','24 Sep 2026','Ready for pickup','10.0M'],
+  ['PN-24-0809','HB-PO-88177','26 mm · Plain tin · PVC-free','8,000,000','19 Sep 2026','Dispatched','8.0M'],
+  ['PN-24-0815','HB-PO-88205','26 mm · Printed · 1 col','2,000,000','On hold','On hold','2.0M'],
+  ['PN-24-0803','HB-PO-88142','26 mm · Printed · 2 col','12,000,000','05 Sep 2026','Delivered','12.0M'],
+  ['PN-24-0801','HB-PO-88120','26 mm · Plain tin · PVC-free','8,000,000','22 Aug 2026','Delivered','8.0M'],
+];
+const ROW = {display:'grid',gridTemplateColumns:'92px 112px minmax(0,1fr) 96px 100px 184px',gap:12,alignItems:'center',padding:'11px 8px',borderBottom:'1px solid var(--color-divider)',fontSize:14,cursor:'pointer'};
+const rows = (list, sel) => list.map(r => ({no:r[0],po:r[1],product:r[2],qty:r[3],due:r[4],pill:pill(r[5]),qtyShort:r[6],
+  rowStyle: r[0] === sel ? {...ROW, background:'var(--color-neutral-200)', boxShadow:'inset 0 0 0 2px var(--color-text)'} : ROW}));
+const CH = {display:'inline-flex',gap:6,alignItems:'center',padding:'6px 12px',fontSize:12,border:'1px solid var(--color-divider)',cursor:'pointer',whiteSpace:'nowrap',flex:'none'};
+const CHA = {background:'var(--color-text)',color:'var(--color-bg)',borderColor:'var(--color-text)'};
+const chips = (list, active = 'All') => [{label:'All',n:list.length}, ...STATUSES.map(s => ({label:s,n:list.filter(o => o[5] === s).length})).filter(c => c.n)]
+  .map(c => ({...c, style: {...CH, ...(c.label === active ? CHA : {})}}));
+
+const tl = steps => steps.map(([label, date, st]) => ({label, date,
+  rowStyle:{display:'grid',gridTemplateColumns:'20px 1fr auto',gap:12,padding:'10px 0',borderBottom:'1px solid var(--color-divider)',fontSize:14,opacity:st === 'next' ? .5 : 1},
+  dot:{width:12,height:12,marginTop:5,background:st === 'done' ? 'var(--color-text)' : st === 'now' ? 'var(--color-accent)' : 'transparent',border:st === 'next' ? '2px solid var(--color-text)' : 'none',boxShadow:st === 'now' ? '0 0 0 4px var(--color-accent-200)' : 'none'},
+  labelStyle:{fontWeight:st === 'now' ? 800 : 400},
+  dateStyle:{fontSize:13,color:st === 'now' ? 'var(--color-accent-700)' : 'inherit',fontWeight:st === 'now' ? 800 : 400}}));
+
+const STEPS = ['Product','Specs & quantity','PO & attachments','Review & submit'];
+const stepper = n => STEPS.map((s, i) => ({label: (i + 1 < n ? '✓ ' : (i + 1) + ' ') + s,
+  style:{padding:'8px 14px',fontSize:13,borderLeft:i ? '2px solid var(--color-divider)' : 'none',background:i + 1 < n ? 'var(--color-text)' : i + 1 === n ? 'var(--color-accent)' : 'transparent',color:i + 1 <= n ? 'var(--color-bg)' : 'var(--color-text)',fontWeight:i + 1 === n ? 800 : 400}}));
+
+const SUM = [['Product','26 mm · Solid colour'],['Liner','PVC-free'],['Colour','PMS 485 C (red)'],['Quantity','4,000,000 crowns'],['Cartons','400 × 10,000'],['Fulfilment','Delivery · Debre Birhan'],['Requested','20 Nov 2026'],['PO number','HB-PO-88274'],['Attachments','3 files']];
+const summary = (n, over = {}) => SUM.map(([k, v], i) => {
+  const filled = i === 0 ? true : i < 7 ? n >= 2 : n >= 3;
+  const val = over[k] || (filled ? v : '—');
+  return {k, v: val, vStyle: {fontWeight: filled ? 800 : 400, opacity: filled ? 1 : .4, color: over[k] ? 'var(--color-accent-800)' : 'inherit'}};
+});
+
+const bars = (arr, max, hlLast) => arr.map((v, i) => ({flex:1,height: Math.max(v / max * 100, 2) + '%',background: v === 0 ? 'var(--color-neutral-300)' : (hlLast && i === arr.length - 1) ? 'var(--color-accent)' : 'var(--color-text)'}));
+
+class Component extends DCLogic {
+  renderVals() {
+    const out = [
+      {no:'PN-24-0817',product:'26 mm · Printed · 2 col · PVC-free',s:'In production',made:'7.6M',ordered:'12.0M',pct:63,today:'412k',eta:'09 Oct 2026',etaNote:'On track for 14 Oct delivery',d:[0,0,380,420,395,410,0,430,415,398,405,420,388,412]},
+      {no:'PN-24-0826',product:'26 mm · Plain tin · PVC-free',s:'QC inspection',made:'8.0M',ordered:'8.0M',pct:100,today:'0',eta:'Completed 21 Sep',etaNote:'Final batch QC · release ~25 Sep',d:[610,640,0,620,655,630,648,0,660,652,0,0,0,0]},
+      {no:'PN-24-0824',product:'26 mm · Solid red · PVC-free',s:'Scheduled',made:'0',ordered:'4.0M',pct:0,today:'—',eta:'16 Oct 2026',etaNote:'Starts 06 Oct',d:null},
+    ].map(o => ({...o, pill:pill(o.s), bar:{width:o.pct + '%',height:'100%',background:o.pct >= 100 ? 'var(--color-text)' : 'var(--color-accent)'},
+      hasBars:!!o.d, noBars:!o.d, bars:o.d ? bars(o.d, 700, true) : [], peak:o.d ? 'peak ' + Math.max(...o.d) + 'k' : ''}));
+
+    const rej = [0.21,0.18,0.25,0.19,0.22,0.23,0.20,0.24,0.19,0.22,0.28,0.71,0.20,0.24];
+    const heights = [6.02,5.99,6.04,6.01,6.03,6.00,6.02,6.05,6.03,6.02,6.12,6.04];
+    const heightPts = heights.map((h, i) => (i * 300 / (heights.length - 1)).toFixed(1) + ',' + ((6.2 - h) / 0.4 * 100).toFixed(1)).join(' ');
+    const DEF = [['Liner void / thin',96],['Flute deformation',61],['Print misregister',44],['Coating scratch',28],['Out of tolerance',12]];
+
+    const batchRows = [
+      ['0817-05','PN-24-0817','22 Sep 2026','6.04','13.8','0.24%','Released'],
+      ['0817-04','PN-24-0817','20 Sep 2026','6.12','12.9','0.71%','Held'],
+      ['0826-04','PN-24-0826','20 Sep 2026','6.02','14.1','0.20%','Released'],
+      ['0826-03','PN-24-0826','19 Sep 2026','6.03','14.0','0.28%','Released'],
+      ['0817-03','PN-24-0817','18 Sep 2026','6.05','13.7','0.22%','Released'],
+      ['0826-02','PN-24-0826','17 Sep 2026','6.02','14.3','0.19%','Released'],
+      ['0812-06','PN-24-0812','12 Sep 2026','6.00','13.9','0.23%','Released'],
+      ['0812-05','PN-24-0812','11 Sep 2026','6.03','14.0','0.21%','Released'],
+    ].map(([batch, order, date, height, torque, r, res]) => ({batch, order, date, height, torque, rej:r, pill:pill(res),
+      rejStyle:{fontWeight: res === 'Held' ? 800 : 400, color: res === 'Held' ? 'var(--color-accent-700)' : 'inherit'},
+      link: res === 'Held' ? 'Pending re-inspection' : 'QC certificate ↓',
+      linkStyle: res === 'Held' ? {fontSize:13,opacity:.6} : {fontSize:13,color:'var(--color-accent-700)',fontWeight:800,cursor:'pointer'}}));
+
+    const stockRows = [
+      ['26 mm · Printed · 2 col','0812-06','5,000,000','FG-2 · Bay 4','20 Sep 2026','Available for pickup','PN-24-0812'],
+      ['26 mm · Printed · 2 col','0812-05','5,000,000','FG-2 · Bay 4','19 Sep 2026','Available for pickup','PN-24-0812'],
+      ['26 mm · Plain tin · PVC-free','0826-04','2,000,000','FG-1 · Bay 2','21 Sep 2026','Reserved','PN-24-0826'],
+      ['26 mm · Plain tin · PVC-free','0826-03','2,000,000','FG-1 · Bay 2','20 Sep 2026','Reserved','PN-24-0826'],
+      ['26 mm · Printed · 2 col','0817-04','600,000','QC cage','20 Sep 2026','On hold','PN-24-0817'],
+    ].map(([product, batch, qty, loc, since, s, order]) => ({product, batch, qty, loc, since, order, pill:pill(s)}));
+
+    const DT = [['All documents',26],['Purchase orders',6],['Pro forma invoices',3],['Invoices',4],['Delivery notes',3],['QC certificates',5],['Compliance & food-contact',2],['Artwork proofs',3]];
+    const docTypes = DT.map(([label, n], i) => ({label, n, style:{display:'flex',justifyContent:'space-between',padding:'9px 10px',margin:'0 -10px',fontSize:14,borderBottom:'1px solid var(--color-divider)',cursor:'pointer',...(i === 0 ? {background:'var(--color-text)',color:'var(--color-bg)',fontWeight:800} : {})}}));
+    const docs = [
+      ['QC-0817-05.pdf','QC certificate','PN-24-0817','22 Sep 2026','96 KB'],
+      ['Proof-HB-3col-Meskel-v2.pdf','Artwork proof','PN-24-0821','21 Sep 2026','2.4 MB'],
+      ['PF-24-0828.pdf','Pro forma invoice','PN-24-0828','19 Sep 2026','118 KB'],
+      ['DN-24-0809.pdf','Delivery note','PN-24-0809','18 Sep 2026','84 KB'],
+      ['INV-24-0809.pdf','Invoice','PN-24-0809','18 Sep 2026','132 KB'],
+      ['HB-PO-88266.pdf','Purchase order','PN-24-0828','17 Sep 2026','204 KB'],
+      ['QC-0812-06.pdf','QC certificate','PN-24-0812','12 Sep 2026','94 KB'],
+      ['INV-24-0803.pdf','Invoice','PN-24-0803','05 Sep 2026','128 KB'],
+      ['Food-contact declaration 2026.pdf','Compliance & food-contact','All orders','02 Jan 2026','640 KB'],
+    ].map(([name, type, order, date, size]) => ({name, type, order, date, size, ext:'PDF'}));
+
+    const PH = {aspectRatio:'16/9',display:'grid',placeItems:'center',font:'11px ui-monospace,monospace'};
+    const btnS = primary => ({justifyContent:'space-between',color: primary ? 'var(--color-bg)' : 'var(--color-text)'});
+    const catalog = [
+      ['Standard','26 mm Crown · Plain Tin',[['Diameter','26.0 mm'],['Flutes','21'],['Liner','PVC-free']],{background:'var(--color-surface)',color:'var(--color-text)'},'plain tin crown'],
+      ['Standard','26 mm Crown · PVC Liner',[['Diameter','26.0 mm'],['Flutes','21'],['Liner','PVC']],{background:'var(--color-surface)',color:'var(--color-text)'},'PVC-lined crown'],
+      ['Custom colour','26 mm Crown · Solid Colour',[['Colour','Pantone matched'],['Liner','PVC-free / PVC'],['Minimum','1,000,000']],{background:'var(--color-accent)',color:'var(--color-bg)'},'solid colour crown'],
+      ['Custom printed','26 mm Crown · Printed Top',[['Print','Up to 4 colours'],['Inside print','Optional'],['Liner','PVC-free']],{background:'var(--color-text)',color:'var(--color-bg)'},'printed crown'],
+      ['High-speed','26 mm Crown · HS Tolerance',[['Tolerance','Tight, line-rated'],['Packing','Carton, lined'],['Liner','PVC-free']],{background:'var(--color-surface)',color:'var(--color-text)'},'high-speed crown'],
+    ].map(([kicker, name, specs, ph, lbl]) => {
+      const printed = kicker === 'Custom printed';
+      return {kicker, name, specs: specs.map(([k, v]) => ({k, v})), ph:{...PH, ...ph}, phLabel:'[ product photo · ' + lbl + ' ]',
+        btnClass: printed ? 'btn btn-primary' : 'btn btn-secondary', btnStyle: btnS(printed),
+        cta: printed ? 'Brand your crown' : 'Add to order', icon: printed ? '→' : '+', href: printed ? 'Peniel Mockups.dc.html#1c' : '#1f'};
+    });
+    catalog.push({kicker:'Reorder',name:'Your last order: PN-24-0812',specs:[{k:'Product',v:'Printed · 2 col'},{k:'Quantity',v:'10,000,000'},{k:'Delivered',v:'Ready for pickup'}],
+      ph:{...PH,background:'var(--color-neutral-200)',color:'var(--color-text)'},phLabel:'[ Habesha 2-col crown ]',btnClass:'btn btn-primary',btnStyle:btnS(true),cta:'Reorder',icon:'↻',href:'#1f'});
+
+    const crown = (bg, ring) => ({width:'78%',height:'78%',borderRadius:'50%',background:bg,boxShadow:'inset 0 0 0 6px ' + ring + ', var(--shadow-sm)',display:'grid',placeItems:'center'});
+    const artworks = [
+      {name:'Habesha 2-colour',detail:'PMS 485 C · PMS 871 C · v3 · used on 3 orders',pill:pill('Approved'),action:'Reorder with this artwork →',crown:crown('var(--color-accent)','var(--color-accent-700)')},
+      {name:'Habesha 3-colour Meskel',detail:'PMS 485 C · 871 C · Black · proof v2',pill:pill('Awaiting your approval'),action:'Review proof v2 →',crown:crown('var(--color-accent)','#c9a227')},
+      {name:'Cold Gold 1-colour',detail:'PMS 871 C on black · proof v1',pill:pill('Changes requested'),action:'View your comments →',crown:crown('var(--color-text)','#c9a227')},
+    ];
+    const proofs = [
+      ['v2','Habesha 3-colour Meskel','PN-24-0821','21 Sep 2026','Awaiting your approval','—'],
+      ['v1','Habesha 3-colour Meskel','PN-24-0821','18 Sep 2026','Changes requested','Meron Tadesse'],
+      ['v1','Cold Gold 1-colour','PN-24-0815','10 Sep 2026','Changes requested','Meron Tadesse'],
+      ['v3','Habesha 2-colour','PN-24-0817','05 Sep 2026','Approved','Meron Tadesse'],
+      ['v2','Habesha 2-colour','PN-24-0817','03 Sep 2026','Superseded','—'],
+    ].map(([v, art, order, sent, s, by]) => ({v:'Proof ' + v, art, order, sent, by, pill:pill(s)}));
+
+    const pickProducts = [
+      ['Standard','Plain tin','PVC-free or PVC',false,{background:'var(--color-surface)',border:'1px solid var(--color-divider)'}],
+      ['Custom colour','Solid colour','Pantone matched',true,{background:'var(--color-accent)'}],
+      ['High-speed','HS tolerance','For 30k+ bph lines',false,{background:'var(--color-neutral-400)'}],
+      ['Standard','PVC liner','Plain tin, PVC',false,{background:'var(--color-surface)',border:'1px solid var(--color-divider)'}],
+    ].map(([kicker, name, note, sel, sw], i) => ({kicker, name, note,
+      swatch:{...sw,width:48,height:48,borderRadius:'50%',marginBottom:6},
+      cellStyle:{padding:18,display:'flex',flexDirection:'column',gap:4,cursor:'pointer',borderLeft:i ? '1px solid var(--color-divider)' : 'none',borderBottom:'1px solid var(--color-divider)',...(sel ? {background:'var(--color-accent-100)',boxShadow:'inset 0 0 0 2px var(--color-accent)'} : {})}}));
+
+    const confirmList = [['PN-24-0830','HB-PO-88274','26 mm · Solid red · PVC-free','4,000,000','20 Nov 2026','Submitted','4.0M'], ...ORDERS.slice(0, 4)];
+
+    return {
+      legend: STATUSES.map(pill),
+      chipsHome: chips(ORDERS), chipsAppr: chips(ORDERS, 'Awaiting your approval'),
+      rowsHome: rows(ORDERS, 'PN-24-0817'), rowsAppr: rows(ORDERS, 'PN-24-0821'),
+      rowsConfirm: rows(confirmList, 'PN-24-0830'), rowsMobile: rows(ORDERS.slice(0, 7)),
+      pillProd: pill('In production'), pillAppr: pill('Awaiting your approval'),
+      tlProd: tl([['Order confirmed','02 Sep','done'],['Artwork proof approved','05 Sep','done'],['Tinplate coated & printed','16 Sep','done'],['Stamping & lining','Now · Line 2','now'],['Inspection & batch QC','~09 Oct','next'],['Ready for pickup / Dispatched','~12 Oct','next'],['Delivered','~14 Oct','next']]),
+      tlAppr: tl([['Order confirmed','18 Sep','done'],['Artwork proof approved','Now · v2 sent 21 Sep','now'],['Tinplate coated & printed','~13 Oct','next'],['Stamping & lining','~20 Oct','next'],['Inspection & batch QC','~27 Oct','next'],['Ready for pickup / Dispatched','~30 Oct','next'],['Delivered','~02 Nov','next']]),
+      attach: [['HB-PO-88213.pdf','Purchase order','184 KB','PDF'],['habesha-crown-2c-v3.pdf','Artwork','1.2 MB','PDF'],['filling-line-4-spec.xlsx','Specification','42 KB','XLSX']].map(([name, type, size, ext]) => ({name, type, size, ext})),
+      certs: [['0817-05','Released'],['0817-04','Held'],['0817-03','Released']].map(([batch, s]) => ({batch, pill:pill(s), link: s === 'Held' ? 'Pending' : 'Download ↓', linkStyle: s === 'Held' ? {opacity:.5} : {color:'var(--color-accent-700)',fontWeight:800}})),
+      step1: stepper(1), step2: stepper(2), step3: stepper(3), step4: stepper(4),
+      sum1: summary(1), sum2: summary(2), sum3: summary(3, {'Attachments':'1 failed · 2 OK'}),
+      review: [['Product','26 mm · Solid colour','#1e'],['Liner','PVC-free','#1f'],['Colour','PMS 485 C (red)','#1f'],['Quantity','4,000,000 crowns','#1f'],['Cartons','400 × 10,000','#1f'],['Requested delivery','20 Nov 2026','#1f'],['Fulfilment','Delivery','#1f'],['Deliver to','Debre Birhan plant, Gate 2','#1f'],['Receiving contact','Dawit Alemu','#1f']].map(([k, v, edit]) => ({k, v, edit})),
+      pickProducts,
+      reorderRows: rows(ORDERS.filter(o => ['PN-24-0812','PN-24-0809','PN-24-0803'].includes(o[0]))),
+      outputOrders: out,
+      rejectBars: rej.map(v => ({flex:1,height:(v / 0.8 * 100) + '%',background: v > 0.5 ? 'var(--color-accent)' : 'var(--color-text)'})),
+      defects: DEF.map(([label, n], i) => ({label, n, bar:{height:'100%',width:(n / DEF[0][1] * 100) + '%',background: i ? 'var(--color-text)' : 'var(--color-accent)'}})),
+      heightPts, batchRows, stockRows, docTypes, docs, catalog, artworks, proofs,
+    };
+  }
+}
+</script>
+</body>
+</html>

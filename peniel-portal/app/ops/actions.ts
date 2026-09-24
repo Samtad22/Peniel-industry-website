@@ -14,6 +14,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * Invite-only accounts (CLAUDE.md rule 5): an admin creates the login and
  * the profile; the person gets an email and chooses their own password.
+ * Used by Customers (customer users) and Settings (staff).
  */
 export async function inviteUser(_prev: InviteState, formData: FormData): Promise<InviteState> {
   await requireStaff(["admin"]);
@@ -56,7 +57,8 @@ export async function inviteUser(_prev: InviteState, formData: FormData): Promis
     return { error: `Could not create the profile: ${profileError.message}` };
   }
 
-  revalidatePath("/ops/users");
+  revalidatePath("/ops/customers");
+  revalidatePath("/ops/settings");
   return { ok: `Invitation sent to ${email}.` };
 }
 
@@ -68,5 +70,6 @@ export async function setUserActive(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
   await supabase.from("profiles").update({ active }).eq("user_id", userId);
-  revalidatePath("/ops/users");
+  revalidatePath("/ops/customers");
+  revalidatePath("/ops/settings");
 }

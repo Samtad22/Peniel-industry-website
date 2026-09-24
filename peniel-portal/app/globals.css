@@ -1,31 +1,148 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   Modernist design system — ported from the Claude Design handoff
+   (_ds/modernist-…/styles.css). Flat and architectural: Archivo throughout,
+   near-mono red on a light ground, zero corner radius, strong 2px rules,
+   labels flush left. Take values from these tokens; don't hard-code.
+   The tokens also generate Tailwind utilities (bg-accent, border-divider,
+   text-neutral-700, …) with the same names the design files use.
+   ============================================================================ */
 @theme {
-  /* Peniel brand — same tokens as the marketing site (peniel-industry/) */
-  --color-orange: #F1531C;
-  --color-orange-deep: #C43D10;
-  --color-navy: #27438E;
-  --color-navy-deep: #1D3370;
-  --color-navy-tint: #EEF1F8;
-  --color-ink: #132B52;
-  --color-steel: #B9C2CC;
-  --color-line: #E3E7EC;
-  --color-porcelain: #FAF9F6;
-  --color-graphite: #1B2430;
-  --color-muted: #64707D;
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-accent: #ec3013;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
 
-  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff2ef;
+  --color-accent-200: #ffe0d9;
+  --color-accent-300: #ffc4b8;
+  --color-accent-400: #ff9783;
+  --color-accent-500: #ff563c;
+  --color-accent-600: #dd2b0f;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+  --color-accent-900: #4d170e;
+
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+  --font-heading: var(--font-archivo), system-ui, sans-serif;
+  --font-body: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: ui-monospace, Menlo, monospace;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
 }
 
-body {
-  background: var(--color-porcelain);
-  color: var(--color-graphite);
-  font-family: var(--font-body);
+@layer base {
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 8px;
+  }
+  h1 { font-size: 42px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 25px; }
+  h4 { font-size: 20px; }
+  h5 { font-size: 16px; }
+  h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+  a { color: var(--color-accent); text-underline-offset: 3px; }
+  a:hover { color: var(--color-accent-600); }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 }
 
-h1, h2, h3, h4 {
-  font-family: var(--font-display);
-  color: var(--color-ink);
+@layer components {
+  /* buttons — labels flush left; a trailing <span> icon sits at the right */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    cursor: pointer; text-decoration: none;
+    font-family: var(--font-heading); font-weight: 800;
+    font-size: 14px; line-height: 1.2; color: var(--color-text);
+    background: transparent; border: 1px solid transparent;
+    padding: 8px 14.4px;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary, .btn-primary:hover { color: var(--color-bg); }
+  .btn-primary { background: var(--color-accent); }
+  .btn-primary:hover { background: var(--color-accent-600); }
+  .btn-primary:active { background: var(--color-accent-700); }
+  .btn-secondary { border-color: var(--color-divider); }
+  .btn-secondary:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+  .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+  .btn-ghost { color: var(--color-accent); padding-inline: 4px; }
+  .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+  .btn-split { justify-content: space-between; }
+
+  /* forms */
+  .field > label {
+    display: block; font-size: 12px; margin-bottom: 5px;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+  .input {
+    width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+    font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+    background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: 0;
+  }
+  .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+  .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+  textarea.input { min-height: 90px; resize: vertical; }
+  .seg { display: inline-flex; overflow: hidden; border: 1px solid var(--color-divider); }
+  .seg-opt { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  .seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+  .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+  .seg-opt:has(input:checked) { background: var(--color-accent); color: var(--color-bg); }
+  .seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+  .seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+  /* tags */
+  .tag { display: inline-flex; align-items: center; font-size: 11px; letter-spacing: 0.02em; padding: 3px 10px; }
+  .tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+  .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+  .tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+  /* dialog */
+  .dialog-backdrop {
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; z-index: 50;
+    background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  }
+  .dialog {
+    width: min(480px, 100%); display: flex; flex-direction: column; gap: 12px;
+    padding: 16px; background: var(--color-surface); box-shadow: var(--shadow-lg);
+  }
+  .dialog-title { font-family: var(--font-heading); font-weight: 800; font-size: 20px; }
+  .dialog-body { font-size: 14px; opacity: 0.85; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+  /* table column headings, as used across the portal screens */
+  .th-row { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-700); }
+
+  /* big KPI numbers */
+  .kpi { font-size: 44px; font-weight: 800; line-height: 1.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
 }
