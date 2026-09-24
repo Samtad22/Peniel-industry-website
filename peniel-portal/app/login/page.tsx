@@ -5,7 +5,7 @@ import { getProfile, homeFor } from "@/lib/auth";
 import LoginForm from "./LoginForm";
 import type { AuthState } from "./actions";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Log in" };
 
 const NOTICES: Record<string, AuthState> = {
   link_invalid: { error: "That link has expired or was already used. Ask Peniel for a new invitation, or reset your password." },
@@ -18,10 +18,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   const { next, notice } = await searchParams;
   return (
-    <AuthCard
-      title="Sign in"
-      description="Accounts are created by Peniel Industry. If you need access, contact your Peniel sales representative."
-    >
+    <AuthCard title="Log in">
       <LoginForm next={next} notice={(notice && NOTICES[notice]) || null} />
     </AuthCard>
   );

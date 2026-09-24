@@ -28,3 +28,28 @@ test("percentages", () => {
   assert.equal(formatPct(0.4), "0.40%");
   assert.equal(formatPct("2.1"), "2.10%");
 });
+
+test("short dates, clock line and greeting use Addis Ababa time", async () => {
+  const { formatDayMonth, formatNowLine, greeting, timeAgo, addisDateISO } = await import("../../lib/format.ts");
+  const now = new Date("2026-09-23T13:52:00Z"); // 16:52 in Addis Ababa
+  assert.equal(formatDayMonth("2026-11-20"), "20 Nov");
+  assert.equal(formatDayMonth("2026-09-02"), "02 Sep");
+  assert.equal(formatNowLine(now), "Wed 23 Sep 2026 · 16:52 EAT");
+  assert.equal(greeting(now), "Good afternoon");
+  assert.equal(greeting(new Date("2026-09-23T05:00:00Z")), "Good morning");
+  assert.equal(greeting(new Date("2026-09-23T15:30:00Z")), "Good evening");
+  assert.equal(timeAgo("2026-09-23T13:40:00Z", now), "12 min ago");
+  assert.equal(timeAgo("2026-09-23T11:52:00Z", now), "2 h ago");
+  assert.equal(timeAgo("2026-09-22T11:52:00Z", now), "1 d ago");
+  assert.equal(addisDateISO(new Date("2026-09-23T22:30:00Z")), "2026-09-24");
+  assert.equal(addisDateISO(now, 7), "2026-09-30");
+});
+
+test("status wording: QC inspection, customer vs staff approval text", async () => {
+  const { statusText, statusBadgeLabel } = await import("../../lib/order-status.ts");
+  assert.equal(statusText("quality_check", "customer"), "QC inspection");
+  assert.equal(statusText("awaiting_approval", "customer"), "Awaiting your approval");
+  assert.equal(statusBadgeLabel("awaiting_approval", "staff"), "● Awaiting customer approval");
+  assert.equal(statusText("on_hold", "customer"), "On hold");
+  assert.equal(statusBadgeLabel("delivered", "customer"), "✓ Delivered");
+});

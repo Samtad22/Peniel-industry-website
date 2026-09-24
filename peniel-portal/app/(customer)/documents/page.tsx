@@ -1,11 +1,11 @@
-import ComingSoon from "@/components/ui/ComingSoon";
+import CustomerPlanned from "@/components/customer/CustomerPlanned";
 
 export const metadata = { title: "Documents" };
 
 export default function Page() {
   return (
-    <ComingSoon title="Documents" phase={4}>
-      Certificates, delivery notes and other documents shared with you.
-    </ComingSoon>
+    <CustomerPlanned section="Documents" title="Documents" phase={4}>
+      {"Pro forma invoices, delivery notes, QC certificates and your own POs and specifications, in one place."}
+    </CustomerPlanned>
   );
 }

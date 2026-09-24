@@ -6,7 +6,7 @@ export const STAFF_ROLES: StaffRole[] = ["admin", "sales", "production", "qualit
 export const ROLE_LABELS: Record<Role, string> = {
   customer_user: "Customer",
   admin: "Admin",
-  sales: "Sales",
+  sales: "Sales & customer service",
   production: "Production",
   quality: "Quality",
   warehouse: "Warehouse",
@@ -16,32 +16,57 @@ export function isStaffRole(role: Role): role is StaffRole {
   return role !== "customer_user";
 }
 
-/** Staff navigation. `roles` lists who sees the item (docs/PORTAL_SPEC.md §1). */
-export const OPS_NAV: { href: string; label: string; roles: StaffRole[] }[] = [
-  { href: "/ops", label: "Overview", roles: STAFF_ROLES },
-  { href: "/ops/orders", label: "Orders", roles: ["admin", "sales", "production", "quality"] },
-  { href: "/ops/production", label: "Production", roles: ["admin", "production"] },
-  { href: "/ops/quality", label: "Quality", roles: ["admin", "quality"] },
-  { href: "/ops/inventory", label: "Inventory", roles: ["admin", "warehouse"] },
-  { href: "/ops/artwork", label: "Artwork", roles: ["admin", "sales"] },
-  { href: "/ops/documents", label: "Documents", roles: ["admin", "sales"] },
-  { href: "/ops/customers", label: "Customers", roles: ["admin", "sales"] },
-  { href: "/ops/messages", label: "Messages", roles: STAFF_ROLES },
-  { href: "/ops/users", label: "Users", roles: ["admin"] },
+export type OpsArea =
+  | "dashboard"
+  | "inbox"
+  | "orders"
+  | "production"
+  | "quality"
+  | "inventory"
+  | "artwork"
+  | "documents"
+  | "customers"
+  | "messages"
+  | "maintenance"
+  | "settings";
+
+/**
+ * Staff navigation and who may open each area — the "Roles → nav" matrix in
+ * the Peniel Ops design. Pages enforce this too, not just the menu.
+ */
+export const OPS_NAV: { area: OpsArea; href: string; label: string; roles: StaffRole[] }[] = [
+  { area: "dashboard", href: "/ops", label: "Dashboard", roles: STAFF_ROLES },
+  { area: "inbox", href: "/ops/inbox", label: "Order inbox", roles: ["admin", "sales"] },
+  { area: "orders", href: "/ops/orders", label: "Orders", roles: STAFF_ROLES },
+  { area: "production", href: "/ops/production", label: "Production", roles: ["admin", "production", "quality"] },
+  { area: "quality", href: "/ops/quality", label: "Quality control", roles: ["admin", "quality"] },
+  { area: "inventory", href: "/ops/inventory", label: "Inventory", roles: ["admin", "production", "warehouse"] },
+  { area: "artwork", href: "/ops/artwork", label: "Artwork", roles: ["admin", "sales", "quality"] },
+  { area: "documents", href: "/ops/documents", label: "Documents", roles: ["admin", "sales", "quality", "warehouse"] },
+  { area: "customers", href: "/ops/customers", label: "Customers", roles: ["admin", "sales"] },
+  { area: "messages", href: "/ops/messages", label: "Messages", roles: ["admin", "sales"] },
+  { area: "maintenance", href: "/ops/maintenance", label: "Maintenance", roles: ["admin", "production"] },
+  { area: "settings", href: "/ops/settings", label: "Settings", roles: ["admin"] },
 ];
 
+/** Roles allowed on an /ops area — pages enforce this, not just the menu. */
+export function opsRolesFor(area: OpsArea): StaffRole[] {
+  const item = OPS_NAV.find((n) => n.area === area);
+  if (!item) throw new Error(`No OPS_NAV entry for ${area}`);
+  return item.roles;
+}
+
+/** Customer portal navigation (PortalNav in the design). */
 export const CUSTOMER_NAV: { href: string; label: string }[] = [
   { href: "/orders", label: "Orders" },
-  { href: "/products", label: "Products" },
   { href: "/production", label: "Production" },
+  { href: "/catalog", label: "Catalog" },
   { href: "/artwork", label: "Artwork" },
   { href: "/documents", label: "Documents" },
-  { href: "/messages", label: "Messages" },
 ];
 
-/** Roles allowed on an /ops section — pages enforce this, not just the menu. */
-export function opsRolesFor(href: string): StaffRole[] {
-  const item = OPS_NAV.find((n) => n.href === href);
-  if (!item) throw new Error(`No OPS_NAV entry for ${href}`);
-  return item.roles;
+/** "Selam Haile" → "SH" */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
 }

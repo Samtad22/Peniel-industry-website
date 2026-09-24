@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-8e4fea89-7cd3-449c-91d3-15c3f72c6f38/styles.css">
+<script src="_ds/modernist-8e4fea89-7cd3-449c-91d3-15c3f72c6f38/_ds_bundle.js"></script>
+</helmet>
+<nav class="nav" style="padding:14px 40px;gap:28px;background:var(--color-bg)">
+<img src="peniel-industry/public/img/logo-icon.png" alt="" style="width:28px;height:28px">
+<span class="nav-brand" style="font-size:16px;margin-right:20px">Peniel · Customer Portal</span>
+<a href="#1b" aria-current="{{ cOrders }}">Orders</a>
+<a href="#1j" aria-current="{{ cProduction }}">Production</a>
+<a href="#1p" aria-current="{{ cCatalog }}">Catalog</a>
+<a href="#1q" aria-current="{{ cArtwork }}">Artwork</a>
+<a href="#1m" aria-current="{{ cDocuments }}">Documents</a>
+<span style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;border-left:2px solid var(--color-divider);padding-left:20px"><span style="width:28px;height:28px;background:var(--color-text);color:var(--color-bg);display:grid;place-items:center;font-size:11px;font-weight:800">MT</span>Habesha Brewery S.C.</span>
+<a class="btn btn-primary" href="#1e" style="color:var(--color-bg)">+ New order</a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:62},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;orders&quot;,&quot;production&quot;,&quot;catalog&quot;,&quot;artwork&quot;,&quot;documents&quot;],&quot;default&quot;:&quot;orders&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.active ?? 'orders';
+    const c = k => (k === a ? 'page' : 'false');
+    return { cOrders: c('orders'), cProduction: c('production'), cCatalog: c('catalog'), cArtwork: c('artwork'), cDocuments: c('documents') };
+  }
+}
+</script>
+</body>
+</html>

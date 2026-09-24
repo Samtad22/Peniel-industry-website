@@ -55,3 +55,41 @@ export function formatPct(value: number | string | null | undefined, digits = 2)
   if (value == null || value === "") return "—";
   return `${Number(value).toFixed(digits)}%`;
 }
+
+const dayMonthFmt = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", timeZone: TIME_ZONE });
+const weekdayFmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: TIME_ZONE });
+const hourFmt = new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: TIME_ZONE });
+
+/** `20 Nov` — short form used in tables. */
+export function formatDayMonth(value: string | Date | null | undefined): string {
+  if (value == null || value === "") return "—";
+  return dayMonthFmt.format(toDate(value)).replace("Sept", "Sep");
+}
+
+/** `Wed 23 Sep 2026 · 16:52 EAT` — the dashboard clock line. */
+export function formatNowLine(now: Date): string {
+  return `${weekdayFmt.format(now)} ${formatDate(now)} · ${timeFmt.format(now)} EAT`;
+}
+
+/** `Good morning` / `Good afternoon` / `Good evening`, by Addis Ababa time. */
+export function greeting(now: Date): string {
+  const h = Number(hourFmt.format(now)) % 24;
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/** `12 min`, `2 h ago`, `3 d ago` — compact age of an event. */
+export function timeAgo(value: string | Date, now: Date = new Date()): string {
+  const mins = Math.max(0, Math.round((now.getTime() - toDate(value).getTime()) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} d ago`;
+}
+
+/** Calendar date (`YYYY-MM-DD`) in Addis Ababa, `days` from `now`. */
+export function addisDateISO(now: Date, days = 0): string {
+  const d = new Date(now.getTime() + days * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(d);
+}

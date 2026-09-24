@@ -1,50 +1,61 @@
 import clsx from "clsx";
 
-export function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  htmlFor,
+  hint,
+  aside,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  hint?: string;
+  /** Right-hand side of the label row, e.g. a "Forgot password?" link. */
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
+    <div className="field">
+      <label htmlFor={htmlFor} className={aside ? "!flex justify-between" : undefined}>
         {label}
+        {aside}
       </label>
       {children}
-      {hint && <p className="text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs opacity-70">{hint}</p>}
     </div>
   );
 }
 
-export const inputClass =
-  "block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-graphite shadow-xs outline-none placeholder:text-steel focus:border-navy focus:ring-2 focus:ring-navy/15";
-
 export function Button({
   className,
   variant = "primary",
+  icon,
+  children,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "ghost";
+  /** Trailing icon; the label stays flush left (design rule). */
+  icon?: React.ReactNode;
+}) {
   return (
-    <button
-      {...props}
-      className={clsx(
-        "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-        variant === "primary" && "bg-navy text-white hover:bg-navy-deep",
-        variant === "secondary" && "border border-line bg-white text-ink hover:bg-navy-tint",
-        variant === "ghost" && "text-muted hover:bg-navy-tint hover:text-ink",
-        className,
-      )}
-    />
+    <button {...props} className={clsx("btn", `btn-${variant}`, icon && "btn-split", className)}>
+      {children}
+      {icon && <span aria-hidden="true">{icon}</span>}
+    </button>
   );
 }
 
 export function FormMessage({ state }: { state: { error?: string; ok?: string } | null | undefined }) {
   if (state?.error) {
     return (
-      <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="m-0 bg-accent px-3.5 py-2.5 text-[13px] text-bg">
         {state.error}
       </p>
     );
   }
   if (state?.ok) {
     return (
-      <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+      <p role="status" className="m-0 bg-neutral-200 px-3.5 py-2.5 text-[13px] text-neutral-800">
         {state.ok}
       </p>
     );
