@@ -122,13 +122,13 @@ export default function DashboardView({ d }: { d: DashboardData }) {
             sub={oldestProof ? `oldest sent ${timeAgo(oldestProof.sent_at, now)}` : "none out"}
           />
           <Kpi
-            href="/ops/orders"
+            href="/ops/orders?due=7"
             label="Due in 7 days"
             value={d.due7.length}
             sub={d.due7.length ? `${formatQty(dueQty)} crowns` : "nothing due"}
           />
           <Kpi
-            href="/ops/orders"
+            href="/ops/orders?status=on_hold"
             label="On hold"
             value={d.onHold.length}
             sub={holdCompanies.length ? holdCompanies.join(", ") : "none"}
@@ -147,9 +147,10 @@ export default function DashboardView({ d }: { d: DashboardData }) {
           <Panel title="Order inbox" link={{ href: "/ops/inbox", label: "Open inbox →" }}>
             {d.inbox.length === 0 && <Empty>No orders waiting for confirmation.</Empty>}
             {d.inbox.map((o) => (
-              <div
+              <Link
                 key={o.id}
-                className="grid grid-cols-[minmax(0,1fr)_64px_80px] gap-2.5 border-b border-divider py-2.5 text-[14px]"
+                href={`/ops/inbox?o=${o.id}`}
+                className="grid grid-cols-[minmax(0,1fr)_64px_80px] gap-2.5 border-b border-divider py-2.5 text-[14px] text-text no-underline hover:bg-text/5 hover:text-text"
               >
                 <span className="min-w-0">
                   <b>{shortCompany(o.company)}</b> · {o.brand}
@@ -160,16 +161,17 @@ export default function DashboardView({ d }: { d: DashboardData }) {
                 </span>
                 <b className="text-right">{formatQty(o.quantity)}</b>
                 <span className="text-right text-[12px] opacity-70">{timeAgo(o.created_at, now)}</span>
-              </div>
+              </Link>
             ))}
           </Panel>
 
           <Panel title="Due in the next 7 days" link={{ href: "/ops/orders", label: "All orders →" }}>
             {d.due7.length === 0 && <Empty>No open orders due this week.</Empty>}
             {d.due7.map((o) => (
-              <div
+              <Link
                 key={o.id}
-                className="grid grid-cols-[96px_minmax(0,1fr)_56px] items-center gap-2.5 border-b border-divider py-2.5 text-[14px] sm:grid-cols-[96px_minmax(0,1fr)_64px_190px]"
+                href={`/ops/orders/${o.id}`}
+                className="grid grid-cols-[96px_minmax(0,1fr)_56px] items-center gap-2.5 border-b border-divider py-2.5 text-[14px] text-text no-underline hover:bg-text/5 hover:text-text sm:grid-cols-[96px_minmax(0,1fr)_64px_190px]"
               >
                 <b>{o.order_no}</b>
                 <span className="min-w-0 truncate">
@@ -179,7 +181,7 @@ export default function DashboardView({ d }: { d: DashboardData }) {
                 <span className="col-span-3 sm:col-span-1">
                   <StatusBadge status={o.status} />
                 </span>
-              </div>
+              </Link>
             ))}
           </Panel>
 
@@ -206,9 +208,10 @@ export default function DashboardView({ d }: { d: DashboardData }) {
           <Panel title="On hold · Unread messages" link={{ href: "/ops/messages", label: "Messages →" }}>
             {d.onHold.length === 0 && d.unread.length === 0 && <Empty>Nothing on hold, no unread messages.</Empty>}
             {d.onHold.map((o) => (
-              <div
+              <Link
                 key={o.id}
-                className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2.5 border-b border-divider py-2.5 text-[14px] sm:grid-cols-[96px_minmax(0,1fr)_auto]"
+                href={`/ops/orders/${o.id}`}
+                className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-2.5 border-b border-divider py-2.5 text-[14px] text-text no-underline hover:bg-text/5 hover:text-text sm:grid-cols-[96px_minmax(0,1fr)_auto]"
               >
                 <b>{o.order_no}</b>
                 <span className="min-w-0">
@@ -218,7 +221,7 @@ export default function DashboardView({ d }: { d: DashboardData }) {
                 <span className="col-start-2 sm:col-start-auto">
                   <StatusBadge status="on_hold" />
                 </span>
-              </div>
+              </Link>
             ))}
             {d.unread.length > 0 && (
               <div className="grid grid-cols-[96px_minmax(0,1fr)_auto] gap-2.5 border-b border-divider py-2.5 text-[14px]">

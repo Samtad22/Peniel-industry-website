@@ -12,6 +12,7 @@ import {
   HAB_BRAND_HABESHA,
   HAB_ORDER_FETA,
   HAB_ORDER_HABESHA,
+  HAB_ORDER_KIDAME,
   pool,
 } from "./helpers.ts";
 
@@ -83,16 +84,19 @@ describe("staff roles", () => {
     assert.equal(await errorCode(as(staff.production, insert)), null);
   });
 
-  test("only admins can change profiles or read the audit log", async () => {
+  test("only admins change profiles; other staff read only the orders' audit trail", async () => {
     await as(staff.sales, async (db) => {
       const r = await db.query("update public.profiles set role = 'admin' where user_id = $1", [staff.sales]);
       assert.equal(r.rowCount, 0);
-      const log = await db.query("select * from public.audit_log");
-      assert.equal(log.rows.length, 0);
+      const log = await db.query("select distinct entity from public.audit_log order by 1");
+      assert.deepEqual(
+        log.rows.map((x) => x.entity),
+        ["orders"],
+      );
     });
     await as(staff.admin, async (db) => {
-      const log = await db.query("select count(*)::int as n from public.audit_log");
-      assert.ok(log.rows[0].n > 0);
+      const log = await db.query("select count(distinct entity)::int as n from public.audit_log");
+      assert.ok(log.rows[0].n > 1);
     });
   });
 });
@@ -203,6 +207,97 @@ describe("order rules", () => {
         customer_reason: "Waiting for your approval of the updated Feta artwork.",
         revised_due_date: "2026-10-27",
       });
+    });
+  });
+
+  test("rejecting an order requires a customer_reason", async () => {
+    await as(staff.sales, async (db) => {
+      await assert.rejects(
+        db.query("update public.orders set status = 'rejected' where id = $1", [HAB_ORDER_KIDAME]),
+        /customer_reason is required/,
+      );
+    });
+    await as(staff.sales, async (db) => {
+      await db.query("update public.orders set status = 'rejected', customer_reason = 'Not supported' where id = $1", [
+        HAB_ORDER_KIDAME,
+      ]);
+    });
+  });
+
+  test("status moves: confirm needs a due date; no way back to submitted; rejected is final", async () => {
+    await as(staff.sales, async (db) => {
+      await assert.rejects(
+        db.query("update public.orders set status = 'confirmed' where id = $1", [HAB_ORDER_KIDAME]),
+        /Set a due date/,
+      );
+    });
+    await as(staff.sales, async (db) => {
+      await assert.rejects(
+        db.query("update public.orders set status = 'rejected', customer_reason = 'x' where id = $1", [HAB_ORDER_HABESHA]),
+        /Only new or confirmed orders can be rejected/,
+      );
+    });
+    await as(staff.sales, async (db) => {
+      await assert.rejects(
+        db.query("update public.orders set status = 'submitted' where id = $1", [HAB_ORDER_HABESHA]),
+        /cannot go back to Submitted/,
+      );
+    });
+    await as(staff.sales, async (db) => {
+      await db.query("update public.orders set status = 'rejected', customer_reason = 'x' where id = $1", [HAB_ORDER_KIDAME]);
+      await assert.rejects(
+        db.query("update public.orders set status = 'confirmed', confirmed_due_date = '2026-12-01' where id = $1", [
+          HAB_ORDER_KIDAME,
+        ]),
+        /cannot be reopened/,
+      );
+    });
+  });
+
+  test("confirming writes the customer timeline", async () => {
+    await as(staff.sales, async (db) => {
+      await db.query(
+        "update public.orders set status = 'confirmed', confirmed_due_date = '2026-11-20', confirmed_by = $2 where id = $1",
+        [HAB_ORDER_KIDAME, staff.sales],
+      );
+      await db.query("commit");
+    });
+    await as(habesha, async (db) => {
+      const { rows } = await db.query(
+        "select status from public.customer_order_timeline where order_id = $1 order by created_at",
+        [HAB_ORDER_KIDAME],
+      );
+      assert.deepEqual(
+        rows.map((r) => r.status),
+        ["submitted", "confirmed"],
+      );
+      const o = await db.query("select due_date::text from public.customer_orders where id = $1", [HAB_ORDER_KIDAME]);
+      assert.equal(o.rows[0].due_date, "2026-11-20");
+    });
+  });
+
+  test("staff can ask the customer a question on an order, and the customer can answer", async () => {
+    const thread = await as(staff.sales, async (db) => {
+      const t = await db.query(
+        `insert into public.message_threads (company_id, order_id, subject, created_by, assigned_to)
+         values ($1, $2, 'Question about your order', $3, $3) returning id`,
+        [HAB, HAB_ORDER_KIDAME, staff.sales],
+      );
+      await db.query(
+        "insert into public.messages (thread_id, author_id, body, read_by_staff) values ($1, $2, 'Is 20 Nov right?', true)",
+        [t.rows[0].id, staff.sales],
+      );
+      await db.query("commit");
+      return t.rows[0].id as string;
+    });
+    await as(habesha, async (db) => {
+      const { rows } = await db.query(
+        `select m.body, m.from_peniel from public.customer_messages m
+         join public.customer_message_threads t on t.id = m.thread_id where t.order_id = $1`,
+        [HAB_ORDER_KIDAME],
+      );
+      assert.deepEqual(rows, [{ body: "Is 20 Nov right?", from_peniel: true }]);
+      await db.query("select public.customer_send_message('Yes, 20 Nov.', $1)", [thread]);
     });
   });
 
