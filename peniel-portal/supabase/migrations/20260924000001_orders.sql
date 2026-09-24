@@ -1,6 +1,8 @@
 -- ============================================================================
 -- Phase 2 — Orders
 --
+-- Safe to run more than once.
+--
 -- * Customers place an order and attach its files in one step
 --   (customer_submit_order). Files are uploaded first, into the company's
 --   `uploads/` folder, so a failed upload never leaves an order without its PO.
@@ -18,14 +20,37 @@
 -- ---------------------------------------------------------------------------
 -- One PO file, several orders
 -- ---------------------------------------------------------------------------
-alter table public.order_attachments drop constraint order_attachments_file_path_key;
-alter table public.order_attachments add constraint order_attachments_order_file_key unique (order_id, file_path);
+-- Drop the old one-order-per-file rule, whatever the database named it.
+do $$
+declare
+  c text;
+begin
+  for c in
+    select con.conname
+    from pg_constraint con
+    join pg_attribute att on att.attrelid = con.conrelid and att.attnum = any (con.conkey)
+    where con.conrelid = 'public.order_attachments'::regclass
+      and con.contype = 'u'
+      and cardinality(con.conkey) = 1
+      and att.attname = 'file_path'
+  loop
+    execute format('alter table public.order_attachments drop constraint %I', c);
+  end loop;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.order_attachments'::regclass and conname = 'order_attachments_order_file_key'
+  ) then
+    alter table public.order_attachments
+      add constraint order_attachments_order_file_key unique (order_id, file_path);
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Customers may upload into {company_id}/uploads/… before the order exists,
 -- as well as into {company_id}/{their order_id}/…
 -- ---------------------------------------------------------------------------
-drop policy "portal: customer upload own order attachments" on storage.objects;
+drop policy if exists "portal: customer upload own order attachments" on storage.objects;
 
 create policy "portal: customer upload own order attachments"
   on storage.objects for insert to authenticated
@@ -48,9 +73,9 @@ create policy "portal: customer upload own order attachments"
 -- p_attachments: [{"path", "name", "size", "mime", "type"}, …] — files the
 -- caller has already uploaded to `order-attachments` under their company.
 -- ---------------------------------------------------------------------------
-drop function public.customer_create_order(uuid, text, bigint, date, public.delivery_method, text);
+drop function if exists public.customer_create_order(uuid, text, bigint, date, public.delivery_method, text);
 
-create function public.customer_submit_order(
+create or replace function public.customer_submit_order(
   p_brand_id         uuid,
   p_po_number        text,
   p_quantity         bigint,
@@ -137,7 +162,7 @@ grant execute on function public.customer_submit_order(uuid, text, bigint, date,
 -- ---------------------------------------------------------------------------
 -- Customers mark a conversation as read
 -- ---------------------------------------------------------------------------
-create function public.customer_mark_thread_read(p_thread_id uuid)
+create or replace function public.customer_mark_thread_read(p_thread_id uuid)
 returns void
 language plpgsql security definer set search_path = ''
 as $$
@@ -179,7 +204,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Allowed status moves
 -- ---------------------------------------------------------------------------
-create function app.check_order_transition()
+create or replace function app.check_order_transition()
 returns trigger language plpgsql set search_path = ''
 as $$
 begin
@@ -204,12 +229,14 @@ begin
 end
 $$;
 
+drop trigger if exists check_order_transition on public.orders;
 create trigger check_order_transition before update of status on public.orders
   for each row execute function app.check_order_transition();
 
 -- ---------------------------------------------------------------------------
 -- Staff read the audit trail of orders and their attachments
 -- ---------------------------------------------------------------------------
+drop policy if exists staff_read_order_audit on public.audit_log;
 create policy staff_read_order_audit on public.audit_log for select to authenticated
   using (app.is_staff() and entity in ('orders', 'order_attachments'));
 
@@ -217,7 +244,7 @@ create policy staff_read_order_audit on public.audit_log for select to authentic
 -- Presets for rejections as well as holds
 -- ---------------------------------------------------------------------------
 alter table public.hold_reason_presets
-  add column kind text not null default 'hold' check (kind in ('hold', 'reject'));
+  add column if not exists kind text not null default 'hold' check (kind in ('hold', 'reject'));
 
 insert into public.hold_reason_presets (text, sort_order, kind) values
   ('We can''t produce this specification. Please contact us to discuss an alternative.', 1, 'reject'),
