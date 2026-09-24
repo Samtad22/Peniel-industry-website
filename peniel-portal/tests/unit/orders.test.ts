@@ -98,3 +98,29 @@ test("audit: activity log lines", async () => {
     detail: "po.pdf",
   });
 });
+
+test("production: projected completion from the recent pace", async () => {
+  const { projectCompletion, lastDays, rejectPct } = await import("../../lib/production-math.ts");
+  assert.deepEqual(lastDays("2026-09-24", 3), ["2026-09-22", "2026-09-23", "2026-09-24"]);
+  const daily = [
+    { date: "2026-09-21", good: 400_000 },
+    { date: "2026-09-22", good: 0 },
+    { date: "2026-09-23", good: 410_000 },
+    { date: "2026-09-24", good: 390_000 },
+  ];
+  assert.deepEqual(projectCompletion(daily, 4_000_000, "2026-09-24"), { date: "2026-10-04", perDay: 400_000 });
+  assert.equal(projectCompletion([], 1000, "2026-09-24"), null);
+  assert.equal(projectCompletion(daily, 0, "2026-09-24"), null);
+  assert.equal(rejectPct(1120, 412000), 0.27);
+});
+
+test("qc: measurement values, spec checks and trend warning", async () => {
+  const { measureValue, checkMeasure, risingTrend, CROWN_HEIGHT } = await import("../../lib/qc.ts");
+  assert.equal(measureValue({ crown_height_mm: [6.02, 6.01, 6.03] }, "crown_height_mm"), 6.02);
+  assert.equal(measureValue({ crown_height_mm: 6.12 }, "crown_height_mm"), 6.12);
+  assert.equal(measureValue({}, "crown_height_mm"), null);
+  assert.equal(checkMeasure(CROWN_HEIGHT, 6.2), "high");
+  assert.equal(checkMeasure(CROWN_HEIGHT, 6.0), "ok");
+  assert.equal(risingTrend([1, 2, 3, 4, 5, 6, 7]), true);
+  assert.equal(risingTrend([1, 2, 3, 2, 5, 6, 7]), false);
+});
