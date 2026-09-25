@@ -36,8 +36,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
 
   const rows: InboxRow[] = (data ?? []).map((r) => ({
     id: r.id,
-    company: r.companies?.name ?? "—",
-    brand: r.brands?.name ?? "—",
+    company: r.companies?.name ?? "-",
+    brand: r.brands?.name ?? "-",
     spec: [r.brands?.size, r.brands?.finish].filter(Boolean).join(" · "),
     po_number: r.po_number,
     quantity: Number(r.quantity),

@@ -33,7 +33,7 @@ export function wastePct(passed: number, waste: number): number | null {
 /** "16.7%", or "—" when nothing was sorted. */
 export function formatWastePct(passed: number, waste: number): string {
   const pct = wastePct(passed, waste);
-  return pct == null ? "—" : `${pct.toFixed(1)}%`;
+  return pct == null ? "-" : `${pct.toFixed(1)}%`;
 }
 
 /** Totals over a batch's sorting reports. */

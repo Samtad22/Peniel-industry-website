@@ -166,7 +166,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   </span>
                   <span>{s.batch_no}</span>
                   <b className="text-right tabular-nums">{formatQty(Number(s.quantity))}</b>
-                  <span className="opacity-80">{s.location ?? "—"}</span>
+                  <span className="opacity-80">{s.location ?? "-"}</span>
                   <span>{formatDate(s.ready_since)}</span>
                   <span>
                     <Pill style={STOCK_PILL[s.status].style}>{STOCK_PILL[s.status].label}</Pill>

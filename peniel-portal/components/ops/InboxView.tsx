@@ -136,13 +136,13 @@ export default function InboxView({
                   ["Reference", `${o.order_no} (provisional until confirmed)`],
                   ["Customer PO", o.po_number],
                   ["Brand", o.brand],
-                  ["Crown", o.spec || "—"],
-                  ["Liner", o.liner || "—"],
+                  ["Crown", o.spec || "-"],
+                  ["Liner", o.liner || "-"],
                   ["Quantity", `${o.quantity.toLocaleString("en-US")} crowns`],
                   ["Requested date", o.requested_date ? formatDate(o.requested_date) : "Not given"],
                   [
                     "Fulfilment",
-                    o.delivery_method === "delivery" ? `Delivery · ${o.delivery_address ?? "—"}` : "Pickup at Bole Lemi",
+                    o.delivery_method === "delivery" ? `Delivery · ${o.delivery_address ?? "-"}` : "Pickup at Bole Lemi",
                   ],
                 ] as [string, string][]
               ).map(([k, v]) => (

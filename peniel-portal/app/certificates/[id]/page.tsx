@@ -34,7 +34,7 @@ type Certificate = {
 };
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000));
-const pct = (count: number, sample: number) => (sample > 0 ? `${fmt(Math.round((count / sample) * 10000) / 100)}%` : "—");
+const pct = (count: number, sample: number) => (sample > 0 ? `${fmt(Math.round((count / sample) * 10000) / 100)}%` : "-");
 
 /**
  * Certificate of Analysis for one batch, laid out like the Quality team's
@@ -149,7 +149,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                     <td className={`${cell} text-center`}>
                       ({m.spec}) {m.unit}
                     </td>
-                    <td className={`${cell} text-center font-semibold`}>{v == null ? "—" : `${fmt(v)} ${m.unit}`}</td>
+                    <td className={`${cell} text-center font-semibold`}>{v == null ? "-" : `${fmt(v)} ${m.unit}`}</td>
                     <td className={`${cell} ${check && check !== "ok" ? "font-extrabold text-accent-800" : ""}`}>
                       {check == null ? "Not measured" : check === "ok" ? "Conforms" : "Out of spec"}
                     </td>

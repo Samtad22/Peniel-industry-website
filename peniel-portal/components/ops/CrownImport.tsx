@@ -90,7 +90,7 @@ function CrownImportForm({ companyId, brands, close }: { companyId: string; bran
             {rows.map((r, i) => (
               <tr key={i} className="border-b border-divider">
                 <td className="max-w-[200px] truncate py-1.5 pr-3">{r.file.name}</td>
-                <td className="py-1.5 pr-3">{r.brand?.name ?? "—"}</td>
+                <td className="py-1.5 pr-3">{r.brand?.name ?? "-"}</td>
                 <td className={`py-1.5 ${r.status === "error" ? "font-bold text-accent-800" : ""}`}>
                   {r.status === "ready" ? "Ready" : r.status === "uploading" ? "Uploading…" : r.message}
                 </td>

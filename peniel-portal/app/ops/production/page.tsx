@@ -42,7 +42,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   return (
     <>
       <OpsHeader
-        title={range === "week" ? "Production — last 7 days" : "Production — today"}
+        title={range === "week" ? "Production · last 7 days" : "Production · today"}
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <div className="seg">
@@ -71,7 +71,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           </div>
           <div className={kpi}>
             <h6 className="m-0 opacity-60">Reject rate</h6>
-            <div className={`kpi ${pct > REJECT_LIMIT_PCT ? "text-accent-700" : ""}`}>{produced ? `${pct.toFixed(2)}%` : "—"}</div>
+            <div className={`kpi ${pct > REJECT_LIMIT_PCT ? "text-accent-700" : ""}`}>{produced ? `${pct.toFixed(2)}%` : "-"}</div>
             <div className="text-[12px]">limit {REJECT_LIMIT_PCT.toFixed(2)}%</div>
           </div>
           <div className={kpi}>
@@ -153,9 +153,9 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
                     </span>
                   </span>
                   <span>{formatDayMonth(o.due_date)}</span>
-                  <span>{o.last_entry ? formatDate(o.last_entry) : "—"}</span>
+                  <span>{o.last_entry ? formatDate(o.last_entry) : "-"}</span>
                   <span className={o.unpublished ? "font-extrabold text-accent-700" : "opacity-60"}>
-                    {o.unpublished ? `${o.unpublished} to publish` : "—"}
+                    {o.unpublished ? `${o.unpublished} to publish` : "-"}
                   </span>
                 </Link>
               );

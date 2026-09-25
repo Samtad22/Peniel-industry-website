@@ -72,13 +72,13 @@ export default async function PickupsPage({ searchParams }: { searchParams: Prom
               <div key={x.id} className={`flex flex-col gap-2 border-b border-divider px-3 py-4 text-[14px] ${on ? "bg-neutral-200 shadow-[inset_4px_0_0_var(--color-accent)]" : ""}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Link href={`/ops/inventory/pickups?b=${x.id}`} className="text-[16px] font-extrabold text-text no-underline hover:underline">
-                    {x.companies?.name ?? "—"}
+                    {x.companies?.name ?? "-"}
                   </Link>
                   <Pill style={PICKUP_PILL[x.status].style}>{PICKUP_PILL[x.status].label}</Pill>
                 </div>
                 <span className="text-[13px]">
                   {items(x)
-                    .map((i) => `${i.orders?.order_no ?? "—"} · ${i.brands?.name ?? ""} · ${formatQty(Number(i.quantity))}`)
+                    .map((i) => `${i.orders?.order_no ?? "-"} · ${i.brands?.name ?? ""} · ${formatQty(Number(i.quantity))}`)
                     .join("  ·  ")}
                 </span>
                 <span className="text-[13px]">
@@ -136,7 +136,7 @@ export default async function PickupsPage({ searchParams }: { searchParams: Prom
                 {items(selected).map((i) => (
                   <div key={i.batch_no} className="flex justify-between gap-2 border-b border-divider py-1.5">
                     <span>
-                      <b>{i.batch_no}</b> · {i.brands?.name} · {i.orders?.order_no ?? "—"}
+                      <b>{i.batch_no}</b> · {i.brands?.name} · {i.orders?.order_no ?? "-"}
                     </span>
                     <span>
                       {Number(i.quantity).toLocaleString("en-US")}

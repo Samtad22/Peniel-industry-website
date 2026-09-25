@@ -54,7 +54,7 @@ export default function UsersTable({
               {ROLE_LABELS[u.role]}
               <span className="@3xl:hidden"> · last login {u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</span>
             </span>
-            <span className="@max-3xl:hidden">{u.last_login_at ? formatDateTime(u.last_login_at) : "—"}</span>
+            <span className="@max-3xl:hidden">{u.last_login_at ? formatDateTime(u.last_login_at) : "-"}</span>
             <span className="@max-3xl:col-start-2 @max-3xl:row-start-1 @max-3xl:text-right">
               <UserStatusBadge status={status} />
             </span>

@@ -50,8 +50,8 @@ type OrderRow = Omit<
   submitter: { full_name: string } | null;
 };
 
-/** Short line label for tables: "Line 1 — Press A" → "L1". */
-export const shortLine = (name: string) => name.split(/\s+[—-]\s+/)[0].replace(/^Line\s*/i, "L");
+/** Short line label for tables: "Line 1 · Press A" → "L1". */
+export const shortLine = (name: string) => name.split(/\s+[—·:-]\s+/)[0].replace(/^Line\s*/i, "L");
 
 /**
  * Everything the staff order page (design 1f) and the inbox (1c) show. Read
@@ -142,8 +142,8 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
   return {
     ...o,
     quantity: Number(o.quantity),
-    company: o.companies?.name ?? "—",
-    brand: o.brands?.name ?? "—",
+    company: o.companies?.name ?? "-",
+    brand: o.brands?.name ?? "-",
     brand_colours: o.brands?.colours ?? [],
     spec: [o.brands?.size, o.brands?.finish].filter(Boolean).join(" · "),
     liner: o.brands?.liner ?? "",
@@ -154,7 +154,7 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
     messages: (msgs ?? []).map((m) => ({
       id: m.id,
       body: m.body,
-      author: m.profiles?.full_name ?? "—",
+      author: m.profiles?.full_name ?? "-",
       from_customer: m.profiles?.role === "customer_user",
       created_at: m.created_at,
     })),
@@ -245,8 +245,8 @@ export async function listStaffOrders(supabase: Supabase, f: OrderFilters, today
     .map((o) => ({
       id: o.id,
       order_no: o.order_no,
-      company: o.companies?.name ?? "—",
-      brand: o.brands?.name ?? "—",
+      company: o.companies?.name ?? "-",
+      brand: o.brands?.name ?? "-",
       po_number: o.po_number,
       product: [o.brands?.size, o.brands?.finish, o.brands?.liner].filter(Boolean).join(" · "),
       quantity: Number(o.quantity),

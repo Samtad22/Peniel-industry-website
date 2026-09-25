@@ -82,7 +82,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
 
   // Sorting (internal): every held batch, plus released batches that were sorted.
   const byId = new Map(all.map((r) => [r.id, r]));
-  const batchLabel = (r: Row) => `${r.orders?.brands?.name ?? "—"} · batch ${r.batch_no} · ${r.orders?.order_no ?? ""}`;
+  const batchLabel = (r: Row) => `${r.orders?.brands?.name ?? "-"} · batch ${r.batch_no} · ${r.orders?.order_no ?? ""}`;
   const sortBatches = all
     .filter((r) => r.result === "on_hold" || sortings.some((x) => x.inspection_id === r.id))
     .map((r) => ({ r, t: sortingTotals(sortings.filter((x) => x.inspection_id === r.id)) }))
@@ -186,12 +186,12 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                   <Link href={`/ops/quality/${r.id}#sorting`} className="truncate font-extrabold">
                     {batchLabel(r)}
                   </Link>
-                  <span className="truncate">{r.orders?.companies?.name ?? "—"}</span>
+                  <span className="truncate">{r.orders?.companies?.name ?? "-"}</span>
                   <span>{t.reports ? cartonsLine(t.sorted) : <span className="opacity-60">Not sorted yet</span>}</span>
-                  <span>{t.reports ? cartonsLine(t.passed) : "—"}</span>
-                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? cartonsLine(t.waste) : "—"}</span>
-                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.wastePct == null ? "—" : `${t.wastePct.toFixed(1)}%`}</span>
-                  <span>{t.lastSorted ? formatDate(t.lastSorted) : "—"}</span>
+                  <span>{t.reports ? cartonsLine(t.passed) : "-"}</span>
+                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? cartonsLine(t.waste) : "-"}</span>
+                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.wastePct == null ? "-" : `${t.wastePct.toFixed(1)}%`}</span>
+                  <span>{t.lastSorted ? formatDate(t.lastSorted) : "-"}</span>
                   <span>
                     <Pill style={pill.style}>{pill.label}</Pill>
                   </span>
@@ -221,12 +221,12 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                   return (
                     <div key={x.id} className={`${REPORT_COLS} border-b border-divider py-2 text-[13px]`} title={x.notes ?? undefined}>
                       <span>{formatDate(x.sorted_on)}</span>
-                      <span className="truncate">{b ? batchLabel(b) : "—"}</span>
+                      <span className="truncate">{b ? batchLabel(b) : "-"}</span>
                       <span>{x.passed_cartons + x.waste_cartons}</span>
                       <span>{x.passed_cartons}</span>
                       <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>
                       <span>{formatWastePct(x.passed_cartons, x.waste_cartons)}</span>
-                      <span className="truncate">{x.reported_by ?? "—"}</span>
+                      <span className="truncate">{x.reported_by ?? "-"}</span>
                       {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
                     </div>
                   );
@@ -275,13 +275,13 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                     {r.batch_no}
                   </Link>
                   <span className="truncate">
-                    {r.orders?.companies?.name ?? "—"} · {r.orders?.brands?.name ?? "—"}
+                    {r.orders?.companies?.name ?? "-"} · {r.orders?.brands?.name ?? "-"}
                   </span>
                   <Link href={`/ops/orders/${r.order_id}`} className="text-text">
-                    {r.orders?.order_no ?? "—"}
+                    {r.orders?.order_no ?? "-"}
                   </Link>
-                  <span>{measureValue(r.measurements, CROWN_HEIGHT.key)?.toFixed(2) ?? "—"}</span>
-                  <span>{measureValue(r.measurements, LEAK_PRESSURE.key)?.toFixed(1) ?? "—"}</span>
+                  <span>{measureValue(r.measurements, CROWN_HEIGHT.key)?.toFixed(2) ?? "-"}</span>
+                  <span>{measureValue(r.measurements, LEAK_PRESSURE.key)?.toFixed(1) ?? "-"}</span>
                   <span className={pct > REJECT_LIMIT_PCT ? "font-extrabold text-accent-700" : undefined}>{pct.toFixed(2)}%</span>
                   <span>
                     <Pill style={pill.style}>{pill.label}</Pill>

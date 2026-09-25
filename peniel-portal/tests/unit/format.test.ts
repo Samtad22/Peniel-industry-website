@@ -5,7 +5,7 @@ import { formatDate, formatDateTime, formatPct, formatQty } from "../../lib/form
 test("dates read `14 Oct 2026`", () => {
   assert.equal(formatDate("2026-10-14"), "14 Oct 2026");
   assert.equal(formatDate("2026-09-02"), "2 Sep 2026");
-  assert.equal(formatDate(null), "—");
+  assert.equal(formatDate(null), "-");
 });
 
 test("instants are shown in Addis Ababa time", () => {
@@ -21,7 +21,7 @@ test("quantities read `12.0M` / `850K`", () => {
   assert.equal(formatQty(999_600), "1.0M");
   assert.equal(formatQty(17_800), "18K");
   assert.equal(formatQty("640"), "640");
-  assert.equal(formatQty(null), "—");
+  assert.equal(formatQty(null), "-");
 });
 
 test("percentages", () => {

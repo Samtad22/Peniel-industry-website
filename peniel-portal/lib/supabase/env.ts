@@ -1,6 +1,6 @@
 export function supabaseUrl(): string {
   const v = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!v) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set — copy .env.example to .env.local");
+  if (!v) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set: copy .env.example to .env.local");
   return projectOrigin(v);
 }
 
@@ -21,7 +21,7 @@ export function projectOrigin(url: string): string {
 
 export function supabaseAnonKey(): string {
   const v = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!v) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set — copy .env.example to .env.local");
+  if (!v) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set: copy .env.example to .env.local");
   return v;
 }
 

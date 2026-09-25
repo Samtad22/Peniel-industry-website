@@ -113,7 +113,7 @@ function Summary({ rows }: { rows: [string, React.ReactNode][] }) {
         {rows.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 border-b border-divider py-2 text-[13px]">
             <span className="opacity-60">{k}</span>
-            <span className={v ? "font-extrabold" : "opacity-40"}>{v || "—"}</span>
+            <span className={v ? "font-extrabold" : "opacity-40"}>{v || "-"}</span>
           </div>
         ))}
       </div>
@@ -409,7 +409,7 @@ export default function NewOrderWizard({
                     {[
                       ["Size", brand.size],
                       ["Liner", brand.liner],
-                      ["Finish", brand.finish ?? "—"],
+                      ["Finish", brand.finish ?? "-"],
                     ].map(([k, v]) => (
                       <div key={k} className="border-b border-r border-divider px-3.5 py-3">
                         <div className="text-[11px] uppercase tracking-[0.08em] opacity-60">{k}</div>

@@ -193,9 +193,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
                       {r.yours && " · yours"}
                     </span>
                   </span>
-                  <span>{r.order_id ? (orderNo.get(r.order_id) ?? "—") : "—"}</span>
+                  <span>{r.order_id ? (orderNo.get(r.order_id) ?? "-") : "-"}</span>
                   <span>{formatDate(r.created_at)}</span>
-                  <span>{r.size ? formatBytes(r.size) : "—"}</span>
+                  <span>{r.size ? formatBytes(r.size) : "-"}</span>
                   <span className="text-center font-extrabold text-accent" aria-label={`Download ${r.name}`}>
                     ↓
                   </span>

@@ -129,12 +129,12 @@ function Output({ rows }: { rows: OutputRow[] }) {
             </div>
             <div className="border-divider px-4 py-4 sm:px-5 max-md:border-t md:border-l xl:py-6">
               <h6 className="m-0 opacity-60">Produced today</h6>
-              <div className="text-[26px] font-extrabold leading-[1.2]">{o.today ? formatQty(o.today) : "—"}</div>
+              <div className="text-[26px] font-extrabold leading-[1.2]">{o.today ? formatQty(o.today) : "-"}</div>
             </div>
             <div className="border-divider px-4 py-4 sm:px-5 max-md:border-t md:border-l xl:py-6">
               <h6 className="m-0 opacity-60">Expected completion</h6>
               <div className="text-[18px] font-extrabold leading-[1.3]">
-                {pct >= 100 ? "Completed" : o.projection ? formatDate(o.projection) : "—"}
+                {pct >= 100 ? "Completed" : o.projection ? formatDate(o.projection) : "-"}
               </div>
               <div className="text-[12px] opacity-70">
                 {pct < 100 && o.perDay ? `At ${formatQty(o.perDay)}/day` : ""}
@@ -285,7 +285,7 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
                         CoA ↗
                       </a>
                     ) : (
-                      <span className="opacity-50">—</span>
+                      <span className="opacity-50">-</span>
                     )}
                   </span>
                 </div>
@@ -351,7 +351,7 @@ function Stock({ rows, bookings, pickupMin }: { rows: StockRow[]; bookings: Book
                     <span>
                       <Pill style={STOCK_PILL[s.status].style}>{STOCK_PILL[s.status].label}</Pill>
                     </span>
-                    <span>{s.order_no ?? "—"}</span>
+                    <span>{s.order_no ?? "-"}</span>
                   </div>
                   {s.status === "on_hold" && s.customer_reason && (
                     <p className="m-0 bg-accent-100 px-2 py-2 text-[13px] text-accent-800">{s.customer_reason}</p>
@@ -376,7 +376,7 @@ function Stock({ rows, bookings, pickupMin }: { rows: StockRow[]; bookings: Book
                 </div>
                 {bookings.map((b) => (
                   <div key={b.id} className="grid grid-cols-[minmax(0,1fr)_190px_190px_170px_130px] items-center gap-3 border-b border-divider py-2.5 text-[14px]">
-                    <span className="truncate">{b.batches.join(", ") || "—"}</span>
+                    <span className="truncate">{b.batches.join(", ") || "-"}</span>
                     <span>{formatDateTime(b.requested_at)}</span>
                     <span className={b.status === "rescheduled" ? "font-extrabold text-accent-800" : undefined}>
                       {b.status === "rescheduled" && b.proposed_time
@@ -385,12 +385,12 @@ function Stock({ rows, bookings, pickupMin }: { rows: StockRow[]; bookings: Book
                           ? `Confirmed ${formatDateTime(b.proposed_time)}`
                           : b.status === "requested"
                             ? "Waiting to confirm"
-                            : "—"}
+                            : "-"}
                     </span>
                     <span>
                       <Pill style={PICKUP_PILL[b.status].style}>{PICKUP_PILL[b.status].label}</Pill>
                     </span>
-                    <span>{b.delivery_note_no ?? "—"}</span>
+                    <span>{b.delivery_note_no ?? "-"}</span>
                   </div>
                 ))}
               </div>

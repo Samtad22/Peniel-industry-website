@@ -1,8 +1,23 @@
-<h2>You're invited to the Peniel Portal</h2>
-<p>Peniel Industry PLC has created a portal account for you.</p>
-<p>
-  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/set-password">
-    Accept the invitation and choose a password
-  </a>
-</p>
-<p>This link can be used once. If it has expired, ask your Peniel contact to send a new invitation.</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Peniel Portal account</title>
+</head>
+<body style="margin:0;background:#f3f2f2;font-family:Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2f2;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-top:4px solid #ec3013">
+<tr><td style="padding:20px 28px 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:#ec3013">Peniel Industry PLC</td></tr>
+<tr><td style="padding:8px 28px 4px;font-size:22px;font-weight:800;line-height:1.25;color:#201e1d">Your Peniel Portal account is ready</td></tr>
+<tr><td style="padding:12px 28px 4px">
+<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#201e1d">Peniel Industry PLC has created a portal account for {{ .Email }}. In the portal you can place and follow crown cork orders, approve artwork and download your documents.</p>
+<p style="margin:0 0 12px;font-size:15px;line-height:1.5;color:#201e1d">To start, choose your password:</p>
+<p style="margin:8px 0 20px"><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/set-password" style="display:inline-block;background:#ec3013;color:#ffffff;text-decoration:none;font-weight:800;font-size:14px;padding:12px 18px">Accept the invitation</a></p>
+<p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#6b6866">If the button does not work, copy this address into your browser:<br><span style="word-break:break-all">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite&amp;next=/auth/set-password</span></p>
+<p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#6b6866">The link works once. If it has expired, ask your contact at Peniel to send a new invitation.</p>
+</td></tr>
+<tr><td style="padding:16px 28px 22px;border-top:1px solid #e3e1e0;font-size:12px;line-height:1.5;color:#6b6866">Peniel Industry PLC · Bole Lemi Industrial Park, Addis Ababa, Ethiopia<br>You received this email because Peniel set up a portal account for you. If you were not expecting it, you can ignore it.</td></tr>
+</table></td></tr></table>
+</body>
+</html>

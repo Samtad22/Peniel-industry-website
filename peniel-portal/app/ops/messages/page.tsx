@@ -146,7 +146,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               } ${unread ? "font-extrabold" : ""}`}
             >
               <span className="flex justify-between gap-2">
-                <b className="truncate">{t.companies?.name ?? "—"}</b>
+                <b className="truncate">{t.companies?.name ?? "-"}</b>
                 <span className="shrink-0 text-[12px] font-normal opacity-70">{timeAgo(t.last_message_at, now)}</span>
               </span>
               <span className="truncate">
@@ -168,7 +168,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
           <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-4 sm:px-8">
             <div className="min-w-0 flex-1">
               <h4 className="m-0">
-                {selected.companies?.name ?? "—"}
+                {selected.companies?.name ?? "-"}
                 {selected.orders?.order_no && ` · ${selected.orders.order_no}`}
               </h4>
               <div className="text-[13px] opacity-70">
@@ -208,7 +208,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               <AttachmentsTable
                 files={(files ?? []).map((x) => {
                   const m = msgById.get(x.message_id);
-                  return { ...x, internal: m?.internal, from: m?.profiles?.full_name ?? "—" };
+                  return { ...x, internal: m?.internal, from: m?.profiles?.full_name ?? "-" };
                 })}
                 empty="No files in this conversation yet. Attach one to a reply or an internal note and it appears here."
               />
@@ -231,7 +231,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                     <div className={`mb-1 flex items-center gap-1.5 text-[11px] ${m.internal ? "" : "opacity-70"}`}>
                       {m.internal && <Lock size={11} aria-hidden="true" />}
                       {m.internal ? "Internal note · " : ""}
-                      {m.profiles?.full_name ?? "—"}
+                      {m.profiles?.full_name ?? "-"}
                       {fromCustomer && ` · ${selected.companies?.name.split(" ")[0] ?? ""}`} · {formatDayMonth(m.created_at)}{" "}
                       {formatDateTime(m.created_at).slice(-5)}
                     </div>

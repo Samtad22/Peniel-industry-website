@@ -39,13 +39,13 @@ on conflict (code) do nothing;
 insert into public.hold_reason_presets (text, sort_order) values
   ('Waiting for your approval of the updated artwork.', 1),
   ('Waiting for clarification on the purchase order.', 2),
-  ('Raw material delivery delayed — we will confirm a new date shortly.', 3),
+  ('Raw material delivery delayed. We will confirm a new date shortly.', 3),
   ('Batch under re-inspection by our quality team.', 4),
-  ('Production rescheduled — see the revised due date.', 5);
+  ('Production rescheduled. See the revised due date.', 5);
 
 insert into public.production_lines (id, name) values
-  ('b0000000-0000-4000-8000-000000000001', 'Line 1 — Press A'),
-  ('b0000000-0000-4000-8000-000000000002', 'Line 2 — Press B');
+  ('b0000000-0000-4000-8000-000000000001', 'Line 1 · Press A'),
+  ('b0000000-0000-4000-8000-000000000002', 'Line 2 · Press B');
 
 insert into public.raw_materials (name, unit, on_hand, reorder_level) values
   ('Tinplate sheet 0.23 mm',   'sheets', 180000, 50000),
@@ -57,10 +57,10 @@ insert into public.raw_materials (name, unit, on_hand, reorder_level) values
 -- Inserted as `submitted`, then moved along so each gets a realistic timeline.
 insert into public.orders (id, company_id, brand_id, po_number, quantity, requested_date, delivery_method, internal_notes) values
   ('c1000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000001', 'HB-PO-2026-118', 12000000, '2026-10-14', 'pickup',   'Running on Line 2 / Press B. OEE 81% this week.'),
-  ('c1000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000002', 'HB-PO-2026-118',   850000, '2026-10-20', 'pickup',   'Press B die change pending — downtime 6h.'),
+  ('c1000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000002', 'HB-PO-2026-118',   850000, '2026-10-20', 'pickup',   'Press B die change pending, downtime 6h.'),
   ('c1000000-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000003', 'HB-PO-2026-121',  5000000, '2026-11-02', 'delivery', null),
   ('c1000000-0000-4000-8000-000000000004', '11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000004', 'HB-PO-2026-097',  3000000, '2026-09-18', 'pickup',   'Line 1 finished early.'),
-  ('c2000000-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222', 'a2000000-0000-4000-8000-000000000001', 'DB-7781',          6000000, '2026-10-10', 'delivery', 'Dashen priority — Line 1 / Press A.'),
+  ('c2000000-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222', 'a2000000-0000-4000-8000-000000000001', 'DB-7781',          6000000, '2026-10-10', 'delivery', 'Dashen priority: Line 1 / Press A.'),
   ('c3000000-0000-4000-8000-000000000001', '33333333-3333-4333-8333-333333333333', 'a3000000-0000-4000-8000-000000000001', 'BGI-4410',         2500000, '2026-11-15', 'pickup',   null);
 
 update public.orders set delivery_address = 'Habesha Brewery, Debre Birhan' where id = 'c1000000-0000-4000-8000-000000000003';
@@ -104,7 +104,7 @@ insert into public.qc_inspections (id, batch_no, order_id, inspected_at, sample_
   ('d1000000-0000-4000-8000-000000000001', 'B-26-0412', 'c1000000-0000-4000-8000-000000000004', '2026-09-12 09:30+03', 500,
    '{"crown_height_mm": [6.02, 6.01, 6.03], "press": "Press A", "cpk": 1.41}', 0.40, 'released', null, 'Line 1 SPC in control.', true),
   ('d1000000-0000-4000-8000-000000000002', 'B-26-0431', 'c1000000-0000-4000-8000-000000000001', '2026-09-21 15:00+03', 500,
-   '{"crown_height_mm": [6.09, 6.11], "press": "Press B", "cpk": 0.92}', 2.10, 'on_hold', 'Held for a second inspection of print alignment.', 'Press B registration drifting — maintenance ticket raised.', true),
+   '{"crown_height_mm": [6.09, 6.11], "press": "Press B", "cpk": 0.92}', 2.10, 'on_hold', 'Held for a second inspection of print alignment.', 'Press B registration drifting, maintenance ticket raised.', true),
   ('d1000000-0000-4000-8000-000000000003', 'B-26-0435', 'c1000000-0000-4000-8000-000000000001', '2026-09-22 15:00+03', 500,
    '{"crown_height_mm": [6.02], "press": "Press B"}', 0.30, null, null, 'Not yet reviewed.', false),
   ('d2000000-0000-4000-8000-000000000001', 'B-26-0428', 'c2000000-0000-4000-8000-000000000001', '2026-09-21 16:00+03', 500,
@@ -136,11 +136,11 @@ insert into public.proofs (brand_id, order_id, file_path, status) values
 
 insert into public.documents (company_id, brand_id, order_id, type, title, file_name, file_path, visibility) values
   ('11111111-1111-4111-8111-111111111111', 'a1000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000004',
-   'certificate_of_analysis', 'Certificate of analysis — B-26-0412', 'coa-B-26-0412.pdf',
+   'certificate_of_analysis', 'Certificate of analysis B-26-0412', 'coa-B-26-0412.pdf',
    '11111111-1111-4111-8111-111111111111/documents/coa-B-26-0412.pdf', 'customer'),
   ('11111111-1111-4111-8111-111111111111', null, 'c1000000-0000-4000-8000-000000000001',
    'internal_record', 'Line 2 Press B calibration record', 'line2-pressB-calibration.pdf',
    '11111111-1111-4111-8111-111111111111/documents/line2-pressB-calibration.pdf', 'internal'),
   ('22222222-2222-4222-8222-222222222222', null, 'c2000000-0000-4000-8000-000000000001',
-   'certificate_of_analysis', 'Certificate of analysis — B-26-0428', 'coa-B-26-0428.pdf',
+   'certificate_of_analysis', 'Certificate of analysis B-26-0428', 'coa-B-26-0428.pdf',
    '22222222-2222-4222-8222-222222222222/documents/coa-B-26-0428.pdf', 'customer');
