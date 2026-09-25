@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { notifyMessageToStaff } from "@/lib/notify";
 
 export type CustomerMessageState = { error?: string } | null;
 
@@ -30,5 +31,6 @@ export async function sendToPeniel(_prev: CustomerMessageState, fd: FormData): P
   if (error || !data) return { error: "We couldn't send your message. Please try again." };
   revalidatePath("/messages");
   revalidatePath("/orders");
+  notifyMessageToStaff(data as string, body);
   redirect(`/messages?t=${data}`);
 }

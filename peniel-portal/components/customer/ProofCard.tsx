@@ -21,7 +21,7 @@ export type CustomerProof = {
 };
 
 /** An artwork proof to approve or send back (customer design 1c). */
-export default function ProofCard({ p }: { p: CustomerProof }) {
+export default function ProofCard({ p, preview = false }: { p: CustomerProof; preview?: boolean }) {
   const [state, action, pending] = useActionState<ProofState, FormData>(respondToProof, null);
   const src = `/files/proofs/${p.id}?inline=1`;
   const isImage = p.mime_type?.startsWith("image/");
@@ -67,7 +67,10 @@ export default function ProofCard({ p }: { p: CustomerProof }) {
           </a>
         </div>
       </div>
-      {p.status === "sent" && !state?.ok && (
+      {preview && p.status === "sent" && (
+        <p className="m-0 bg-neutral-200 px-3.5 py-3 text-[13px]">The customer approves or requests changes here.</p>
+      )}
+      {!preview && p.status === "sent" && !state?.ok && (
         <form action={action} className="flex flex-col gap-2.5">
           <input type="hidden" name="proof_id" value={p.id} />
           <div className="field">

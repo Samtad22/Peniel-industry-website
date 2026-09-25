@@ -67,9 +67,14 @@ export default async function OrderProductionPage({ params }: { params: Promise<
         crumb={{ label: "Production", href: "/ops/production", current: "by order" }}
         title={`${o.order_no} · ${o.companies?.name ?? "—"} · ${o.brands?.name ?? "—"}`}
         actions={
-          <Link href={`/ops/orders/${o.id}`} className="btn btn-secondary text-text">
-            Order page →
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
+              Preview as customer ↗
+            </Link>
+            <Link href={`/ops/orders/${o.id}`} className="btn btn-secondary text-text">
+              Order page →
+            </Link>
+          </div>
         }
       />
 

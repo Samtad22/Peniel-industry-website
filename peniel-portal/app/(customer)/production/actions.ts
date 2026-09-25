@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
 import { addisLocalToIso } from "@/lib/inventory";
 import { createClient } from "@/lib/supabase/server";
+import { notifyPickupRequested } from "@/lib/notify";
 
 export type PickupState = { error?: string; ok?: string } | null;
 
@@ -17,10 +18,11 @@ export async function bookPickup(_prev: PickupState, fd: FormData): Promise<Pick
   if (!at) return { error: "Choose a date and time." };
   if (note.length > 500) return { error: "Keep the note under 500 characters." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("customer_request_pickup", { p_stock_ids: ids, p_requested_at: at, p_note: note || null });
+  const { data: bookingId, error } = await supabase.rpc("customer_request_pickup", { p_stock_ids: ids, p_requested_at: at, p_note: note || null });
   if (error) {
     return { error: /future|not available/.test(error.message) ? error.message : "We couldn't book the pickup. Please try again." };
   }
   revalidatePath("/production");
+  if (bookingId) notifyPickupRequested(bookingId as string);
   return { ok: "Pickup requested. Peniel will confirm the time." };
 }

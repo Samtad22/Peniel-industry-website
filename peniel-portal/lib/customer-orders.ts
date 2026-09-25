@@ -127,3 +127,105 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
     messages: messages ?? [],
   };
 }
+
+/**
+ * "Preview as customer" for staff: the same order in the customer's shape,
+ * built from the staff tables with the staff member's own client (RLS still
+ * applies). Only the columns the customer_* views expose are selected, and
+ * the same filters are applied: published production only, no internal
+ * messages, proofs still waiting for an answer.
+ */
+export async function loadCustomerOrderPreview(supabase: Supabase, id: string): Promise<CustomerOrderDetailData | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+
+  const { data: o } = await supabase
+    .from("orders")
+    .select(
+      "id, order_no, po_number, brand_id, quantity, requested_date, confirmed_due_date, revised_due_date, status, customer_reason, delivery_method, delivery_address, updated_at, brands(name, size, finish, liner)",
+    )
+    .eq("id", id)
+    .maybeSingle<{
+      id: string;
+      order_no: string;
+      po_number: string;
+      brand_id: string;
+      quantity: number;
+      requested_date: string | null;
+      confirmed_due_date: string | null;
+      revised_due_date: string | null;
+      status: OrderStatus;
+      customer_reason: string | null;
+      delivery_method: "pickup" | "delivery";
+      delivery_address: string | null;
+      updated_at: string;
+      brands: { name: string; size: string; finish: string | null; liner: string } | null;
+    }>();
+  if (!o) return null;
+
+  const [{ data: output }, { data: events }, { data: files }, { data: threads }, { data: proofs }] = await Promise.all([
+    supabase.from("production_entries").select("produced_qty, reject_qty").eq("order_id", id).eq("published", true),
+    supabase
+      .from("order_status_events")
+      .select("status, created_at, customer_reason")
+      .eq("order_id", id)
+      .order("created_at")
+      .returns<{ status: OrderStatus; created_at: string; customer_reason: string | null }[]>(),
+    supabase
+      .from("order_attachments")
+      .select("id, file_name, type, size_bytes")
+      .eq("order_id", id)
+      .order("created_at")
+      .returns<CustomerOrderDetailData["attachments"]>(),
+    supabase.from("message_threads").select("id").eq("order_id", id).order("last_message_at", { ascending: false }).returns<{ id: string }[]>(),
+    supabase
+      .from("proofs")
+      .select("id, version, status, note, approve_by, created_at, file_name, mime_type")
+      .eq("order_id", id)
+      .eq("status", "sent")
+      .order("created_at", { ascending: false })
+      .returns<Omit<CustomerProof, "brand_name" | "order_no">[]>(),
+  ]);
+
+  const threadIds = (threads ?? []).map((t) => t.id);
+  const { data: messages } = threadIds.length
+    ? await supabase
+        .from("messages")
+        .select("id, body, created_at, author:profiles!messages_author_id_fkey(full_name, role)")
+        .in("thread_id", threadIds)
+        .eq("internal", false)
+        .order("created_at")
+        .returns<{ id: string; body: string; created_at: string; author: { full_name: string; role: string } | null }[]>()
+    : { data: [] };
+
+  const due = o.revised_due_date ?? o.confirmed_due_date;
+  const brandName = o.brands?.name ?? "";
+  return {
+    id: o.id,
+    order_no: o.order_no,
+    po_number: o.po_number,
+    brand_id: o.brand_id,
+    brand_name: brandName,
+    spec: o.brands ? brandSpec(o.brands) : "",
+    liner: o.brands?.liner ?? "",
+    quantity: Number(o.quantity),
+    completed_qty: (output ?? []).reduce((s, e) => s + Number(e.produced_qty) - Number(e.reject_qty), 0),
+    due_date: due,
+    requested_date: o.requested_date,
+    status: o.status,
+    customer_reason: o.customer_reason,
+    delivery_method: o.delivery_method,
+    delivery_address: o.delivery_address,
+    updated_at: o.updated_at,
+    steps: buildTimeline({ status: o.status, delivery_method: o.delivery_method, due_date: due, events: events ?? [] }),
+    attachments: (files ?? []).map((f) => ({ ...f, size_bytes: Number(f.size_bytes) })),
+    proofs: (proofs ?? []).map((p) => ({ ...p, brand_name: brandName, order_no: o.order_no })),
+    threadId: threadIds[0] ?? null,
+    messages: (messages ?? []).map((m) => ({
+      id: m.id,
+      body: m.body,
+      from_peniel: m.author?.role !== "customer_user",
+      author_name: m.author?.full_name ?? "",
+      created_at: m.created_at,
+    })),
+  };
+}

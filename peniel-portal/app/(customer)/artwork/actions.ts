@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { notifyProofAnswered } from "@/lib/notify";
 
 export type ProofState = { error?: string; ok?: string } | null;
 
@@ -22,5 +23,6 @@ export async function respondToProof(_prev: ProofState, fd: FormData): Promise<P
   }
   revalidatePath("/artwork");
   revalidatePath("/orders");
+  notifyProofAnswered(proofId);
   return { ok: approve ? "Approved. Peniel will schedule production." : "Sent. Peniel will send a new proof." };
 }

@@ -6,6 +6,7 @@ import { fileProblem, mimeFor, safeFileName } from "@/lib/files";
 import type { OrderStatus } from "@/lib/order-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { notifyProofSent } from "@/lib/notify";
 
 export type ArtworkState = { error?: string; ok?: string } | null;
 
@@ -55,7 +56,7 @@ export async function sendProof(input: {
     order = o;
   }
 
-  const { error } = await supabase.from("proofs").insert({
+  const { data: proof, error } = await supabase.from("proofs").insert({
     brand_id: input.brandId,
     order_id: order?.id ?? null,
     file_path: input.path,
@@ -65,13 +66,14 @@ export async function sendProof(input: {
     note: input.note.trim() || null,
     approve_by: input.approveBy || null,
     sent_by: me.user_id,
-  });
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't send proofs." : "Couldn't send the proof." };
+  }).select("id").single<{ id: string }>();
+  if (error || !proof) return { error: /row-level|permission/i.test(error.message) ? "Your role can't send proofs." : "Couldn't send the proof." };
 
   if (order && input.setAwaiting && TO_AWAITING.includes(order.status)) {
     await supabase.from("orders").update({ status: "awaiting_approval", customer_reason: null }).eq("id", order.id);
   }
   refresh();
+  notifyProofSent(proof.id);
   return { ok: "Proof sent. The customer sees it under Artwork and on the order." };
 }
 
