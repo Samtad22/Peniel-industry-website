@@ -5,12 +5,40 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { messageBody, parseMessageFiles, type MessageFile } from "@/lib/message-files";
 import { notifyMessageToCustomer } from "@/lib/notify";
 
 export type MessageState = { error?: string; ok?: string } | null;
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX = 4000;
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Insert a staff message and its files. Returns false if either fails. */
+async function insertMessage(
+  supabase: Supabase,
+  m: { thread_id: string; author_id: string; body: string; internal?: boolean },
+  files: MessageFile[],
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ ...m, internal: m.internal ?? false, read_by_staff: true })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) return false;
+  if (!files.length) return true;
+  const { error: fe } = await supabase.from("message_attachments").insert(
+    files.map((f) => ({ message_id: data.id, file_path: f.path, file_name: f.name, size_bytes: f.size, mime_type: f.mime })),
+  );
+  if (fe) {
+    console.error("message_attachments insert failed", fe.code, fe.message);
+    // Don't leave a message saying "see attached" without its files.
+    await supabase.from("messages").delete().eq("id", data.id);
+    return false;
+  }
+  return true;
+}
 
 function refresh() {
   revalidatePath("/ops/messages");
@@ -21,18 +49,24 @@ function refresh() {
 export async function sendStaffMessage(_prev: MessageState, fd: FormData): Promise<MessageState> {
   const me = await requireStaff(opsRolesFor("messages"));
   const threadId = String(fd.get("thread_id") ?? "");
-  const body = String(fd.get("body") ?? "").trim();
   const internal = fd.get("kind") === "internal";
   if (!UUID.test(threadId)) return { error: "Choose a conversation." };
-  if (!body) return { error: "Write a message first." };
-  if (body.length > MAX) return { error: "Keep messages under 4,000 characters." };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("messages").insert({ thread_id: threadId, author_id: me.user_id, body, internal, read_by_staff: true });
-  if (error) return { error: "Couldn't send. Please try again." };
+  const { data: t } = await supabase.from("message_threads").select("company_id").eq("id", threadId).maybeSingle<{ company_id: string }>();
+  if (!t) return { error: "Choose a conversation." };
+  const files = parseMessageFiles(fd.get("attachments"), t.company_id);
+  if ("error" in files) return files;
+  const body = messageBody(String(fd.get("body") ?? "").trim(), files);
+  if (!body) return { error: "Write a message or attach a file." };
+  if (body.length > MAX) return { error: "Keep messages under 4,000 characters." };
+
+  if (!(await insertMessage(supabase, { thread_id: threadId, author_id: me.user_id, body, internal }, files))) {
+    return { error: "Couldn't send. Please try again." };
+  }
   if (!internal) {
     await supabase.from("message_threads").update({ last_message_at: new Date().toISOString() }).eq("id", threadId);
-    notifyMessageToCustomer(threadId, body);
+    notifyMessageToCustomer(threadId, body, files.length);
   }
   await supabase.from("messages").update({ read_by_staff: true }).eq("thread_id", threadId).eq("read_by_staff", false);
   refresh();
@@ -55,10 +89,12 @@ export async function startThread(_prev: MessageState, fd: FormData): Promise<Me
   const companyId = String(fd.get("company_id") ?? "");
   const orderId = String(fd.get("order_id") ?? "");
   const subject = String(fd.get("subject") ?? "").trim();
-  const body = String(fd.get("body") ?? "").trim();
   if (!UUID.test(companyId)) return { error: "Choose the customer." };
+  const files = parseMessageFiles(fd.get("attachments"), companyId);
+  if ("error" in files) return files;
+  const body = messageBody(String(fd.get("body") ?? "").trim(), files);
   if (!subject) return { error: "Add a subject." };
-  if (!body) return { error: "Write a message." };
+  if (!body) return { error: "Write a message or attach a file." };
   if (subject.length > 150 || body.length > MAX) return { error: "That message is too long." };
 
   const supabase = await createClient();
@@ -78,8 +114,11 @@ export async function startThread(_prev: MessageState, fd: FormData): Promise<Me
     .select("id")
     .single<{ id: string }>();
   if (error || !t) return { error: "Couldn't start the conversation." };
-  await supabase.from("messages").insert({ thread_id: t.id, author_id: me.user_id, body, read_by_staff: true });
-  notifyMessageToCustomer(t.id, body);
+  if (!(await insertMessage(supabase, { thread_id: t.id, author_id: me.user_id, body }, files))) {
+    await supabase.from("message_threads").delete().eq("id", t.id);
+    return { error: "Couldn't send. Please try again." };
+  }
+  notifyMessageToCustomer(t.id, body, files.length);
   refresh();
   redirect(`/ops/messages?t=${t.id}`);
 }

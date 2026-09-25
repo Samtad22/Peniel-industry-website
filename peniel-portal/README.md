@@ -22,12 +22,13 @@ some of which need a decision first: see [docs/LAUNCH.md](docs/LAUNCH.md).
 | Production & QC: publish stamps, frozen published entries, `qc_save_inspection` | `supabase/migrations/20260925000001_production_quality.sql` |
 | Internal message notes, documents, proof versions, stock collection, raw material movements | `supabase/migrations/20260926000001_inventory_artwork_documents_messages.sql` |
 | Email log for notifications (admin-only) | `supabase/migrations/20260927000001_notifications.sql` |
+| Files on messages (customers never see files on internal notes) | `supabase/migrations/20260928000001_message_attachments.sql` |
 | Seed data (Habesha + 2 other breweries) | `supabase/seed.sql` |
 | Sign-in, invite, set password, forgot password | `app/login`, `app/auth`, `app/forgot-password` |
 | Customer: Orders, New order, Catalog, Production (Output / Quality / Stock + pickup booking), Artwork (proof approval), Documents, Messages | `app/(customer)` |
 | Staff: Dashboard, Order inbox, Orders, Production, Quality control, Inventory + Pickups, Artwork, Documents, Customers, Messages, Settings | `app/ops` |
 | Tablet production entry for the floor | `app/production-entry` |
-| File downloads (checked, then a 60-second signed URL) | `app/files/{attachments,documents,proofs,artwork}/[id]` |
+| File downloads (checked, then a 60-second signed URL) | `app/files/{attachments,documents,proofs,artwork,messages}/[id]` |
 | Notification emails (Resend; off until keys are set, see Ops → Settings) | `lib/notify.ts`, `lib/email.ts` |
 | Staff "Preview as customer" for an order | `app/ops/orders/[id]/preview` |
 | Isolation and rules tests | `tests/db` |

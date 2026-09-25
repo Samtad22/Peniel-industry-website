@@ -11,14 +11,18 @@ directly into the Supabase, Vercel or Resend dashboards.
 The test project (`bjaxhmkyxmcrqiebtzzo`) keeps its sample data. Real
 customers go in a **new, empty** project.
 
-1. **(decision) Plan.** Create the project on the **Pro** plan (about
-   US$25 per month). The free plan has no backups and pauses after a week
-   without use. Pro includes daily backups kept for 7 days. Point-in-time
-   recovery is an extra add-on and isn't needed at launch.
+1. **Plan: Free for now** (decided). What that means:
+   - **No automatic backups.** Take a manual backup every week (step 7),
+     and move to Pro (about US$25/month, daily backups) once real orders
+     are flowing.
+   - The project **pauses after 7 days with no activity**. Daily use keeps
+     it awake. If it pauses, press **Restore** in the dashboard.
+   - Limits: 500 MB database, 1 GB file storage, 2 free projects per
+     account (the test project counts as one).
 2. Region: choose the one nearest Addis Ababa that Supabase offers (for
    example `eu-central-1`, Frankfurt).
 3. **SQL Editor.** Run each file in `supabase/migrations/` **in filename
-   order** (01_schema first, `20260927000001_notifications.sql` last).
+   order** (01_schema first, `20260928000001_message_attachments.sql` last).
    **Do not run `supabase/seed.sql`** here: it is sample data.
 4. **Companies and brands.** Add the real customers from **Ops → Customers**
    after the first admin exists (step 6).
@@ -35,14 +39,18 @@ customers go in a **new, empty** project.
 6. **First admin.** Put the production keys in `.env.local` (or run it from a
    machine that has them), then:
    `npm run create-admin -- you@penielindustry.org "Your Name"`.
-7. **Backups.** Dashboard → Database → Backups: confirm daily backups are
-   listed the day after launch.
+7. **Backups (manual on the free plan).** Once a week, from a computer with
+   the Supabase CLI: `supabase db dump --db-url "<connection string>" -f
+   peniel-YYYY-MM-DD.sql` (connection string: Dashboard → Connect). Keep
+   the files somewhere safe and off that computer. This covers the
+   database, not uploaded files; download the Storage buckets too, or move
+   to Pro.
 
 ## 2. Vercel
 
-1. **(decision) Plan.** Vercel's Hobby plan is for personal, non-commercial
-   use only. A company portal needs **Pro** (about US$20 per member per
-   month).
+1. **Plan: Hobby (free) for now** (decided). Vercel's terms limit Hobby to
+   non-commercial use, so plan to move to Pro (about US$20 per member per
+   month) before the portal is relied on for business.
 2. Import the GitHub repo. Set **Root Directory** to `peniel-portal`.
    Framework: Next.js. Nothing else to change.
 3. **Environment variables** (Production). Enter each one in the Vercel
@@ -65,25 +73,48 @@ customers go in a **new, empty** project.
 
 ## 3. Resend (email)
 
-1. **(decision) Plan.** The free plan allows about 3,000 emails a month
-   (100 a day) from one domain. That is enough for launch. Check the
-   Settings page's email log after a month to see real volume.
-2. Add the domain `penielindustry.org` and add the DNS records Resend shows
-   (SPF, DKIM, and the bounce MX, usually on a `send.` subdomain). Wait for
-   "Verified".
-3. Create an API key with "Sending access" only. Put it in Vercel
-   (`RESEND_API_KEY`) and in Supabase SMTP (step 1.5).
+1. **Plan: Free** (decided): about 3,000 emails a month, 100 a day, one
+   domain. Check the Settings page's email log after a month to see real
+   volume.
+2. **Done:** `penielindustry.org` is already **Verified** in Resend, so its
+   email DNS records exist. Any `@penielindustry.org` sender works. Skip the
+   email rows in the DNS table below.
+3. Create a new API key named "Peniel Portal" with **Sending access** only,
+   limited to `penielindustry.org`. Put it in Vercel (`RESEND_API_KEY`,
+   marked Sensitive, Production) and in Supabase SMTP (step 1.5). A
+   separate key means it can be revoked without affecting the website.
 
 ## 4. DNS for penielindustry.org
 
-Add these at whoever hosts the domain's DNS:
+Do this after the domain is added in Vercel (step 2.4). Only the `portal`
+CNAME is still needed: the email records are already in place (Resend shows
+the domain as Verified). Copy each value exactly.
 
-| Type | Name | Value |
-|---|---|---|
-| CNAME | `portal` | The value Vercel shows (usually `cname.vercel-dns.com`) |
-| TXT / MX | as shown by Resend | as shown by Resend |
+| For | Type | Name / Host | Value | Notes |
+|---|---|---|---|---|
+| Portal | CNAME | `portal` | what Vercel shows, e.g. `cname.vercel-dns.com` | Only this subdomain. The website's records don't change. |
+| Email (bounces) | MX | `send` | what Resend shows, e.g. `feedback-smtp.eu-west-1.amazonses.com` | Priority `10`. |
+| Email (SPF) | TXT | `send` | what Resend shows, e.g. `v=spf1 include:amazonses.com ~all` | On `send`, so it doesn't touch the domain's own SPF. |
+| Email (DKIM) | TXT | `resend._domainkey` | the long key Resend shows | Copy the whole value. |
+| Email (DMARC) | TXT | `_dmarc` | `v=DMARC1; p=none;` | Only if the domain has no `_dmarc` record yet. |
 
-The marketing site's records don't change.
+- **Where:** penielindustry.org's DNS is at **Porkbun** (nameservers
+  `*.ns.porkbun.com`). Porkbun → Domain Management → penielindustry.org →
+  **DNS** → add each record. Leave the existing records (the website's
+  ALIAS/A and `www`) as they are.
+- The Vercel project `peniel-portal` (team Peniel) already exists, builds
+  from `main` with Root Directory `peniel-portal`, and has
+  `portal.penielindustry.org` added. It goes live once the CNAME below exists.
+- **Name / Host:** most DNS hosts add `.penielindustry.org` for you, so type
+  only `portal`, `send`, and so on. If the host shows the full name, enter
+  `portal.penielindustry.org` instead.
+- **Cloudflare:** set the `portal` record to **DNS only** (grey cloud), not
+  proxied.
+- **Existing email:** don't change or remove any existing MX or TXT records
+  on the bare domain (`@`). The records above are all on subdomains.
+- Changes usually take effect within minutes, and can take up to 48 hours.
+  Vercel shows "Valid Configuration" and Resend shows "Verified" when
+  they're working.
 
 ## 5. Go-live checks
 

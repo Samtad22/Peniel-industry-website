@@ -5,13 +5,21 @@ import clsx from "clsx";
 import { Lock } from "lucide-react";
 import { sendStaffMessage, startThread, type MessageState } from "@/app/ops/messages/actions";
 import { CustomerWarning } from "@/components/ops/OrderForms";
+import { FilePicker, useMessageFiles } from "@/components/ui/FilePicker";
 import { Button, FormMessage } from "@/components/ui/form";
 import { CustomerSees } from "@/components/ui/Visibility";
 
 /** Reply to the customer or add an internal note (design 1q). */
-export function Composer({ threadId }: { threadId: string }) {
+export function Composer({ threadId, companyId }: { threadId: string; companyId: string }) {
   const [kind, setKind] = useState<"reply" | "internal">("reply");
-  const [state, action, pending] = useActionState<MessageState, FormData>(sendStaffMessage, null);
+  const { files, setFiles, progress, attach, clear } = useMessageFiles(companyId);
+  const [state, action, pending] = useActionState<MessageState, FormData>(async (prev, fd) => {
+    const problem = await attach(fd);
+    if (problem) return { error: problem };
+    const res = await sendStaffMessage(prev, fd);
+    if (res?.ok) clear();
+    return res;
+  }, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
@@ -50,11 +58,12 @@ export function Composer({ threadId }: { threadId: string }) {
       <textarea
         id={`body-${threadId}`}
         name="body"
-        required
+        required={!files.length}
         maxLength={4000}
         placeholder={kind === "reply" ? "Write to the customer" : "Only Peniel staff see this"}
         className={clsx("input !min-h-[88px]", kind === "internal" && "!bg-neutral-200")}
       />
+      <FilePicker id={`files-${threadId}`} files={files} onChange={setFiles} progress={progress} />
       {kind === "reply" ? <CustomerWarning /> : <span className="text-[12px] opacity-70">Never shown to the customer.</span>}
       <FormMessage state={state} />
       <div className="flex items-center justify-between gap-3">
@@ -76,7 +85,17 @@ export function NewThreadDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [companyId, setCompanyId] = useState("");
-  const [state, action, pending] = useActionState<MessageState, FormData>(startThread, null);
+  const { files, setFiles, progress, attach, clear } = useMessageFiles(companyId);
+  const [state, action, pending] = useActionState<MessageState, FormData>(async (prev, fd) => {
+    const problem = await attach(fd);
+    if (problem) return { error: problem };
+    try {
+      return await startThread(prev, fd);
+    } catch (e) {
+      clear(); // sent: the action redirects to the new conversation
+      throw e;
+    }
+  }, null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -97,7 +116,17 @@ export function NewThreadDialog({
             </div>
             <div className="field">
               <label htmlFor="nt-company">Customer</label>
-              <select id="nt-company" name="company_id" required value={companyId} onChange={(e) => setCompanyId(e.target.value)} className="input">
+              <select
+                id="nt-company"
+                name="company_id"
+                required
+                value={companyId}
+                onChange={(e) => {
+                  setCompanyId(e.target.value);
+                  clear(); // uploads belong to one customer's folder
+                }}
+                className="input"
+              >
                 <option value="">Choose a customer</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -128,8 +157,9 @@ export function NewThreadDialog({
                 Message
                 <CustomerSees />
               </label>
-              <textarea id="nt-body" name="body" required maxLength={4000} className="input" />
+              <textarea id="nt-body" name="body" required={!files.length} maxLength={4000} className="input" />
             </div>
+            <FilePicker id="nt-files" files={files} onChange={setFiles} progress={progress} />
             <CustomerWarning />
             <FormMessage state={state} />
             <div className="dialog-actions">
