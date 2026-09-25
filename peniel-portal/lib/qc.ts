@@ -22,6 +22,15 @@ export type Measure = {
 
 export const COA_DOCUMENT = "PIC-OF-053 rev. 006";
 
+/** Fixed fields printed on the Certificate of Analysis form. */
+export const COA_FORM = {
+  documentNo: "PIC-OF-053",
+  revision: "006",
+  company: "Peniel Industry Crown Cork Factory",
+  tel: "0114190871 / 0912785616",
+  linerTypeId: "Contoform 0369",
+};
+
 export const MEASURES: Measure[] = [
   { key: "shell_height_mm", label: "Shell height", unit: "mm", spec: "6 ± 0.15", min: 5.85, max: 6.15, sample: "50", aliases: ["crown_height_mm"] },
   { key: "shell_angle_deg", label: "Shell angle", unit: "°", spec: "24 ± 8", min: 16, max: 32, sample: "50" },
@@ -31,7 +40,7 @@ export const MEASURES: Measure[] = [
   { key: "shell_metal_hardness_hr30t", label: "Shell metal hardness", unit: "HR30T", spec: "60 ± 4", min: 56, max: 64, sample: "15" },
   { key: "crown_weight_g", label: "Crown cork weight", unit: "g", spec: "2.0 ± 0.5", min: 1.5, max: 2.5, sample: "15" },
   { key: "liner_weight_mg", label: "Liner weight", unit: "mg", spec: "190 ± 30", min: 160, max: 220, sample: "15" },
-  { key: "leaking_pressure_kgcm2", label: "Leaking pressure", unit: "kg/cm²", spec: "≥ 8", min: 8, sample: "50", aliases: ["pressure_bar"] },
+  { key: "leaking_pressure_kgcm2", label: "Leaking pressure", unit: "kg/cm²", spec: "≥ 8", min: 8, sample: "50" },
   { key: "release_performance_kgcm2", label: "Release performance", unit: "kg/cm²", spec: "≥ 10.35", min: 10.35, sample: "25" },
   { key: "scratch_dust_mg", label: "Scratch resistance (dust)", unit: "mg", spec: "≤ 25", max: 25, sample: "2 × 25" },
 ];

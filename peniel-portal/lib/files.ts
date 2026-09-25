@@ -18,6 +18,14 @@ const BY_EXT: Record<string, string> = {
 
 export const ACCEPT = ".pdf,.jpg,.jpeg,.png,.xlsx,.docx";
 
+/** Artwork and proofs also take designers' source files (Illustrator, EPS). */
+const ARTWORK_EXT: Record<string, string> = { ai: "application/postscript", eps: "application/postscript" };
+export const ARTWORK_ACCEPT = `${ACCEPT},.ai,.eps`;
+
+export type UploadKind = "document" | "artwork";
+
+const extOf = (name: string) => /\.([a-z0-9]+)$/i.exec(name)?.[1].toLowerCase() ?? "";
+
 export type AttachmentType = "purchase_order" | "specification" | "other";
 
 export const ATTACHMENT_TYPE_LABELS: Record<AttachmentType, string> = {
@@ -37,8 +45,8 @@ export function fileExt(name: string): string {
  * DOCX inconsistently (sometimes as an empty string).
  */
 export function mimeFor(name: string): string | null {
-  const m = /\.([a-z0-9]+)$/i.exec(name);
-  return m ? (BY_EXT[m[1].toLowerCase()] ?? null) : null;
+  const ext = extOf(name);
+  return BY_EXT[ext] ?? ARTWORK_EXT[ext] ?? null;
 }
 
 /** `3.8 MB`, `38 KB`. */
@@ -48,8 +56,11 @@ export function formatBytes(n: number): string {
 }
 
 /** Why a file can't be uploaded, or null when it can. */
-export function fileProblem(file: { name: string; size: number }): string | null {
-  if (!mimeFor(file.name)) return "Only PDF, JPG, PNG, XLSX or DOCX files can be attached";
+export function fileProblem(file: { name: string; size: number }, kind: UploadKind = "document"): string | null {
+  const ext = extOf(file.name);
+  if (!BY_EXT[ext] && !(kind === "artwork" && ARTWORK_EXT[ext])) {
+    return kind === "artwork" ? "Only PDF, AI, EPS, JPG, PNG, XLSX or DOCX files can be attached" : "Only PDF, JPG, PNG, XLSX or DOCX files can be attached";
+  }
   if (file.size > MAX_FILE_BYTES) return `File too large (${formatBytes(file.size)} > 20 MB)`;
   if (file.size === 0) return "The file is empty";
   return null;

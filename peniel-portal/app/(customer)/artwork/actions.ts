@@ -44,7 +44,7 @@ export async function submitArtwork(input: {
   const title = input.title.trim();
   if (!title) return { error: "Give the artwork a short title, e.g. “Negus 2027 label”." };
   if (title.length > 150 || input.note.length > 2000) return { error: "That's too long. Please shorten the title or note." };
-  const problem = fileProblem({ name: input.name, size: input.size });
+  const problem = fileProblem({ name: input.name, size: input.size }, "artwork");
   if (problem) return { error: problem };
   if (!input.path.startsWith(`${me.company_id}/submissions/`)) return { error: "Upload the file again." };
 

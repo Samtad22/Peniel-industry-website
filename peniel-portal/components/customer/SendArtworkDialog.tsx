@@ -54,7 +54,7 @@ function SendArtworkForm({
   const [pending, start] = useTransition();
 
   const send = () => {
-    if (!file || fileProblem(file) || !title.trim()) return;
+    if (!file || fileProblem(file, "artwork") || !title.trim()) return;
     setState(null);
     setProgress(0);
     const path = `${companyId}/submissions/${crypto.randomUUID()}/${safeFileName(file.name)}`;
@@ -120,7 +120,7 @@ function SendArtworkForm({
         <label htmlFor="sa-title">Title</label>
         <input id="sa-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} placeholder="e.g. Negus 2027 label, new gold colour" className="input min-h-11" />
       </div>
-      <FileDrop id="sa-file" file={file} onFile={setFile} />
+      <FileDrop id="sa-file" file={file} onFile={setFile} kind="artwork" />
       <div className="field">
         <label htmlFor="sa-note">Note for Peniel (optional)</label>
         <textarea id="sa-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} placeholder="What should change, colours (e.g. PMS 485 C), deadlines…" className="input !min-h-[70px]" />
@@ -131,7 +131,7 @@ function SendArtworkForm({
         <Button type="button" variant="secondary" onClick={close}>
           {state?.ok ? "Done" : "Cancel"}
         </Button>
-        <Button type="button" onClick={send} disabled={!file || !!fileProblem(file) || !title.trim() || pending} icon="→" className="w-[170px]">
+        <Button type="button" onClick={send} disabled={!file || !!fileProblem(file, "artwork") || !title.trim() || pending} icon="→" className="w-[170px]">
           {pending ? "Sending…" : "Send to Peniel"}
         </Button>
       </div>

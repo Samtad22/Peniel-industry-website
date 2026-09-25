@@ -38,7 +38,7 @@ export default function SendProofPanel({
   const brand = brands.find((b) => b.id === brandId);
   const order = orders.find((o) => o.id === orderId);
 
-  const canSend = Boolean(brandId) && (file ? !fileProblem(file) : Boolean(delivery.method));
+  const canSend = Boolean(brandId) && (file ? !fileProblem(file, "artwork") : Boolean(delivery.method));
 
   const send = () => {
     if (!canSend) return;
@@ -104,7 +104,7 @@ export default function SendProofPanel({
           <br />“{brand.lastRequest.comment}”{brand.lastRequest.by && ` (${brand.lastRequest.by})`}
         </div>
       )}
-      <FileDrop id="proof-file" file={file} onFile={setFile} />
+      <FileDrop id="proof-file" file={file} onFile={setFile} kind="artwork" />
       {delivery.method && !file && <span className="-mt-2 text-[12px] opacity-70">No file needed for a physical-only proof.</span>}
       <DeliveryFields value={delivery} onChange={setDelivery} idPrefix="sp" />
       <div className="field">
