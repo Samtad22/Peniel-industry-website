@@ -109,6 +109,16 @@ export default function StaffOrderView({
               holdPresets={holdPresets}
               rejectPresets={rejectPresets}
               minDate={minDate}
+              stock={{
+                quantity: o.stock.quantity,
+                batches: o.stock.batches,
+                // Good crowns produced so far, else the ordered quantity; released batches, else the order number.
+                suggestedQty: Math.max(0, o.production.produced - o.production.rejects - o.stock.quantity) || (o.stock.quantity ? 0 : o.quantity),
+                suggestedBatch:
+                  o.production.batches.filter((b) => b.result === "released").map((b) => b.batch_no).join(", ") ||
+                  o.production.batches.at(-1)?.batch_no ||
+                  o.order_no,
+              }}
             />
           ) : (
             <p className="m-0 bg-neutral-200 px-3.5 py-3 text-[13px]">

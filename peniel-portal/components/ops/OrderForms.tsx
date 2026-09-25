@@ -12,7 +12,7 @@ import {
   type OrderActionState,
 } from "@/app/ops/orders/actions";
 import StatusBadge, { Pill } from "@/components/ui/StatusBadge";
-import { CustomerSees } from "@/components/ui/Visibility";
+import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { Button, FormMessage } from "@/components/ui/form";
 import { formatDate } from "@/lib/format";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_PILL, type OrderStatus } from "@/lib/order-status";
@@ -294,6 +294,8 @@ export function CustomerPreview({
   );
 }
 
+export type StockForPickup = { quantity: number; batches: string[]; suggestedQty: number; suggestedBatch: string };
+
 /** The status grid and change form of the order page (design 1f). */
 export function StatusControl({
   orderId,
@@ -303,6 +305,7 @@ export function StatusControl({
   holdPresets,
   rejectPresets,
   minDate,
+  stock,
 }: {
   orderId: string;
   orderNo: string;
@@ -311,10 +314,13 @@ export function StatusControl({
   holdPresets: Preset[];
   rejectPresets: Preset[];
   minDate: string;
+  /** This order's crowns in stock now, and what to suggest when it becomes Ready for pickup. */
+  stock: StockForPickup;
 }) {
   const [target, setTarget] = useState<OrderStatus | null>(null);
   const [reason, setReason] = useState("");
   const [newDue, setNewDue] = useState(due ?? "");
+  const [addStock, setAddStock] = useState(stock.quantity === 0);
   const [state, action, pending] = useActionState<OrderActionState, FormData>(async (prev, fd) => {
     const res = await setOrderStatus(prev, fd);
     if (res?.ok) {
@@ -333,7 +339,9 @@ export function StatusControl({
     setTarget(s);
     setReason("");
     setNewDue(due ?? "");
+    setAddStock(stock.quantity === 0);
   };
+  const stockStep = target === "ready_for_pickup" && addStock;
 
   if (status === "submitted") {
     return (
@@ -348,6 +356,12 @@ export function StatusControl({
 
   return (
     <div className="flex flex-col gap-4">
+      {status === "ready_for_pickup" && stock.quantity === 0 && !target && (
+        <p className="m-0 bg-accent-100 px-3.5 py-3 text-[13px] text-accent-800">
+          <b>Nothing of this order is in stock yet</b>, so the customer can&apos;t book a pickup. Choose <b>Ready for pickup</b> below
+          and add the crowns to stock.
+        </p>
+      )}
       <div className="grid grid-cols-2 border border-divider sm:grid-cols-4 xl:grid-cols-5">
         {ORDER_STATUSES.map((s) => {
           const current = s === status;
@@ -444,6 +458,49 @@ export function StatusControl({
             <div className="sm:col-span-2">
               <CustomerWarning boxed />
             </div>
+            {target === "ready_for_pickup" && (
+              <fieldset className="m-0 flex flex-col gap-3 border border-divider p-3.5 sm:col-span-2">
+                <legend className="px-1 text-[13px] font-bold">Crowns for pickup</legend>
+                {stock.quantity > 0 && (
+                  <p className="m-0 text-[13px]">
+                    {stock.quantity.toLocaleString("en-US")} crowns of this order are in stock (batch {stock.batches.join(", ")}). The customer can book a
+                    pickup for them.
+                  </p>
+                )}
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" name="add_stock" checked={addStock} onChange={(e) => setAddStock(e.target.checked)} className="size-4 accent-[var(--color-accent)]" />
+                  {stock.quantity > 0 ? "Add more crowns to stock" : "Put the crowns into stock so the customer can book a pickup"}
+                </label>
+                {addStock && (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="field">
+                      <label htmlFor={`sb-${orderId}`}>Batch number</label>
+                      <input id={`sb-${orderId}`} name="stock_batch" required maxLength={40} defaultValue={stock.suggestedBatch} className="input" />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`sq-${orderId}`}>Quantity (crowns)</label>
+                      <input
+                        id={`sq-${orderId}`}
+                        name="stock_quantity"
+                        required
+                        inputMode="numeric"
+                        defaultValue={stock.suggestedQty ? String(stock.suggestedQty) : ""}
+                        className="input"
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`sl-${orderId}`} className="!flex justify-between gap-2">
+                        Location <InternalOnly />
+                      </label>
+                      <input id={`sl-${orderId}`} name="stock_location" maxLength={100} placeholder="e.g. Bay 2" className="input" />
+                    </div>
+                  </div>
+                )}
+                <span className="text-[12px] opacity-70">
+                  The customer sees the batch and quantity under Production → Stock, never the location. The warehouse can adjust it in Inventory.
+                </span>
+              </fieldset>
+            )}
           </div>
           <div className="px-4 pb-4">
             <CustomerPreview orderNo={orderNo} status={target} reason={reason.trim()} due={newDue || null} was={due} />
@@ -454,21 +511,25 @@ export function StatusControl({
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-divider px-4 py-3">
-            <span className="text-[12px] opacity-70">The customer sees this in the portal. Email notifications are coming soon.</span>
+            <span className="text-[12px] opacity-70">
+              The customer sees this in the portal and gets an email when the order is confirmed, on hold, ready, dispatched or its date changes.
+            </span>
             <div className="flex gap-2">
               <Button type="button" variant="secondary" onClick={() => setTarget(null)}>
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={pending || (needsReason && !reason.trim()) || (target === status && !dateChanged && !reason.trim())}
+                disabled={pending || (needsReason && !reason.trim()) || (target === status && !dateChanged && !reason.trim() && !stockStep)}
                 icon={target === "on_hold" ? "❚❚" : "→"}
                 className="w-[200px]"
               >
                 {pending
                   ? "Saving…"
                   : target === status
-                    ? "Save update"
+                    ? stockStep && !dateChanged && !reason.trim()
+                      ? "Add to stock"
+                      : "Save update"
                     : target === "on_hold"
                       ? "Set on hold"
                       : `Set ${ORDER_STATUS_LABELS[target].toLowerCase()}`}

@@ -39,11 +39,13 @@ export type StaffOrder = {
   messages: StaffMessage[];
   activity: { when: string; who: string; what: string; detail: string }[];
   production: { entries: number; produced: number; rejects: number; lines: string[]; batches: { batch_no: string; result: string | null }[] };
+  /** Finished crowns of this order still at Peniel (not collected). */
+  stock: { quantity: number; batches: string[] };
 };
 
 type OrderRow = Omit<
   StaffOrder,
-  "company" | "brand" | "brand_colours" | "spec" | "liner" | "due_date" | "attachments" | "steps" | "messages" | "activity" | "production" | "submitted_by"
+  "company" | "brand" | "brand_colours" | "spec" | "liner" | "due_date" | "attachments" | "steps" | "messages" | "activity" | "production" | "stock" | "submitted_by"
 > & {
   companies: { name: string } | null;
   brands: { name: string; size: string; finish: string | null; liner: string; colours: string[] } | null;
@@ -72,7 +74,7 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
     .maybeSingle<OrderRow>();
   if (!o) return null;
 
-  const [files, events, threads, audit, attachAudit, entries, inspections] = await Promise.all([
+  const [files, events, threads, audit, attachAudit, entries, inspections, stock] = await Promise.all([
     supabase
       .from("order_attachments")
       .select("id, file_name, type, size_bytes, mime_type")
@@ -113,6 +115,12 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
       .eq("order_id", id)
       .order("inspected_at")
       .returns<{ batch_no: string; result: string | null }[]>(),
+    supabase
+      .from("finished_stock")
+      .select("batch_no, quantity")
+      .eq("order_id", id)
+      .is("collected_at", null)
+      .returns<{ batch_no: string; quantity: number }[]>(),
   ]);
 
   const threadIds = (threads.data ?? []).map((t) => t.id);
@@ -169,6 +177,10 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
       rejects: e.reduce((s, x) => s + Number(x.reject_qty), 0),
       lines: [...new Set(e.map((x) => x.production_lines?.name).filter((x): x is string => Boolean(x)))],
       batches: inspections.data ?? [],
+    },
+    stock: {
+      quantity: (stock.data ?? []).reduce((t, x) => t + Number(x.quantity), 0),
+      batches: [...new Set((stock.data ?? []).map((x) => x.batch_no))],
     },
   };
 }
