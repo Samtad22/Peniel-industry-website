@@ -59,7 +59,7 @@ export default async function InspectionPage({
   if (!isNew && !/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createClient();
 
-  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets, { data: sortData }] = await Promise.all([
+  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : supabase
@@ -83,17 +83,19 @@ export default async function InspectionPage({
       .order("customer_label")
       .returns<{ code: string; customer_label: string }[]>(),
     loadPresets(supabase),
-    isNew
-      ? Promise.resolve({ data: [] as SortingRecord[] })
-      : supabase
-          .from("sorting_records")
-          .select("id, inspection_id, sorted_on, passed_cartons, waste_cartons, reported_by, notes")
-          .eq("inspection_id", id)
-          .order("sorted_on")
-          .order("created_at")
-          .returns<SortingRecord[]>(),
   ]);
   if (!isNew && !insp) notFound();
+  // Sorting of this batch's camera rejects (by order and batch number, with or without this inspection).
+  const { data: sortData } = insp
+    ? await supabase
+        .from("sorting_records")
+        .select("id, order_id, batch_no, sorted_on, passed_cartons, waste_cartons, reported_by, notes")
+        .eq("order_id", insp.order_id)
+        .eq("batch_no", insp.batch_no)
+        .order("sorted_on")
+        .order("created_at")
+        .returns<SortingRecord[]>()
+    : { data: [] as SortingRecord[] };
 
   const orderOptions = (orders ?? []).map((o) => ({
     id: o.id,
@@ -156,9 +158,9 @@ export default async function InspectionPage({
         presets={presets.hold}
         canEdit={me.role === "admin" || me.role === "quality"}
       />
-      {insp && (insp.result === "on_hold" || (sortData ?? []).length > 0) && (
+      {insp && (
         <SortingPanel
-          batch={{ id: insp.id, label: `${insp.orders?.brands?.name ?? ""} · batch ${insp.batch_no} · ${insp.orders?.order_no ?? ""}` }}
+          batch={{ orderId: insp.order_id, batchNo: insp.batch_no, label: `${insp.orders?.brands?.name ?? ""} · batch ${insp.batch_no} · ${insp.orders?.order_no ?? ""}` }}
           records={sortData ?? []}
           held={insp.result === "on_hold"}
           canEdit={me.role === "admin" || me.role === "quality"}
@@ -168,14 +170,14 @@ export default async function InspectionPage({
   );
 }
 
-/** The batch's sorting reports while on hold (internal only). */
+/** The batch's sorting reports: its camera rejects, passed or scrapped (internal only). */
 function SortingPanel({
   batch,
   records,
   held,
   canEdit,
 }: {
-  batch: { id: string; label: string };
+  batch: { orderId: string; batchNo: string; label: string };
   records: SortingRecord[];
   held: boolean;
   canEdit: boolean;
@@ -187,14 +189,14 @@ function SortingPanel({
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h4 className="m-0">Sorting</h4>
-          <InternalOnly>Internal only · customers see on hold, then released</InternalOnly>
+          <InternalOnly>Internal only · customers see only the reject rate after sorting</InternalOnly>
         </div>
-        {canEdit && held && <SortingDialog batches={[batch]} today={addisDateISO(new Date())} variant="secondary" />}
+        {canEdit && <SortingDialog orders={[]} fixed={batch} today={addisDateISO(new Date())} variant="secondary" />}
       </div>
       <div className="mb-3 text-[13px]">
         {t.reports
           ? `${t.reports} report${t.reports === 1 ? "" : "s"}: ${cartonsLine(t.sorted)} sorted, ${cartonsLine(t.passed)} passed, ${cartonsLine(t.waste)} waste (${formatWastePct(t.passed, t.waste)}).`
-          : "Not sorted yet."}
+          : "No camera rejects of this batch sorted yet."}
         {held ? " When sorting is finished, release the batch above." : ""}
       </div>
       {records.length > 0 && (

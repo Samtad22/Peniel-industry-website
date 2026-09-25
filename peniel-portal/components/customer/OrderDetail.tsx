@@ -97,6 +97,7 @@ export default function OrderDetail({
             </span>
             <b>{pct}%</b>
           </div>
+          {o.reject_pct != null && <span className="text-[12px] opacity-70">Reject rate {o.reject_pct.toFixed(2)}%</span>}
         </div>
       )}
 

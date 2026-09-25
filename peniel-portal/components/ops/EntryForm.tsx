@@ -143,14 +143,17 @@ export default function EntryForm({
           <Stepper id="produced" name="produced" value={produced} onChange={setProduced} step={1000} label="Crowns produced" />
         </div>
         <div className="field">
-          <label htmlFor="rejects">Rejects</label>
-          <Stepper id="rejects" name="rejects" value={rejects} onChange={setRejects} step={10} label="Rejects" />
+          <label htmlFor="rejects" title="Crowns the liner camera pushed out. They go to sorting.">
+            Camera rejects
+            <InternalOnly>Internal · goes to sorting</InternalOnly>
+          </label>
+          <Stepper id="rejects" name="rejects" value={rejects} onChange={setRejects} step={10} label="Camera rejects" />
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 bg-surface px-3.5 py-3 text-[14px]">
         <span className={clsx(pct > REJECT_LIMIT_PCT && "font-extrabold text-accent-700")}>
-          Reject rate <b>{p ? `${pct.toFixed(2)}%` : "-"}</b> · limit {REJECT_LIMIT_PCT.toFixed(2)}%
+          Camera reject rate <b>{p ? `${pct.toFixed(2)}%` : "-"}</b> · limit {REJECT_LIMIT_PCT.toFixed(2)}%
         </span>
         {order && (
           <span>

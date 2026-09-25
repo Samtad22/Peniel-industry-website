@@ -6,6 +6,7 @@ import Timeline from "@/components/ui/Timeline";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { ATTACHMENT_TYPE_LABELS, fileExt, formatBytes } from "@/lib/files";
 import { formatDateTime, formatQty } from "@/lib/format";
+import { cartonsOf, formatCartons, rejectPctAfterSorting } from "@/lib/sorting";
 import type { StaffOrder } from "@/lib/staff-orders";
 
 export function AttachmentList({ files }: { files: StaffOrder["attachments"] }) {
@@ -142,7 +143,24 @@ export default function StaffOrderView({
                 ) : (
                   <>
                     <div className="border-b border-divider py-2">
-                      {p.entries} entries · {formatQty(p.produced)} produced · {formatQty(p.rejects)} rejects
+                      {p.entries} entries · {formatQty(p.produced)} produced · {formatQty(p.rejects)} camera rejects
+                    </div>
+                    <div className="border-b border-divider py-2">
+                      {p.sorting.reports ? (
+                        <>
+                          Sorted {p.sorting.passed + p.sorting.waste} of {formatCartons(cartonsOf(p.rejects))} cartons: {p.sorting.passed} passed,{" "}
+                          {p.sorting.waste} waste · reject rate after sorting{" "}
+                          <b>{p.produced ? `${rejectPctAfterSorting(p.produced, p.sorting.waste)?.toFixed(2)}%` : "-"}</b>
+                        </>
+                      ) : (
+                        <span className="opacity-60">
+                          {p.rejects ? `${formatCartons(cartonsOf(p.rejects))} cartons of camera rejects, not sorted yet` : "No camera rejects to sort"}
+                        </span>
+                      )}{" "}
+                      ·{" "}
+                      <Link href="/ops/quality#sorting" className="text-text">
+                        Sorting
+                      </Link>
                     </div>
                     <div className="border-b border-divider py-2">Lines: {p.lines.join(", ") || "-"}</div>
                   </>

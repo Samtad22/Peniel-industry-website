@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cartonsLine, CROWNS_PER_CARTON, formatWastePct, parseCartons, sortingTotals, wastePct } from "../../lib/sorting.ts";
+import { cartonsLine, cartonsOf, CROWNS_PER_CARTON, formatCartons, formatWastePct, orderSorting, parseCartons, sortingTotals, wastePct } from "../../lib/sorting.ts";
 
 test("cartons read with their crowns (1 carton = 10,000 crowns)", () => {
   assert.equal(CROWNS_PER_CARTON, 10_000);
@@ -33,4 +33,25 @@ test("cartons must be whole numbers", () => {
   assert.equal(parseCartons("", "Waste"), 0);
   assert.deepEqual(parseCartons("2.5", "Waste"), { error: "Waste: enter a whole number of cartons." });
   assert.deepEqual(parseCartons("-1", "Quantity"), { error: "Quantity: enter a whole number of cartons." });
+});
+
+test("an order's camera rejects against its sorting: Habesha's 12M run, 10 cartons pushed out, 2 scrapped", () => {
+  assert.equal(cartonsOf(100_000), 10);
+  assert.equal(cartonsOf(102_345), 10.2);
+  assert.equal(formatCartons(10.2), "10.2");
+  assert.equal(formatCartons(1200), "1,200");
+  const s = orderSorting(12_000_000, 100_000, [
+    { sorted_on: "2026-09-24", passed_cartons: 5, waste_cartons: 1 },
+    { sorted_on: "2026-09-25", passed_cartons: 3, waste_cartons: 1 },
+  ]);
+  assert.equal(s.camera, 10);
+  assert.equal(s.sorted, 10);
+  assert.equal(s.waiting, 0);
+  // 2 cartons = 20,000 crowns of 12,000,000: 0.17%, the customer's reject rate.
+  assert.equal(s.rejectPct, 0.17);
+  const half = orderSorting(12_000_000, 100_000, [{ sorted_on: "2026-09-24", passed_cartons: 4, waste_cartons: 0 }]);
+  assert.equal(half.waiting, 6);
+  assert.equal(half.rejectPct, 0);
+  assert.equal(orderSorting(12_000_000, 100_000, []).rejectPct, null);
+  assert.equal(orderSorting(0, 0, [{ sorted_on: "2026-09-24", passed_cartons: 1, waste_cartons: 1 }]).rejectPct, null);
 });

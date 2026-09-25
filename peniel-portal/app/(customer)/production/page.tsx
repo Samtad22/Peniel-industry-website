@@ -27,16 +27,29 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   const [{ data: orders }, { data: brands }, { data: daily }, { data: batches }, { data: stock }, { data: bookings }] = await Promise.all([
     supabase
       .from("customer_orders")
-      .select("id, order_no, brand_id, brand_name, quantity, completed_qty, status, due_date")
+      .select("id, order_no, brand_id, brand_name, quantity, completed_qty, reject_pct, status, due_date")
       .in("status", ACTIVE)
       .order("created_at", { ascending: false })
-      .returns<{ id: string; order_no: string; brand_id: string; brand_name: string; quantity: number; completed_qty: number; status: OrderStatus; due_date: string | null }[]>(),
+      .returns<
+        {
+          id: string;
+          order_no: string;
+          brand_id: string;
+          brand_name: string;
+          quantity: number;
+          completed_qty: number;
+          reject_pct: number | null;
+          status: OrderStatus;
+          due_date: string | null;
+        }[]
+      >(),
     supabase.from("customer_brands").select("id, size, finish, liner").returns<CustomerBrand[]>(),
     supabase
       .from("customer_daily_output")
-      .select("order_id, entry_date, produced_qty, reject_qty, published_at")
+      // produced_qty: the crowns that count toward the order (camera rejects already taken out).
+      .select("order_id, entry_date, produced_qty, published_at")
       .gte("entry_date", addDays(today, -60))
-      .returns<{ order_id: string; entry_date: string; produced_qty: number; reject_qty: number; published_at: string | null }[]>(),
+      .returns<{ order_id: string; entry_date: string; produced_qty: number; published_at: string | null }[]>(),
     supabase
       .from("customer_quality_batches")
       .select("id, batch_no, order_id, order_no, inspected_at, sample_size, reject_pct, result, customer_reason, published_at")
@@ -61,8 +74,8 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   const output = (orders ?? []).map((o) => {
     const mine = (daily ?? []).filter((d) => d.order_id === o.id);
     const good = (date: string) =>
-      mine.filter((d) => d.entry_date === date).reduce((s, d) => s + Number(d.produced_qty) - Number(d.reject_qty), 0);
-    const perDay = mine.map((d) => ({ date: d.entry_date, good: Number(d.produced_qty) - Number(d.reject_qty) }));
+      mine.filter((d) => d.entry_date === date).reduce((s, d) => s + Number(d.produced_qty), 0);
+    const perDay = mine.map((d) => ({ date: d.entry_date, good: Number(d.produced_qty) }));
     const projection = projectCompletion(perDay, Number(o.quantity) - Number(o.completed_qty), today);
     return {
       id: o.id,
@@ -71,6 +84,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       status: o.status,
       quantity: Number(o.quantity),
       completed: Number(o.completed_qty),
+      rejectPct: o.reject_pct == null ? null : Number(o.reject_pct),
       today: good(today),
       projection: projection?.date ?? null,
       perDay: projection?.perDay ?? null,

@@ -143,14 +143,14 @@ describe("customer views", () => {
     });
   });
 
-  test("daily output is summed across lines and shifts", async () => {
+  test("daily output is summed across lines and shifts: crowns that count toward the order, no camera rejects", async () => {
     await as(habesha, async (db) => {
       const { rows } = await db.query(
         `select produced_qty::int, reject_qty::int from public.customer_daily_output
          where order_id = $1 and entry_date = '2026-09-20'`,
         [HAB_ORDER_HABESHA],
       );
-      assert.deepEqual(rows, [{ produced_qty: 2830000, reject_qty: 17800 }]);
+      assert.deepEqual(rows, [{ produced_qty: 2830000 - 17800, reject_qty: null }]);
     });
   });
 

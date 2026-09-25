@@ -70,7 +70,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
             <div className="text-[12px]">{inRange.length} entries</div>
           </div>
           <div className={kpi}>
-            <h6 className="m-0 opacity-60">Reject rate</h6>
+            <h6 className="m-0 opacity-60">Camera reject rate</h6>
             <div className={`kpi ${pct > REJECT_LIMIT_PCT ? "text-accent-700" : ""}`}>{produced ? `${pct.toFixed(2)}%` : "-"}</div>
             <div className="text-[12px]">limit {REJECT_LIMIT_PCT.toFixed(2)}%</div>
           </div>

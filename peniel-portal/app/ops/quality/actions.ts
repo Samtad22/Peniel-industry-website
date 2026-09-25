@@ -92,13 +92,16 @@ export async function setInspectionPublished(fd: FormData): Promise<void> {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Record one batch's sorting from the daily "on hold products for sorting" report (internal only): passed and waste cartons. */
+/** Record one batch's sorting from the daily sorting report (internal only): the camera rejects that passed and the waste, in cartons. */
 export async function addSortingRecord(_prev: SortingState, fd: FormData): Promise<SortingState> {
   await requireStaff([...WRITERS]);
   const s = (k: string) => String(fd.get(k) ?? "").trim();
-  const inspectionId = s("inspection_id");
+  const orderId = s("order_id");
+  const batchNo = s("batch_no");
   const sortedOn = s("sorted_on");
-  if (!/^[0-9a-f-]{36}$/i.test(inspectionId)) return { error: "Choose the batch." };
+  if (!/^[0-9a-f-]{36}$/i.test(orderId)) return { error: "Choose the order." };
+  if (!batchNo) return { error: "Enter the batch number." };
+  if (batchNo.length > 40) return { error: "The batch number is too long." };
   if (!DATE.test(sortedOn)) return { error: "Enter the date of the report." };
   const passed = parseCartons(s("passed_cartons"), "Passed");
   if (typeof passed !== "number") return passed;
@@ -107,10 +110,11 @@ export async function addSortingRecord(_prev: SortingState, fd: FormData): Promi
   if (passed + waste === 0) return { error: "Enter the passed or the waste cartons." };
 
   const supabase = await createClient();
-  const { data: batch } = await supabase.from("qc_inspections").select("batch_no").eq("id", inspectionId).maybeSingle<{ batch_no: string }>();
-  if (!batch) return { error: "Batch not found." };
+  const { data: order } = await supabase.from("orders").select("order_no").eq("id", orderId).maybeSingle<{ order_no: string }>();
+  if (!order) return { error: "Order not found." };
   const { error } = await supabase.from("sorting_records").insert({
-    inspection_id: inspectionId,
+    order_id: orderId,
+    batch_no: batchNo,
     sorted_on: sortedOn,
     passed_cartons: passed,
     waste_cartons: waste,
@@ -119,7 +123,7 @@ export async function addSortingRecord(_prev: SortingState, fd: FormData): Promi
   });
   if (error) return { error: /permitted|row-level/i.test(error.message) ? "Your role can't record sorting." : "Couldn't save the sorting report." };
   refresh();
-  return { ok: `Batch ${batch.batch_no}: ${passed + waste} sorted, ${passed} passed, ${waste} waste (${formatWastePct(passed, waste)}) saved.` };
+  return { ok: `${order.order_no} batch ${batchNo}: ${passed + waste} sorted, ${passed} passed, ${waste} waste (${formatWastePct(passed, waste)}) saved.` };
 }
 
 /** Remove a sorting report entered by mistake. */

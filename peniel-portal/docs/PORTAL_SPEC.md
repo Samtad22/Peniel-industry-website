@@ -24,10 +24,10 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `order_status_events` — order_id, status, customer_reason, internal_notes **(internal)**, created_by, created_at (drives the customer timeline)
 - `order_attachments` — order_id, company_id, file_path, file_name, size, type (purchase_order/specification/other), uploaded_by
 - `production_lines` **(internal table)** — id, name
-- `production_entries` — id, order_id, entry_date, shift, line_id **(internal)**, produced_qty, reject_qty, entered_by, published (bool)
+- `production_entries` — id, order_id, entry_date, shift, line_id **(internal)**, produced_qty, reject_qty (camera rejects: crowns the liner press camera pushed out, sent to sorting), entered_by, published (bool)
 - `qc_inspections` — id, batch_no (unique within its order: batch numbers restart per brand), order_id, inspected_at, sample_size, measurements jsonb **(internal)** (the 11 measured parameters of the Certificate of Analysis PIC-OF-053, see `lib/qc.ts`), reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
 - `qc_defects` — inspection_id, defect_type, count
-- `sorting_records` **(internal table)** — inspection_id, sorted_on, passed_cartons (the report's "Quantity": cartons that passed), waste_cartons (scrapped); sorted = passed + waste; 1 carton = 10,000 crowns, reported_by, notes, entered_by: the daily "on hold products for sorting" report, one row per batch per day. Recorded by quality (and admin); customers only ever see the batch as on hold, then released.
+- `sorting_records` **(internal table)** — order_id, batch_no, inspection_id (optional), sorted_on, passed_cartons (the report's "Quantity": cartons that passed), waste_cartons (scrapped); sorted = passed + waste; 1 carton = 10,000 crowns, reported_by, notes, entered_by: the daily sorting report of the camera rejects, one row per order, batch and day. Recorded by quality (and admin). Passed crowns stay internal (never added to the customer's produced quantity); the waste is the customer's reject rate after sorting (`customer_orders.reject_pct`). Customers never read the table.
 - `defect_types` — code, customer_label, active, sort_order: the 13 visual checks of the Certificate of Analysis (standard 0%), e.g. "Bent crowns", "Incomplete liner", "Off-center graphics"
 - `raw_materials` / `raw_material_movements` **(internal)**
 - `finished_stock` — id, company_id, brand_id, order_id, batch_no, quantity, location **(internal)**, ready_since, status (available/reserved/on_hold), customer_reason
@@ -43,8 +43,8 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 ### Customer access layer
 Customers get **no direct SELECT** on the tables above. They read through views or RPC functions that (a) filter to the caller's `company_id` and (b) select only customer-safe columns:
 
-- `customer_orders`, `customer_order_timeline`, `customer_order_attachments`
-- `customer_daily_output` — aggregated from published `production_entries` by order and date (sum produced, sum rejects, reject %); no line or shift
+- `customer_orders` (completed_qty = published produced minus camera rejects; reject_pct = waste after sorting over crowns produced), `customer_order_timeline`, `customer_order_attachments`
+- `customer_daily_output` — aggregated from published `production_entries` by order and date: produced_qty = crowns that count toward the order (camera rejects taken out); reject_qty and reject_pct are empty (rejects are reported per order, after sorting); no line or shift
 - `customer_quality_batches`, `customer_defects_by_type` — from published inspections only; no measurements
 - `customer_finished_stock` — no location
 - `customer_proofs` (incl. courier and tracking number, never driver or vehicle), `customer_artwork`, `customer_artwork_submissions`, `customer_documents` (visibility = customer only)
