@@ -1,10 +1,11 @@
 // Browser-only: upload a file straight to a private Storage bucket with
 // progress. Storage policies decide where the signed-in user may write.
-import { mimeFor } from "@/lib/files";
+import { mimeFor, safeFileName } from "@/lib/files";
+import type { MessageFile } from "@/lib/message-files";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 
-export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork";
+export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork" | "message-attachments";
 
 export async function uploadToStorage(
   bucket: Bucket,
@@ -40,4 +41,29 @@ export async function uploadToStorage(
     xhr.onerror = () => reject(new Error("Upload failed. Check your connection and retry."));
     xhr.send(file);
   });
+}
+
+/**
+ * Upload the files chosen for a message into the conversation's company
+ * folder. Files already uploaded by an earlier attempt (kept in `done`) are
+ * not sent again.
+ */
+export async function uploadMessageFiles(
+  companyId: string,
+  files: File[],
+  done: Map<File, MessageFile>,
+  onProgress: (pct: number) => void = () => {},
+): Promise<MessageFile[]> {
+  const out: MessageFile[] = [];
+  for (const [i, file] of files.entries()) {
+    let up = done.get(file);
+    if (!up) {
+      const path = `${companyId}/${crypto.randomUUID()}/${safeFileName(file.name)}`;
+      await uploadToStorage("message-attachments", file, path, (p) => onProgress(Math.round(((i + p / 100) / files.length) * 100)));
+      up = { path, name: file.name, size: file.size, mime: mimeFor(file.name) };
+      done.set(file, up);
+    }
+    out.push(up);
+  }
+  return out;
 }

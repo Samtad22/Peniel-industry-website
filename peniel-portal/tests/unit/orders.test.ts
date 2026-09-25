@@ -142,3 +142,18 @@ test("email: content is escaped and links point at the portal", async () => {
   assert.ok(html.includes('href="https://portal.penielindustry.org/orders/abc"'));
   assert.match(text, /View order: https:\/\/portal\.penielindustry\.org\/orders\/abc/);
 });
+
+test("message files: only the caller's company folder, allowed types, up to 5", async () => {
+  const { parseMessageFiles, messageBody } = await import("../../lib/message-files.ts");
+  const cid = "11111111-1111-4111-8111-111111111111";
+  const ok = { path: `${cid}/a/photo.jpg`, name: "photo.jpg", size: 2048 };
+  assert.deepEqual(parseMessageFiles(JSON.stringify([ok]), cid), [{ ...ok, mime: "image/jpeg" }]);
+  assert.deepEqual(parseMessageFiles(null, cid), []);
+  assert.ok("error" in (parseMessageFiles(JSON.stringify([{ ...ok, path: "22222222-2222-4222-8222-222222222222/a/x.jpg" }]), cid) as object));
+  assert.ok("error" in (parseMessageFiles(JSON.stringify([{ ...ok, path: `${cid}/../x.jpg` }]), cid) as object));
+  assert.ok("error" in (parseMessageFiles(JSON.stringify([{ ...ok, name: "tool.exe" }]), cid) as object));
+  assert.ok("error" in (parseMessageFiles(JSON.stringify(Array(6).fill(ok)), cid) as object));
+  assert.ok("error" in (parseMessageFiles("not json", cid) as object));
+  assert.equal(messageBody("", [{ ...ok, mime: "image/jpeg" }]), "Attached: photo.jpg");
+  assert.equal(messageBody("See photo", [{ ...ok, mime: "image/jpeg" }]), "See photo");
+});

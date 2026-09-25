@@ -65,6 +65,7 @@ function run(task: (db: Admin) => Promise<void>) {
 }
 
 const qty = (n: number) => Number(n).toLocaleString("en-US");
+const filesLine = (n: number) => (n > 0 ? [`${n} ${n === 1 ? "file" : "files"} attached. Open the portal to download.`] : []);
 
 // ---------------------------------------------------------------------------
 // To customers
@@ -174,7 +175,7 @@ export function notifyDocumentShared(documentId: string) {
 }
 
 /** Peniel wrote to the customer (never called for internal notes). */
-export function notifyMessageToCustomer(threadId: string, body: string) {
+export function notifyMessageToCustomer(threadId: string, body: string, files = 0) {
   run(async (db) => {
     const { data: t } = await db
       .from("message_threads")
@@ -187,7 +188,7 @@ export function notifyMessageToCustomer(threadId: string, body: string) {
       {
         subject: `New message from Peniel: ${t.subject}`,
         heading: "You have a new message from Peniel",
-        lines: [t.subject],
+        lines: [t.subject, ...filesLine(files)],
         note: body.length > 600 ? `${body.slice(0, 600)}…` : body,
         cta: { label: "Reply in the portal", path: `/messages?t=${t.id}` },
       },
@@ -271,7 +272,7 @@ export function notifyPickupRequested(bookingId: string) {
 }
 
 /** A customer wrote to Peniel: the assigned person, or Sales and Admin. */
-export function notifyMessageToStaff(threadId: string, body: string) {
+export function notifyMessageToStaff(threadId: string, body: string, files = 0) {
   run(async (db) => {
     const { data: t } = await db
       .from("message_threads")
@@ -285,7 +286,7 @@ export function notifyMessageToStaff(threadId: string, body: string) {
       {
         subject: `New message from ${t.companies?.name ?? "a customer"}: ${t.subject}`,
         heading: `${t.companies?.name ?? "A customer"} sent a message`,
-        lines: [t.subject],
+        lines: [t.subject, ...filesLine(files)],
         note: body.length > 600 ? `${body.slice(0, 600)}…` : body,
         cta: { label: "Open Messages", path: `/ops/messages?t=${t.id}` },
       },

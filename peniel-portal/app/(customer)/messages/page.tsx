@@ -2,17 +2,27 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CustomerPageHead } from "@/components/customer/CustomerPlanned";
 import { CustomerReply, NewConversation } from "@/components/customer/MessageForms";
+import { AttachmentChips, AttachmentsTable, ThreadTabs } from "@/components/ui/MessageAttachments";
+import { requireCustomer } from "@/lib/auth";
 import { formatDateTime, timeAgo } from "@/lib/format";
+import type { MessageAttachment } from "@/lib/message-files";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Messages" };
 
 type Thread = { id: string; order_id: string | null; subject: string; last_message_at: string };
 type Msg = { id: string; thread_id: string; body: string; from_peniel: boolean; author_name: string; read_by_customer: boolean; created_at: string };
+type File = MessageAttachment & { from_peniel: boolean; uploaded_by_name: string | null };
 
 /** Customer messages with Peniel. Reads customer_* views only; internal notes never appear. */
-export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ t?: string; new?: string; order?: string }> }) {
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ t?: string; new?: string; order?: string; view?: string }>;
+}) {
+  const me = await requireCustomer();
   const sp = await searchParams;
+  const view = sp.view === "files" ? "files" : "messages";
   const supabase = await createClient();
   const now = new Date();
 
@@ -40,6 +50,15 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const composing = sp.new === "1" || (threads ?? []).length === 0;
   const selected = composing ? null : ((threads ?? []).find((t) => t.id === sp.t) ?? (threads ?? [])[0]);
   const thread = selected ? (msgs ?? []).filter((m) => m.thread_id === selected.id) : [];
+  const { data: files } = selected
+    ? await supabase
+        .from("customer_message_attachments")
+        .select("id, message_id, file_name, size_bytes, mime_type, created_at, from_peniel, uploaded_by_name")
+        .eq("thread_id", selected.id)
+        .order("created_at", { ascending: false })
+        .returns<File[]>()
+    : { data: [] as File[] };
+  const filesOf = (id: string) => (files ?? []).filter((f) => f.message_id === id).reverse();
   if (selected && thread.some((m) => m.from_peniel && !m.read_by_customer)) {
     await supabase.rpc("customer_mark_thread_read", { p_thread_id: selected.id });
   }
@@ -93,6 +112,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               <NewConversation
                 orders={(orders ?? []).map((o) => ({ id: o.id, label: `${o.order_no} · ${o.brand_name}` }))}
                 orderId={sp.order}
+                companyId={me.company_id}
               />
             </>
           ) : selected ? (
@@ -105,20 +125,31 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                   </Link>
                 )}
               </div>
-              <div className="flex flex-col gap-3">
-                {thread.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`max-w-[640px] px-3.5 py-2.5 text-[14px] ${m.from_peniel ? "self-start bg-surface" : "self-end bg-text text-bg"}`}
-                  >
-                    <div className="mb-1 text-[11px] opacity-70">
-                      {m.from_peniel ? `Peniel · ${m.author_name}` : m.author_name} · {formatDateTime(m.created_at)}
-                    </div>
-                    <div className="whitespace-pre-line">{m.body}</div>
+              <ThreadTabs base={`/messages?t=${selected.id}`} view={view} count={(files ?? []).length} />
+              {view === "files" ? (
+                <AttachmentsTable
+                  files={(files ?? []).map((f) => ({ ...f, from: f.from_peniel ? `Peniel · ${f.uploaded_by_name ?? ""}` : (f.uploaded_by_name ?? "You") }))}
+                  empty="No files in this conversation yet. Attach one to a message and it appears here."
+                />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-3">
+                    {thread.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`max-w-[640px] px-3.5 py-2.5 text-[14px] ${m.from_peniel ? "self-start bg-surface" : "self-end bg-text text-bg"}`}
+                      >
+                        <div className="mb-1 text-[11px] opacity-70">
+                          {m.from_peniel ? `Peniel · ${m.author_name}` : m.author_name} · {formatDateTime(m.created_at)}
+                        </div>
+                        <div className="whitespace-pre-line">{m.body}</div>
+                        <AttachmentChips files={filesOf(m.id)} dark={!m.from_peniel} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <CustomerReply threadId={selected.id} />
+                  <CustomerReply threadId={selected.id} companyId={me.company_id} />
+                </>
+              )}
             </div>
           ) : null}
         </div>

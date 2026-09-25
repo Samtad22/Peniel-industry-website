@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { assignThread } from "@/app/ops/messages/actions";
 import { Composer, NewThreadDialog } from "@/components/ops/MessageForms";
+import { AttachmentChips, AttachmentsTable, ThreadTabs } from "@/components/ui/MessageAttachments";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime, formatDayMonth, timeAgo } from "@/lib/format";
+import type { MessageAttachment } from "@/lib/message-files";
 import { OPEN_STATUSES } from "@/lib/order-status";
 import { opsRolesFor, ROLE_LABELS } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -35,9 +37,10 @@ type Msg = {
 const FILTERS = { all: "All", mine: "Assigned to me", unassigned: "Unassigned" } as const;
 
 /** Staff messages — threads per customer and order, with assignment (design 1q). */
-export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ f?: string; t?: string }> }) {
+export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ f?: string; t?: string; view?: string }> }) {
   const me = await requireStaff(opsRolesFor("messages"));
   const sp = await searchParams;
+  const view = sp.view === "files" ? "files" : "messages";
   const f = sp.f === "mine" || sp.f === "unassigned" ? sp.f : "all";
   const supabase = await createClient();
   const now = new Date();
@@ -87,6 +90,16 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   if (selected && thread.some((m) => !m.read_by_staff)) {
     await supabase.from("messages").update({ read_by_staff: true }).eq("thread_id", selected.id).eq("read_by_staff", false);
   }
+  const { data: files } = selected
+    ? await supabase
+        .from("message_attachments")
+        .select("id, message_id, file_name, size_bytes, mime_type, created_at")
+        .eq("thread_id", selected.id)
+        .order("created_at", { ascending: false })
+        .returns<MessageAttachment[]>()
+    : { data: [] as MessageAttachment[] };
+  const filesOf = (id: string) => (files ?? []).filter((x) => x.message_id === id).reverse();
+  const msgById = new Map(thread.map((m) => [m.id, m]));
   const customers = [...new Set(thread.filter((m) => m.profiles?.role === "customer_user").map((m) => m.profiles!.full_name))];
   const link = (p: { f?: string; t?: string }) => {
     const q = new URLSearchParams();
@@ -187,34 +200,50 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               </Link>
             )}
           </div>
-          <div className="flex flex-1 flex-col gap-3 px-4 py-5 sm:px-8">
-            {thread.map((m) => {
-              const fromCustomer = m.profiles?.role === "customer_user";
-              return (
-                <div
-                  key={m.id}
-                  className={`max-w-[640px] px-3.5 py-2.5 text-[14px] ${
-                    m.internal
-                      ? "self-end border border-dashed border-neutral-600 bg-neutral-200"
-                      : fromCustomer
-                        ? "self-start bg-surface"
-                        : "self-end bg-text text-bg"
-                  }`}
-                >
-                  <div className={`mb-1 flex items-center gap-1.5 text-[11px] ${m.internal ? "" : "opacity-70"}`}>
-                    {m.internal && <Lock size={11} aria-hidden="true" />}
-                    {m.internal ? "Internal note · " : ""}
-                    {m.profiles?.full_name ?? "—"}
-                    {fromCustomer && ` · ${selected.companies?.name.split(" ")[0] ?? ""}`} · {formatDayMonth(m.created_at)}{" "}
-                    {formatDateTime(m.created_at).slice(-5)}
-                  </div>
-                  <div className="whitespace-pre-line">{m.body}</div>
-                </div>
-              );
-            })}
+          <div className="px-4 pt-2 sm:px-8">
+            <ThreadTabs base={link({ t: selected.id })} view={view} count={(files ?? []).length} />
           </div>
+          {view === "files" ? (
+            <div className="flex-1 px-4 py-5 sm:px-8">
+              <AttachmentsTable
+                files={(files ?? []).map((x) => {
+                  const m = msgById.get(x.message_id);
+                  return { ...x, internal: m?.internal, from: m?.profiles?.full_name ?? "—" };
+                })}
+                empty="No files in this conversation yet. Attach one to a reply or an internal note and it appears here."
+              />
+            </div>
+          ) : (
+            <div className="flex flex-1 flex-col gap-3 px-4 py-5 sm:px-8">
+              {thread.map((m) => {
+                const fromCustomer = m.profiles?.role === "customer_user";
+                return (
+                  <div
+                    key={m.id}
+                    className={`max-w-[640px] px-3.5 py-2.5 text-[14px] ${
+                      m.internal
+                        ? "self-end border border-dashed border-neutral-600 bg-neutral-200"
+                        : fromCustomer
+                          ? "self-start bg-surface"
+                          : "self-end bg-text text-bg"
+                    }`}
+                  >
+                    <div className={`mb-1 flex items-center gap-1.5 text-[11px] ${m.internal ? "" : "opacity-70"}`}>
+                      {m.internal && <Lock size={11} aria-hidden="true" />}
+                      {m.internal ? "Internal note · " : ""}
+                      {m.profiles?.full_name ?? "—"}
+                      {fromCustomer && ` · ${selected.companies?.name.split(" ")[0] ?? ""}`} · {formatDayMonth(m.created_at)}{" "}
+                      {formatDateTime(m.created_at).slice(-5)}
+                    </div>
+                    <div className="whitespace-pre-line">{m.body}</div>
+                    <AttachmentChips files={filesOf(m.id)} dark={!m.internal && !fromCustomer} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="border-t-2 border-divider px-4 py-4 sm:px-8">
-            <Composer threadId={selected.id} />
+            <Composer threadId={selected.id} companyId={selected.company_id} />
           </div>
         </div>
       ) : (
