@@ -11,7 +11,7 @@ import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/forma
 import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
 import { CROWN_HEIGHT, LEAK_PRESSURE, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
-import { cartonsLine, sortingTotals, type SortingRecord } from "@/lib/sorting";
+import { cartonsLine, formatWastePct, sortingTotals, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Quality control" };
@@ -55,7 +55,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
     supabase.from("defect_types").select("code, customer_label").returns<{ code: string; customer_label: string }[]>(),
     supabase
       .from("sorting_records")
-      .select("id, inspection_id, sorted_on, sorted_cartons, waste_cartons, reported_by, notes, created_at")
+      .select("id, inspection_id, sorted_on, passed_cartons, waste_cartons, reported_by, notes, created_at")
       .order("sorted_on", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500)
@@ -89,8 +89,8 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
     .sort((a, b) => Number(b.r.result === "on_hold") - Number(a.r.result === "on_hold") || (b.t.lastSorted ?? "").localeCompare(a.t.lastSorted ?? ""))
     .slice(0, 30);
   const heldOptions = all.filter((r) => r.result === "on_hold").map((r) => ({ id: r.id, label: `${batchLabel(r)} · ${r.orders?.companies?.name ?? ""}` }));
-  const SORT_COLS = "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_170px_170px_100px_110px] items-center gap-2.5";
-  const REPORT_COLS = "grid grid-cols-[100px_minmax(0,1.6fr)_170px_170px_minmax(0,1fr)_60px] items-center gap-2.5";
+  const SORT_COLS = "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_150px_150px_70px_100px_90px] items-center gap-2.5";
+  const REPORT_COLS = "grid grid-cols-[100px_minmax(0,1.6fr)_90px_90px_90px_70px_minmax(0,1fr)_60px] items-center gap-2.5";
 
   const rows = all.filter((r) => (f === "held" ? r.result === "on_hold" : f === "unpublished" ? !r.published : true));
   const COLS = "grid grid-cols-[100px_minmax(0,1fr)_100px_90px_90px_80px_130px_150px] items-center gap-2.5";
@@ -162,14 +162,19 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
           </div>
           {canEdit && <SortingDialog batches={heldOptions} today={today} />}
         </div>
-        <div className="mb-3 text-[12px] opacity-60">From the daily &ldquo;on hold products for sorting&rdquo; report. 1 carton = 10,000 crowns.</div>
+        <div className="mb-3 text-[12px] opacity-60">
+          From the daily &ldquo;on hold products for sorting&rdquo; report: Quantity = cartons passed, Waste = cartons scrapped, sorted = passed + waste.
+          1 carton = 10,000 crowns.
+        </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[860px]">
+          <div className="min-w-[1060px]">
             <div className={`${SORT_COLS} th-row border-b-2 border-divider py-2`}>
               <span>Batch</span>
               <span>Customer</span>
-              <span>Quantity sorted</span>
+              <span>Sorted</span>
+              <span>Passed</span>
               <span>Waste</span>
+              <span>Waste %</span>
               <span>Last report</span>
               <span>Status</span>
             </div>
@@ -183,7 +188,9 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                   </Link>
                   <span className="truncate">{r.orders?.companies?.name ?? "—"}</span>
                   <span>{t.reports ? cartonsLine(t.sorted) : <span className="opacity-60">Not sorted yet</span>}</span>
+                  <span>{t.reports ? cartonsLine(t.passed) : "—"}</span>
                   <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? cartonsLine(t.waste) : "—"}</span>
+                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.wastePct == null ? "—" : `${t.wastePct.toFixed(1)}%`}</span>
                   <span>{t.lastSorted ? formatDate(t.lastSorted) : "—"}</span>
                   <span>
                     <Pill style={pill.style}>{pill.label}</Pill>
@@ -198,12 +205,14 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
           <>
             <h5 className="mb-2 mt-6">Recent sorting reports</h5>
             <div className="overflow-x-auto">
-              <div className="min-w-[860px]">
+              <div className="min-w-[900px]">
                 <div className={`${REPORT_COLS} th-row border-b-2 border-divider py-2`}>
                   <span>Date</span>
                   <span>Batch</span>
-                  <span>Quantity</span>
+                  <span>Sorted</span>
+                  <span>Passed</span>
                   <span>Waste</span>
+                  <span>Waste %</span>
                   <span>Reported by</span>
                   <span />
                 </div>
@@ -213,8 +222,10 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                     <div key={x.id} className={`${REPORT_COLS} border-b border-divider py-2 text-[13px]`} title={x.notes ?? undefined}>
                       <span>{formatDate(x.sorted_on)}</span>
                       <span className="truncate">{b ? batchLabel(b) : "—"}</span>
-                      <span>{cartonsLine(x.sorted_cartons)}</span>
-                      <span>{cartonsLine(x.waste_cartons)}</span>
+                      <span>{x.passed_cartons + x.waste_cartons}</span>
+                      <span>{x.passed_cartons}</span>
+                      <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>
+                      <span>{formatWastePct(x.passed_cartons, x.waste_cartons)}</span>
                       <span className="truncate">{x.reported_by ?? "—"}</span>
                       {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
                     </div>

@@ -9,7 +9,7 @@ import { addisDateISO, formatDate, formatQty } from "@/lib/format";
 import { loadPresets } from "@/lib/presets";
 import { MEASURES, measureValue, VISUAL_SAMPLE } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
-import { cartonsLine, sortingTotals, type SortingRecord } from "@/lib/sorting";
+import { cartonsLine, formatWastePct, sortingTotals, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inspection" };
@@ -87,7 +87,7 @@ export default async function InspectionPage({
       ? Promise.resolve({ data: [] as SortingRecord[] })
       : supabase
           .from("sorting_records")
-          .select("id, inspection_id, sorted_on, sorted_cartons, waste_cartons, reported_by, notes")
+          .select("id, inspection_id, sorted_on, passed_cartons, waste_cartons, reported_by, notes")
           .eq("inspection_id", id)
           .order("sorted_on")
           .order("created_at")
@@ -181,7 +181,7 @@ function SortingPanel({
   canEdit: boolean;
 }) {
   const t = sortingTotals(records);
-  const COLS = "grid grid-cols-[110px_170px_170px_minmax(0,1fr)_60px] items-center gap-2.5";
+  const COLS = "grid grid-cols-[110px_80px_80px_80px_80px_minmax(0,1fr)_60px] items-center gap-2.5";
   return (
     <section id="sorting" className="border-t-2 border-divider px-4 pb-8 pt-6 sm:px-8">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
@@ -193,25 +193,29 @@ function SortingPanel({
       </div>
       <div className="mb-3 text-[13px]">
         {t.reports
-          ? `${t.reports} report${t.reports === 1 ? "" : "s"}: ${cartonsLine(t.sorted)} sorted, ${cartonsLine(t.waste)} waste.`
+          ? `${t.reports} report${t.reports === 1 ? "" : "s"}: ${cartonsLine(t.sorted)} sorted, ${cartonsLine(t.passed)} passed, ${cartonsLine(t.waste)} waste (${formatWastePct(t.passed, t.waste)}).`
           : "Not sorted yet."}
         {held ? " When sorting is finished, release the batch above." : ""}
       </div>
       {records.length > 0 && (
         <div className="overflow-x-auto">
-          <div className="min-w-[640px]">
+          <div className="min-w-[700px]">
             <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
               <span>Date</span>
-              <span>Quantity</span>
+              <span>Sorted</span>
+              <span>Passed</span>
               <span>Waste</span>
+              <span>Waste %</span>
               <span>Reported by</span>
               <span />
             </div>
             {records.map((x) => (
               <div key={x.id} className={`${COLS} border-b border-divider py-2 text-[13px]`}>
                 <span>{formatDate(x.sorted_on)}</span>
-                <span>{cartonsLine(x.sorted_cartons)}</span>
-                <span>{cartonsLine(x.waste_cartons)}</span>
+                <span>{x.passed_cartons + x.waste_cartons}</span>
+                <span>{x.passed_cartons}</span>
+                <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>
+                <span>{formatWastePct(x.passed_cartons, x.waste_cartons)}</span>
                 <span className="truncate" title={x.notes ?? undefined}>
                   {x.reported_by ?? "—"}
                   {x.notes ? ` · ${x.notes}` : ""}

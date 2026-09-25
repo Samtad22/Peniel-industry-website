@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { MEASURES } from "@/lib/qc";
-import { parseCartons } from "@/lib/sorting";
+import { formatWastePct, parseCartons } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export type QcState = { error?: string } | null;
@@ -92,7 +92,7 @@ export async function setInspectionPublished(fd: FormData): Promise<void> {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Record one batch's sorting from the daily "on hold products for sorting" report (internal only). */
+/** Record one batch's sorting from the daily "on hold products for sorting" report (internal only): passed and waste cartons. */
 export async function addSortingRecord(_prev: SortingState, fd: FormData): Promise<SortingState> {
   await requireStaff([...WRITERS]);
   const s = (k: string) => String(fd.get(k) ?? "").trim();
@@ -100,11 +100,11 @@ export async function addSortingRecord(_prev: SortingState, fd: FormData): Promi
   const sortedOn = s("sorted_on");
   if (!/^[0-9a-f-]{36}$/i.test(inspectionId)) return { error: "Choose the batch." };
   if (!DATE.test(sortedOn)) return { error: "Enter the date of the report." };
-  const sorted = parseCartons(s("sorted_cartons"), "Quantity");
-  if (typeof sorted !== "number") return sorted;
+  const passed = parseCartons(s("passed_cartons"), "Passed");
+  if (typeof passed !== "number") return passed;
   const waste = parseCartons(s("waste_cartons"), "Waste");
   if (typeof waste !== "number") return waste;
-  if (sorted + waste === 0) return { error: "Enter the quantity or the waste in cartons." };
+  if (passed + waste === 0) return { error: "Enter the passed or the waste cartons." };
 
   const supabase = await createClient();
   const { data: batch } = await supabase.from("qc_inspections").select("batch_no").eq("id", inspectionId).maybeSingle<{ batch_no: string }>();
@@ -112,14 +112,14 @@ export async function addSortingRecord(_prev: SortingState, fd: FormData): Promi
   const { error } = await supabase.from("sorting_records").insert({
     inspection_id: inspectionId,
     sorted_on: sortedOn,
-    sorted_cartons: sorted,
+    passed_cartons: passed,
     waste_cartons: waste,
     reported_by: s("reported_by").slice(0, 100) || null,
     notes: s("notes").slice(0, 1000) || null,
   });
   if (error) return { error: /permitted|row-level/i.test(error.message) ? "Your role can't record sorting." : "Couldn't save the sorting report." };
   refresh();
-  return { ok: `Batch ${batch.batch_no}: ${sorted} carton${sorted === 1 ? "" : "s"}, ${waste} waste saved.` };
+  return { ok: `Batch ${batch.batch_no}: ${passed + waste} sorted, ${passed} passed, ${waste} waste (${formatWastePct(passed, waste)}) saved.` };
 }
 
 /** Remove a sorting report entered by mistake. */
