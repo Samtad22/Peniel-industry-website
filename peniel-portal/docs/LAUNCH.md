@@ -96,6 +96,13 @@ each value exactly.
 | Email (DKIM) | TXT | `resend._domainkey` | the long key Resend shows | Copy the whole value. |
 | Email (DMARC) | TXT | `_dmarc` | `v=DMARC1; p=none;` | Only if the domain has no `_dmarc` record yet. |
 
+- **Where:** penielindustry.org's DNS is at **Porkbun** (nameservers
+  `*.ns.porkbun.com`). Porkbun → Domain Management → penielindustry.org →
+  **DNS** → add each record. Leave the existing records (the website's
+  ALIAS/A and `www`) as they are.
+- The Vercel project `peniel-portal` (team Peniel) already exists, builds
+  from `main` with Root Directory `peniel-portal`, and has
+  `portal.penielindustry.org` added. It goes live once the CNAME below exists.
 - **Name / Host:** most DNS hosts add `.penielindustry.org` for you, so type
   only `portal`, `send`, and so on. If the host shows the full name, enter
   `portal.penielindustry.org` instead.
