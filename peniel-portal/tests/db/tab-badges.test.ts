@@ -2,7 +2,7 @@
 // Everyone reads and writes only their own rows.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { as, createUser, DSH, errorCode, HAB, pool } from "./helpers.ts";
+import { as, createUser, DSH, errorCode, HAB, HAB_ORDER_HABESHA, pool } from "./helpers.ts";
 
 let habesha: string;
 let dashen: string;
@@ -53,4 +53,43 @@ test("tab names are checked", async () => {
   await as(habesha, async (db) => {
     assert.equal(await errorCode(db.query("insert into public.nav_seen (user_id, area) values ($1, 'Orders; drop')", [habesha])), "23514");
   });
+});
+
+test("a status change after the customer's last visit counts on their Orders tab; staff don't count their own", async () => {
+  const sales2 = await createUser({ email: "sales2@tabs.test", role: "sales" });
+  // Everyone has just looked at Orders.
+  for (const u of [habesha, sales, sales2]) {
+    await pool.query("insert into public.nav_seen (user_id, area, seen_at) values ($1, 'orders', now() - interval '1 second') on conflict (user_id, area) do update set seen_at = excluded.seen_at", [u]);
+  }
+  // Sales moves the order on, as the portal does.
+  await as(sales, async (db) => {
+    const { rows } = await db.query("select status from public.orders where id = $1", [HAB_ORDER_HABESHA]);
+    const next = rows[0].status === "in_production" ? "quality_check" : "in_production";
+    await db.query("update public.orders set status = $2, customer_reason = null where id = $1", [HAB_ORDER_HABESHA, next]);
+    await db.query("commit");
+  });
+
+  // Customer: the same query the Orders badge runs (customer_order_timeline, not "submitted", after their visit).
+  await as(habesha, async (db) => {
+    const { rows } = await db.query(
+      `select distinct t.order_id from public.customer_order_timeline t
+       where t.status <> 'submitted'
+         and t.created_at > (select seen_at from public.nav_seen where user_id = $1 and area = 'orders')`,
+      [habesha],
+    );
+    assert.deepEqual(rows.map((r) => r.order_id), [HAB_ORDER_HABESHA]);
+  });
+  // Staff: the one who made the change doesn't get a badge; a colleague does.
+  const staffCount = (me: string) =>
+    as(me, async (db) => {
+      const { rows } = await db.query(
+        `select count(distinct e.order_id)::int as n from public.order_status_events e
+         where e.created_at > (select seen_at from public.nav_seen where user_id = $1 and area = 'orders')
+           and (e.created_by is null or e.created_by <> $1)`,
+        [me],
+      );
+      return rows[0].n as number;
+    });
+  assert.equal(await staffCount(sales), 0);
+  assert.equal(await staffCount(sales2), 1);
 });

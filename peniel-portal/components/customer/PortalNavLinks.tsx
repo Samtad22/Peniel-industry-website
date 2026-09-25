@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMarkSeen } from "@/components/ui/useMarkSeen";
+import { useTabBadges } from "@/components/ui/useTabBadges";
 import { CUSTOMER_NAV } from "@/lib/roles";
 
 /** Tabs whose badge means "new since you last looked" (Messages counts unread messages instead). */
 const SEEN = ["orders", "production", "artwork", "documents"] as const;
 
-export default function PortalNavLinks({ badges = {} }: { badges?: Partial<Record<string, number>> }) {
+export default function PortalNavLinks({ badges: initial = {}, asOf = 0 }: { badges?: Record<string, number>; asOf?: number }) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const active = CUSTOMER_NAV.find((i) => isActive(i.href));
-  useMarkSeen(active?.area ?? null, active?.area ? (badges[active.area] ?? 0) : 0, SEEN);
+  const badges = useTabBadges(initial, asOf, active?.area ?? null, SEEN);
   return (
     <>
       {CUSTOMER_NAV.map((item) => {

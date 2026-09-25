@@ -1,6 +1,6 @@
 import CustomerShell from "@/components/customer/CustomerShell";
 import { requireCustomer } from "@/lib/auth";
-import { customerBadges } from "@/lib/nav-badges";
+import { countedAt, customerBadges } from "@/lib/nav-badges";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
@@ -12,7 +12,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   ]);
 
   return (
-    <CustomerShell userName={profile.full_name} companyName={company?.name ?? "Customer portal"} badges={badges}>
+    <CustomerShell userName={profile.full_name} companyName={company?.name ?? "Customer portal"} badges={badges} badgesAsOf={countedAt()}>
       {children}
     </CustomerShell>
   );
