@@ -4,7 +4,9 @@ import SignOutButton from "@/components/SignOutButton";
 import { initials, OPS_NAV, ROLE_LABELS, type StaffRole } from "@/lib/roles";
 import OpsNavLinks from "./OpsNavLinks";
 
-export type OpsBadges = Partial<Record<"inbox" | "messages" | "quality" | "artwork", number>>;
+export type OpsBadges = Partial<
+  Record<"inbox" | "messages" | "quality" | "artwork" | "orders" | "production" | "inventory" | "documents" | "settings", number>
+>;
 
 /** Peniel Ops frame: 232px ink sidebar (OpsNav) + main area. */
 export default function OpsShell({
@@ -23,6 +25,7 @@ export default function OpsShell({
   const items = visible.map((n) => ({
     href: n.href,
     label: n.label,
+    area: n.area,
     badge: n.area in badges ? badges[n.area as keyof OpsBadges] : undefined,
   }));
 
