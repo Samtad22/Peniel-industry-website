@@ -140,7 +140,7 @@ export default async function DocumentsPage({
                     <span className="tag tag-neutral">{docTypeLabel(d.type)}</span>
                   </span>
                   <span className="truncate">
-                    {d.companies?.name ?? "—"}
+                    {d.companies?.name ?? "-"}
                     {d.brands?.name && ` · ${d.brands.name}`}
                   </span>
                   <span>
@@ -149,7 +149,7 @@ export default async function DocumentsPage({
                         {d.orders?.order_no}
                       </Link>
                     ) : (
-                      "—"
+                      "-"
                     )}
                   </span>
                   <span>{formatDate(d.created_at)}</span>

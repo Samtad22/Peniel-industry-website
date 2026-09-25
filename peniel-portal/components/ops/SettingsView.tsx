@@ -67,7 +67,7 @@ export default function SettingsView({
                   <StatusBadge status={s} />
                 </span>
                 <span>{statusText(s, "customer")}</span>
-                <span>{EMAILS_CUSTOMER.includes(s) ? "✓ Yes" : "—"}</span>
+                <span>{EMAILS_CUSTOMER.includes(s) ? "✓ Yes" : "-"}</span>
               </div>
             ))}
             <p className="mb-0 mt-2 text-[12px] opacity-70">“Awaiting approval” is announced by the proof email itself.</p>
@@ -75,7 +75,7 @@ export default function SettingsView({
 
           <Section title="Delay & hold reason presets">
             <div className="mb-2 text-[12px] font-extrabold text-accent-800">
-              ⚠ Written for the customer — do not include line or machine names.
+              ⚠ Written for the customer: do not include line or machine names.
             </div>
             {presets.length === 0 && <p className="m-0 text-[13px] opacity-60">No presets yet.</p>}
             {presets.map((p, i) => (

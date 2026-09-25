@@ -136,11 +136,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <span className="truncate">{o.po_number}</span>
                   <span className="truncate">{o.product}</span>
                   <span className="text-right tabular-nums">{formatQty(o.quantity)}</span>
-                  <span>{o.due_date ? formatDayMonth(o.due_date) : "—"}</span>
+                  <span>{o.due_date ? formatDayMonth(o.due_date) : "-"}</span>
                   <span>
                     <StatusBadge status={o.status} />
                   </span>
-                  <span className="opacity-70">{o.lines.join(" · ") || "—"}</span>
+                  <span className="opacity-70">{o.lines.join(" · ") || "-"}</span>
                 </Link>
               ))}
             </div>

@@ -217,7 +217,7 @@ function SortingPanel({
                 <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>
                 <span>{formatWastePct(x.passed_cartons, x.waste_cartons)}</span>
                 <span className="truncate" title={x.notes ?? undefined}>
-                  {x.reported_by ?? "—"}
+                  {x.reported_by ?? "-"}
                   {x.notes ? ` · ${x.notes}` : ""}
                 </span>
                 {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}

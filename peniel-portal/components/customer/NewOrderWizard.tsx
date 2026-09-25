@@ -105,7 +105,7 @@ function Stepper({ step, onGo }: { step: Step; onGo: (s: Step) => void }) {
   );
 }
 
-function Summary({ rows }: { rows: [string, string | null][] }) {
+function Summary({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
     <aside className="bg-surface px-4 py-6 sm:px-8 lg:py-8">
       <h6 className="mb-2.5 mt-0">Order summary</h6>
@@ -113,7 +113,7 @@ function Summary({ rows }: { rows: [string, string | null][] }) {
         {rows.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 border-b border-divider py-2 text-[13px]">
             <span className="opacity-60">{k}</span>
-            <span className={v ? "font-extrabold" : "opacity-40"}>{v || "—"}</span>
+            <span className={v ? "font-extrabold" : "opacity-40"}>{v || "-"}</span>
           </div>
         ))}
       </div>
@@ -262,9 +262,10 @@ export default function NewOrderWizard({
     });
   };
 
-  const summary: [string, string | null][] = [
+  const summary: [string, React.ReactNode][] = [
     ["Brand", brand?.name ?? null],
     ["Crown", brand ? brand.spec : null],
+    ["Colours", brand && brand.colours.length ? <InkSwatches colours={brand.colours} compact /> : null],
     ["Liner", brand?.liner ?? null],
     ["Quantity", qty ? `${qty.toLocaleString("en-US")} crowns` : null],
     ["Fulfilment", step > 1 || reorderFrom ? (fulfilment === "delivery" ? "Delivery" : "Pickup at Bole Lemi") : null],
@@ -339,6 +340,11 @@ export default function NewOrderWizard({
                           <span className="text-[10px] uppercase tracking-[0.1em] text-accent-700">{b.spec}</span>
                           <b className="text-[15px]">{b.name}</b>
                           <span className="text-[12px] opacity-70">{b.liner} liner</span>
+                          {b.colours.length > 0 && (
+                            <span className="text-[11px]">
+                              <InkSwatches colours={b.colours} compact />
+                            </span>
+                          )}
                         </label>
                       );
                     })}
@@ -403,7 +409,7 @@ export default function NewOrderWizard({
                     {[
                       ["Size", brand.size],
                       ["Liner", brand.liner],
-                      ["Finish", brand.finish ?? "—"],
+                      ["Finish", brand.finish ?? "-"],
                     ].map(([k, v]) => (
                       <div key={k} className="border-b border-r border-divider px-3.5 py-3">
                         <div className="text-[11px] uppercase tracking-[0.08em] opacity-60">{k}</div>
@@ -709,7 +715,8 @@ export default function NewOrderWizard({
         <div className="grid gap-10 px-4 pb-10 pt-8 sm:px-10 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="border border-divider bg-surface">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-divider px-6 py-5">
-              <div>
+              <Crown colours={brand.colours} src={brand.crown} size={72} alt={`${brand.name} crown`} />
+              <div className="min-w-0 flex-1">
                 <h6 className="m-0 text-accent-700">Review</h6>
                 <h2 className="mb-0 mt-1 text-[26px] sm:text-[32px]">
                   {qty.toLocaleString("en-US")} × {brand.name} crowns
@@ -743,6 +750,14 @@ export default function NewOrderWizard({
                   </button>
                 </div>
               ))}
+            </div>
+            <div className="border-b border-divider px-6 py-4">
+              <div className="mb-1.5 text-[11px] uppercase tracking-[0.08em] opacity-60">
+                Pantone colours · {crownSizeLine(brand.size)}
+              </div>
+              <div className="text-[14px] font-bold">
+                <InkSwatches colours={brand.colours} />
+              </div>
             </div>
             <div className="px-6 py-4">
               <h6 className="mb-1.5 mt-0">Attachments</h6>

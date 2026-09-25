@@ -157,7 +157,7 @@ describe("customer views", () => {
   test("internal documents are not listed", async () => {
     await as(habesha, async (db) => {
       const { rows } = await db.query("select title from public.customer_documents");
-      assert.deepEqual(rows.map((r) => r.title), ["Certificate of analysis — B-26-0412"]);
+      assert.deepEqual(rows.map((r) => r.title), ["Certificate of analysis B-26-0412"]);
     });
   });
 

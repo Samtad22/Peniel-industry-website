@@ -81,7 +81,7 @@ export default function StaffOrderView({
           `PO ${o.po_number}`,
           o.spec,
           o.liner,
-          o.delivery_method === "delivery" ? `Delivery to ${o.delivery_address ?? "—"}` : "Pickup at Bole Lemi",
+          o.delivery_method === "delivery" ? `Delivery to ${o.delivery_address ?? "-"}` : "Pickup at Bole Lemi",
         ]
           .filter(Boolean)
           .join(" · ")}
@@ -134,7 +134,7 @@ export default function StaffOrderView({
                     <div className="border-b border-divider py-2">
                       {p.entries} entries · {formatQty(p.produced)} produced · {formatQty(p.rejects)} rejects
                     </div>
-                    <div className="border-b border-divider py-2">Lines: {p.lines.join(", ") || "—"}</div>
+                    <div className="border-b border-divider py-2">Lines: {p.lines.join(", ") || "-"}</div>
                   </>
                 )}
                 {p.batches.length === 0 ? (

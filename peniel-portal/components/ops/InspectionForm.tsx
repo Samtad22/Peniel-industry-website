@@ -173,10 +173,10 @@ export default function InspectionForm({
             )}
           >
             <span>
-              Total rejects {total.toLocaleString("en-US")} of {size ? size.toLocaleString("en-US") : "—"}
+              Total rejects {total.toLocaleString("en-US")} of {size ? size.toLocaleString("en-US") : "-"}
             </span>
             <b>
-              Reject rate {size ? `${pct.toFixed(2)}%` : "—"}
+              Reject rate {size ? `${pct.toFixed(2)}%` : "-"}
               {over && ` · over the ${REJECT_LIMIT_PCT.toFixed(2)}% limit`}
             </b>
           </div>
@@ -269,8 +269,8 @@ export default function InspectionForm({
           <div className="border border-divider bg-bg p-2.5 text-[13px]">
             <div className="grid grid-cols-[80px_1fr_70px_auto] items-center gap-2 border-b border-divider pb-2">
               <b className="truncate">{batch || "Batch"}</b>
-              <span>{at ? formatDate(at.slice(0, 10)) : "—"}</span>
-              <span className={clsx("font-extrabold", over && "text-accent-700")}>{size ? `${pct.toFixed(2)}%` : "—"}</span>
+              <span>{at ? formatDate(at.slice(0, 10)) : "-"}</span>
+              <span className={clsx("font-extrabold", over && "text-accent-700")}>{size ? `${pct.toFixed(2)}%` : "-"}</span>
               <Pill style={pill.style}>{pill.label}</Pill>
             </div>
             <div className={clsx("pt-2", result === "on_hold" ? "text-accent-800" : "opacity-70")}>

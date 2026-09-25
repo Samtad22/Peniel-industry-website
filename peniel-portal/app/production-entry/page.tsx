@@ -69,7 +69,7 @@ export default async function ProductionEntryPage() {
                 </span>
                 <span className="flex justify-between gap-2 opacity-70">
                   <span>
-                    Shift {e.shift} · {e.line} · {e.entered_by ?? "—"}
+                    Shift {e.shift} · {e.line} · {e.entered_by ?? "-"}
                   </span>
                   <span>rej {rejectPct(e.rejects, e.produced).toFixed(2)}%</span>
                 </span>

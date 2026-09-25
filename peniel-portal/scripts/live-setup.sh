@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 
 cat <<'SQL'
 -- ============================================================================
--- Peniel Portal — LIVE database setup (one file)
+-- Peniel Portal: LIVE database setup (one file)
 --
 -- Run this ONCE, in the SQL Editor of the NEW, EMPTY live Supabase project.
 -- Do NOT run it on the test project (bjaxhmkyxmcrqiebtzzo).
@@ -51,15 +51,15 @@ cat <<'SQL'
 insert into public.hold_reason_presets (text, sort_order) values
   ('Waiting for your approval of the updated artwork.', 1),
   ('Waiting for clarification on the purchase order.', 2),
-  ('Raw material delivery delayed — we will confirm a new date shortly.', 3),
+  ('Raw material delivery delayed. We will confirm a new date shortly.', 3),
   ('Batch under re-inspection by our quality team.', 4),
-  ('Production rescheduled — see the revised due date.', 5)
+  ('Production rescheduled. See the revised due date.', 5)
 on conflict (text) do nothing;
 
 -- Production lines (internal only; customers never see these names).
 insert into public.production_lines (name) values
-  ('Line 1 — Press A'),
-  ('Line 2 — Press B')
+  ('Line 1 · Press A'),
+  ('Line 2 · Press B')
 on conflict (name) do nothing;
 
 -- Raw materials, starting at zero. Record deliveries in Ops → Inventory.

@@ -65,7 +65,7 @@ export default async function OrderProductionPage({ params }: { params: Promise<
     <>
       <OpsHeader
         crumb={{ label: "Production", href: "/ops/production", current: "by order" }}
-        title={`${o.order_no} · ${o.companies?.name ?? "—"} · ${o.brands?.name ?? "—"}`}
+        title={`${o.order_no} · ${o.companies?.name ?? "-"} · ${o.brands?.name ?? "-"}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
@@ -109,7 +109,7 @@ export default async function OrderProductionPage({ params }: { params: Promise<
           </div>
           <div className={kpi}>
             <h6 className="m-0 opacity-60">Projected completion</h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{projection ? formatDayMonth(projection.date) : "—"}</div>
+            <div className="text-[40px] font-extrabold leading-[1.1]">{projection ? formatDayMonth(projection.date) : "-"}</div>
             <div className="text-[12px]">
               {projection ? `at ${formatQty(projection.perDay)}/day` : "no recent output"}
               {due && ` · due ${formatDayMonth(due)}`}
@@ -117,14 +117,14 @@ export default async function OrderProductionPage({ params }: { params: Promise<
           </div>
           <div className={kpi}>
             <h6 className="m-0 opacity-60">Reject rate</h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{produced ? `${rejectPct(rejects, produced).toFixed(2)}%` : "—"}</div>
+            <div className="text-[40px] font-extrabold leading-[1.1]">{produced ? `${rejectPct(rejects, produced).toFixed(2)}%` : "-"}</div>
             <div className="text-[12px]">per-batch rates are published by QC</div>
           </div>
           <div className={kpi}>
             <h6 className="m-0 flex items-center gap-2 opacity-60">
               Lines used <InternalOnly />
             </h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{lines.join(" · ") || "—"}</div>
+            <div className="text-[40px] font-extrabold leading-[1.1]">{lines.join(" · ") || "-"}</div>
           </div>
         </div>
       </div>

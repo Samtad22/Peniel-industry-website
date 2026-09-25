@@ -187,14 +187,14 @@ export default async function ArtworkPage() {
                   <div key={p.id} className="grid grid-cols-[70px_minmax(0,1fr)_110px_120px_200px_minmax(0,1fr)_32px] items-center gap-3 border-b border-divider py-2.5 text-[14px]">
                     <b>v{p.version ?? "?"}</b>
                     <span>{p.brand_name}</span>
-                    <span>{p.order_no ?? "—"}</span>
+                    <span>{p.order_no ?? "-"}</span>
                     <span>{formatDate(p.created_at)}</span>
                     <span>
                       <Pill style={pill.style}>{pill.label}</Pill>
                     </span>
                     <span className="flex flex-col gap-1 text-[13px]">
                       <span>
-                        {p.responded_by_name ?? "—"}
+                        {p.responded_by_name ?? "-"}
                         {p.customer_comment && <span className="block text-[12px] opacity-70">“{p.customer_comment}”</span>}
                       </span>
                       <ProofDelivery p={p} />

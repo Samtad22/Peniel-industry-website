@@ -36,7 +36,7 @@ customers go in a **new, empty** project.
    - *URL Configuration*: Site URL `https://portal.penielindustry.org`;
      Redirect URLs `https://portal.penielindustry.org/auth/confirm`.
    - *Emails → Templates*: paste `supabase/templates/invite.html` and
-     `supabase/templates/recovery.html`.
+     `supabase/templates/recovery.html` (subjects in step 4b).
    - *Emails → SMTP Settings*: after step 3 below, turn on custom SMTP with
      host `smtp.resend.com`, port `465`, user `resend`, and a Resend API key
      as the password. Sender `portal@penielindustry.org`. Without this,
@@ -140,6 +140,34 @@ the domain as Verified). Copy each value exactly.
 - Changes usually take effect within minutes, and can take up to 48 hours.
   Vercel shows "Valid Configuration" and Resend shows "Verified" when
   they're working.
+
+## 4b. Keeping portal emails out of spam
+
+DNS is already right for `penielindustry.org`: Resend's DKIM key
+(`resend._domainkey`), SPF on `send.penielindustry.org`, and a DMARC record
+(`p=quarantine`). With DMARC on quarantine, any email that fails these checks
+goes to spam, so check one email first (step 1).
+
+1. **Check an email passes.** In Gmail open a portal email → ⋮ → *Show
+   original*. SPF, DKIM and DMARC must all say **PASS**. If DMARC fails, the
+   email wasn't sent through Resend with the verified domain.
+2. **Supabase invite and reset emails** (both projects): Authentication →
+   Emails → Templates. *Invite user*: subject `Your Peniel Portal account`,
+   body = `supabase/templates/invite.html`. *Reset password*: subject `Reset
+   your Peniel Portal password`, body = `supabase/templates/recovery.html`.
+   Their links point at portal.penielindustry.org (not supabase.co), which
+   spam filters prefer. SMTP Settings: sender name `Peniel Portal`, sender
+   email `portal@penielindustry.org`.
+3. **Resend**: Domains → penielindustry.org → turn **off** Click tracking and
+   Open tracking. Tracking rewrites links, which spam filters penalise.
+4. **A real mailbox for the sender.** Create `portal@penielindustry.org` in
+   Google Workspace (a user, group or alias) so replies don't bounce.
+5. **Google Workspace (Peniel's own staff)**: Admin console → Apps → Google
+   Workspace → Gmail → Spam, phishing and malware → *Email allowlist* or an
+   *Approved senders* rule for `portal@penielindustry.org`.
+6. **First weeks**: ask each new user to mark the first email *Not spam* and
+   add `portal@penielindustry.org` to their contacts. A new sender builds
+   reputation over a few weeks of normal, low-volume sending.
 
 ## 5. Go-live checks
 

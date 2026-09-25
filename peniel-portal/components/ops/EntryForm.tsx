@@ -150,7 +150,7 @@ export default function EntryForm({
 
       <div className="flex flex-wrap items-center justify-between gap-2 bg-surface px-3.5 py-3 text-[14px]">
         <span className={clsx(pct > REJECT_LIMIT_PCT && "font-extrabold text-accent-700")}>
-          Reject rate <b>{p ? `${pct.toFixed(2)}%` : "—"}</b> · limit {REJECT_LIMIT_PCT.toFixed(2)}%
+          Reject rate <b>{p ? `${pct.toFixed(2)}%` : "-"}</b> · limit {REJECT_LIMIT_PCT.toFixed(2)}%
         </span>
         {order && (
           <span>

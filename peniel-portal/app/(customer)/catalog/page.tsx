@@ -53,7 +53,7 @@ export default async function CatalogPage() {
               {([
                 ["Size", crownSizeLine(b.size)],
                 ["Liner", b.liner],
-                ["Finish", b.finish ?? "—"],
+                ["Finish", b.finish ?? "-"],
                 ["Colours", <InkSwatches key="c" colours={b.colours} compact />],
               ] as [string, React.ReactNode][]).map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[100px_1fr] border-b border-divider py-1.5">

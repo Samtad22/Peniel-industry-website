@@ -106,9 +106,11 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
       .returns<Submission[]>(),
   ]);
 
-  // Default: the customer with the latest proof, else the first with brands.
+  // Default: the customer whose artwork is waiting for review, else the one
+  // with the latest proof, else the first with brands.
   const companyId =
     (companies ?? []).find((c) => c.id === sp.c)?.id ??
+    (submissions ?? []).find((x) => x.status === "submitted")?.company_id ??
     (proofs ?? [])[0]?.brands?.company_id ??
     (brands ?? [])[0]?.company_id ??
     (companies ?? [])[0]?.id ??
@@ -286,7 +288,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                           {p.orders?.order_no}
                         </Link>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </span>
                     <span>{formatDayMonth(p.created_at)}</span>
@@ -295,7 +297,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                       {(p.customer_comment || p.responder) && (
                         <span className="text-[12px] opacity-80">
                           {p.customer_comment ? `“${p.customer_comment}”` : ""}
-                          {p.responder && ` — ${p.responder.full_name}`}
+                          {p.responder && ` · ${p.responder.full_name}`}
                         </span>
                       )}
                     </span>

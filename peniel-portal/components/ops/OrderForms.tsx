@@ -28,7 +28,7 @@ export function CustomerWarning({ boxed }: { boxed?: boolean }) {
         boxed && "border-2 border-accent px-3 py-2.5",
       )}
     >
-      ⚠ Written for the customer — do not include line or machine names.
+      ⚠ Written for the customer: do not include line or machine names.
     </div>
   );
 }

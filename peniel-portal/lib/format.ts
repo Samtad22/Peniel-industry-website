@@ -28,22 +28,22 @@ function toDate(value: string | Date): Date {
 
 /** `14 Oct 2026`. Returns "—" for empty values. */
 export function formatDate(value: string | Date | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   return dateFmt.format(toDate(value)).replace("Sept", "Sep");
 }
 
 /** `14 Oct 2026, 09:30` (Addis Ababa time). */
 export function formatDateTime(value: string | Date | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   const d = toDate(value);
   return `${formatDate(d)}, ${timeFmt.format(d)}`;
 }
 
 /** Crown quantities: `12.0M`, `850K`, `640`. */
 export function formatQty(value: number | string | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return "-";
   const abs = Math.abs(n);
   if (abs >= 999_500) return `${(n / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `${Math.round(n / 1_000)}K`;
@@ -52,7 +52,7 @@ export function formatQty(value: number | string | null | undefined): string {
 
 /** `1.25%` */
 export function formatPct(value: number | string | null | undefined, digits = 2): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   return `${Number(value).toFixed(digits)}%`;
 }
 
@@ -62,7 +62,7 @@ const hourFmt = new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: fals
 
 /** `20 Nov` — short form used in tables. */
 export function formatDayMonth(value: string | Date | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "-";
   return dayMonthFmt.format(toDate(value)).replace("Sept", "Sep");
 }
 

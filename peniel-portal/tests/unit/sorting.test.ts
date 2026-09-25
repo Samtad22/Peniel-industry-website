@@ -15,7 +15,7 @@ test("quantity is what passed, waste is scrapped: sorted = passed + waste", () =
   assert.equal(wastePct(10, 2), 16.7);
   assert.equal(formatWastePct(10, 2), "16.7%");
   assert.equal(formatWastePct(16, 0), "0.0%");
-  assert.equal(formatWastePct(0, 0), "—");
+  assert.equal(formatWastePct(0, 0), "-");
   assert.equal(formatWastePct(0, 3), "100.0%");
 });
 
