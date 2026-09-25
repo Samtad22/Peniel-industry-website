@@ -57,13 +57,13 @@ export function opsRolesFor(area: OpsArea): StaffRole[] {
 }
 
 /** Customer portal navigation (PortalNav in the design). */
-export const CUSTOMER_NAV: { href: string; label: string }[] = [
-  { href: "/orders", label: "Orders" },
-  { href: "/production", label: "Production" },
+export const CUSTOMER_NAV: { href: string; label: string; area?: "orders" | "production" | "artwork" | "documents" | "messages" }[] = [
+  { href: "/orders", label: "Orders", area: "orders" },
+  { href: "/production", label: "Production", area: "production" },
   { href: "/catalog", label: "Catalog" },
-  { href: "/artwork", label: "Artwork" },
-  { href: "/documents", label: "Documents" },
-  { href: "/messages", label: "Messages" },
+  { href: "/artwork", label: "Artwork", area: "artwork" },
+  { href: "/documents", label: "Documents", area: "documents" },
+  { href: "/messages", label: "Messages", area: "messages" },
 ];
 
 /** "Selam Haile" → "SH" */

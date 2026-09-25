@@ -8,10 +8,13 @@ import PortalNavLinks from "./PortalNavLinks";
 export default function CustomerShell({
   userName,
   companyName,
+  badges,
   children,
 }: {
   userName: string;
   companyName: string;
+  /** New since the person last opened each tab (see lib/nav-badges.ts). */
+  badges?: Partial<Record<string, number>>;
   children: React.ReactNode;
 }) {
   return (
@@ -24,7 +27,7 @@ export default function CustomerShell({
           </span>
         </Link>
         <nav aria-label="Customer portal" className="order-last flex w-full gap-7 overflow-x-auto lg:order-none lg:w-auto">
-          <PortalNavLinks />
+          <PortalNavLinks badges={badges} />
         </nav>
         <span className="ml-auto flex items-center gap-2.5 text-[13px] lg:border-l-2 lg:border-divider lg:pl-5">
           <span
