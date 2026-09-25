@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { setInspectionPublished } from "@/app/ops/quality/actions";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { DeleteSortingButton, SortingDialog } from "@/components/ops/SortingForms";
 import SpecChart from "@/components/ui/SpecChart";
 import { Pill } from "@/components/ui/StatusBadge";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
@@ -10,6 +11,7 @@ import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/forma
 import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
 import { CROWN_HEIGHT, LEAK_PRESSURE, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
+import { cartonsLine, sortingTotals, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Quality control" };
@@ -28,6 +30,8 @@ type Row = {
   orders: { order_no: string; companies: { name: string } | null; brands: { name: string } | null } | null;
 };
 
+type SortRow = SortingRecord & { created_at: string };
+
 const FILTERS = { all: "All", held: "Held", unpublished: "Unpublished" } as const;
 
 /** Quality control overview (design 1i). */
@@ -39,7 +43,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
   const today = addisDateISO(new Date());
   const supabase = await createClient();
 
-  const [{ data }, { data: types }] = await Promise.all([
+  const [{ data }, { data: types }, { data: sortData }] = await Promise.all([
     supabase
       .from("qc_inspections")
       .select(
@@ -49,7 +53,15 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
       .limit(300)
       .returns<Row[]>(),
     supabase.from("defect_types").select("code, customer_label").returns<{ code: string; customer_label: string }[]>(),
+    supabase
+      .from("sorting_records")
+      .select("id, inspection_id, sorted_on, sorted_cartons, waste_cartons, reported_by, notes, created_at")
+      .order("sorted_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500)
+      .returns<SortRow[]>(),
   ]);
+  const sortings = sortData ?? [];
   const all = data ?? [];
   const label = new Map((types ?? []).map((t) => [t.code, t.customer_label]));
 
@@ -67,6 +79,18 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
     .slice(0, 30)
     .reverse();
   const trend = risingTrend(heights.map((p) => p.value));
+
+  // Sorting (internal): every held batch, plus released batches that were sorted.
+  const byId = new Map(all.map((r) => [r.id, r]));
+  const batchLabel = (r: Row) => `${r.orders?.brands?.name ?? "—"} · batch ${r.batch_no} · ${r.orders?.order_no ?? ""}`;
+  const sortBatches = all
+    .filter((r) => r.result === "on_hold" || sortings.some((x) => x.inspection_id === r.id))
+    .map((r) => ({ r, t: sortingTotals(sortings.filter((x) => x.inspection_id === r.id)) }))
+    .sort((a, b) => Number(b.r.result === "on_hold") - Number(a.r.result === "on_hold") || (b.t.lastSorted ?? "").localeCompare(a.t.lastSorted ?? ""))
+    .slice(0, 30);
+  const heldOptions = all.filter((r) => r.result === "on_hold").map((r) => ({ id: r.id, label: `${batchLabel(r)} · ${r.orders?.companies?.name ?? ""}` }));
+  const SORT_COLS = "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_170px_170px_100px_110px] items-center gap-2.5";
+  const REPORT_COLS = "grid grid-cols-[100px_minmax(0,1.6fr)_170px_170px_minmax(0,1fr)_60px] items-center gap-2.5";
 
   const rows = all.filter((r) => (f === "held" ? r.result === "on_hold" : f === "unpublished" ? !r.published : true));
   const COLS = "grid grid-cols-[100px_minmax(0,1fr)_100px_90px_90px_80px_130px_150px] items-center gap-2.5";
@@ -128,6 +152,78 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
             </div>
           )}
         </div>
+      </div>
+
+      <div className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h4 className="m-0">Sorting · batches on hold</h4>
+            <InternalOnly>Internal only · customers see on hold, then released</InternalOnly>
+          </div>
+          {canEdit && <SortingDialog batches={heldOptions} today={today} />}
+        </div>
+        <div className="mb-3 text-[12px] opacity-60">From the daily &ldquo;on hold products for sorting&rdquo; report. 1 carton = 10,000 crowns.</div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[860px]">
+            <div className={`${SORT_COLS} th-row border-b-2 border-divider py-2`}>
+              <span>Batch</span>
+              <span>Customer</span>
+              <span>Quantity sorted</span>
+              <span>Waste</span>
+              <span>Last report</span>
+              <span>Status</span>
+            </div>
+            {sortBatches.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No batches on hold.</p>}
+            {sortBatches.map(({ r, t }) => {
+              const pill = r.result ? RESULT_PILL[r.result] : RESULT_PILL.none;
+              return (
+                <div key={r.id} className={`${SORT_COLS} border-b border-divider py-2.5 text-[13px]`}>
+                  <Link href={`/ops/quality/${r.id}#sorting`} className="truncate font-extrabold">
+                    {batchLabel(r)}
+                  </Link>
+                  <span className="truncate">{r.orders?.companies?.name ?? "—"}</span>
+                  <span>{t.reports ? cartonsLine(t.sorted) : <span className="opacity-60">Not sorted yet</span>}</span>
+                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? cartonsLine(t.waste) : "—"}</span>
+                  <span>{t.lastSorted ? formatDate(t.lastSorted) : "—"}</span>
+                  <span>
+                    <Pill style={pill.style}>{pill.label}</Pill>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {sortings.length > 0 && (
+          <>
+            <h5 className="mb-2 mt-6">Recent sorting reports</h5>
+            <div className="overflow-x-auto">
+              <div className="min-w-[860px]">
+                <div className={`${REPORT_COLS} th-row border-b-2 border-divider py-2`}>
+                  <span>Date</span>
+                  <span>Batch</span>
+                  <span>Quantity</span>
+                  <span>Waste</span>
+                  <span>Reported by</span>
+                  <span />
+                </div>
+                {sortings.slice(0, 15).map((x) => {
+                  const b = byId.get(x.inspection_id);
+                  return (
+                    <div key={x.id} className={`${REPORT_COLS} border-b border-divider py-2 text-[13px]`} title={x.notes ?? undefined}>
+                      <span>{formatDate(x.sorted_on)}</span>
+                      <span className="truncate">{b ? batchLabel(b) : "—"}</span>
+                      <span>{cartonsLine(x.sorted_cartons)}</span>
+                      <span>{cartonsLine(x.waste_cartons)}</span>
+                      <span className="truncate">{x.reported_by ?? "—"}</span>
+                      {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="px-4 pb-8 pt-6 sm:px-8">

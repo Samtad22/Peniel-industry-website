@@ -50,10 +50,10 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       .returns<(StockRow & { updated_at: string })[]>(),
     supabase
       .from("customer_pickup_bookings")
-      .select("id, requested_at, proposed_time, status, delivery_note_no, batch_nos, created_at")
+      .select("id, requested_at, proposed_time, status, delivery_note_no, batch_nos, stock_ids, created_at")
       .order("created_at", { ascending: false })
       .limit(20)
-      .returns<{ id: string; requested_at: string; proposed_time: string | null; status: BookingRow["status"]; delivery_note_no: string | null; batch_nos: string[] }[]>(),
+      .returns<{ id: string; requested_at: string; proposed_time: string | null; status: BookingRow["status"]; delivery_note_no: string | null; batch_nos: string[]; stock_ids: string[] }[]>(),
   ]);
 
   const spec = new Map((brands ?? []).map((b) => [b.id, [brandSpec(b), b.liner].filter(Boolean).join(" · ")]));
@@ -118,6 +118,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           status: b.status,
           delivery_note_no: b.delivery_note_no,
           batches: b.batch_nos,
+          stockIds: b.stock_ids ?? [],
         })),
         pickupMin: addisLocalNow(),
       }}

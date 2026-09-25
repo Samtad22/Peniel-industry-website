@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import InspectionForm, { type InspectionInitial } from "@/components/ops/InspectionForm";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { DeleteSortingButton, SortingDialog } from "@/components/ops/SortingForms";
+import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
-import { formatDate, formatQty } from "@/lib/format";
+import { addisDateISO, formatDate, formatQty } from "@/lib/format";
 import { loadPresets } from "@/lib/presets";
 import { MEASURES, measureValue, VISUAL_SAMPLE } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
+import { cartonsLine, sortingTotals, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inspection" };
@@ -56,7 +59,7 @@ export default async function InspectionPage({
   if (!isNew && !/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createClient();
 
-  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets] = await Promise.all([
+  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets, { data: sortData }] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : supabase
@@ -80,6 +83,15 @@ export default async function InspectionPage({
       .order("customer_label")
       .returns<{ code: string; customer_label: string }[]>(),
     loadPresets(supabase),
+    isNew
+      ? Promise.resolve({ data: [] as SortingRecord[] })
+      : supabase
+          .from("sorting_records")
+          .select("id, inspection_id, sorted_on, sorted_cartons, waste_cartons, reported_by, notes")
+          .eq("inspection_id", id)
+          .order("sorted_on")
+          .order("created_at")
+          .returns<SortingRecord[]>(),
   ]);
   if (!isNew && !insp) notFound();
 
@@ -144,6 +156,72 @@ export default async function InspectionPage({
         presets={presets.hold}
         canEdit={me.role === "admin" || me.role === "quality"}
       />
+      {insp && (insp.result === "on_hold" || (sortData ?? []).length > 0) && (
+        <SortingPanel
+          batch={{ id: insp.id, label: `${insp.orders?.brands?.name ?? ""} · batch ${insp.batch_no} · ${insp.orders?.order_no ?? ""}` }}
+          records={sortData ?? []}
+          held={insp.result === "on_hold"}
+          canEdit={me.role === "admin" || me.role === "quality"}
+        />
+      )}
     </>
+  );
+}
+
+/** The batch's sorting reports while on hold (internal only). */
+function SortingPanel({
+  batch,
+  records,
+  held,
+  canEdit,
+}: {
+  batch: { id: string; label: string };
+  records: SortingRecord[];
+  held: boolean;
+  canEdit: boolean;
+}) {
+  const t = sortingTotals(records);
+  const COLS = "grid grid-cols-[110px_170px_170px_minmax(0,1fr)_60px] items-center gap-2.5";
+  return (
+    <section id="sorting" className="border-t-2 border-divider px-4 pb-8 pt-6 sm:px-8">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h4 className="m-0">Sorting</h4>
+          <InternalOnly>Internal only · customers see on hold, then released</InternalOnly>
+        </div>
+        {canEdit && held && <SortingDialog batches={[batch]} today={addisDateISO(new Date())} variant="secondary" />}
+      </div>
+      <div className="mb-3 text-[13px]">
+        {t.reports
+          ? `${t.reports} report${t.reports === 1 ? "" : "s"}: ${cartonsLine(t.sorted)} sorted, ${cartonsLine(t.waste)} waste.`
+          : "Not sorted yet."}
+        {held ? " When sorting is finished, release the batch above." : ""}
+      </div>
+      {records.length > 0 && (
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
+              <span>Date</span>
+              <span>Quantity</span>
+              <span>Waste</span>
+              <span>Reported by</span>
+              <span />
+            </div>
+            {records.map((x) => (
+              <div key={x.id} className={`${COLS} border-b border-divider py-2 text-[13px]`}>
+                <span>{formatDate(x.sorted_on)}</span>
+                <span>{cartonsLine(x.sorted_cartons)}</span>
+                <span>{cartonsLine(x.waste_cartons)}</span>
+                <span className="truncate" title={x.notes ?? undefined}>
+                  {x.reported_by ?? "—"}
+                  {x.notes ? ` · ${x.notes}` : ""}
+                </span>
+                {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

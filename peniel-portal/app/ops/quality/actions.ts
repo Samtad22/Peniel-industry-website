@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { MEASURES } from "@/lib/qc";
+import { parseCartons } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export type QcState = { error?: string } | null;
+export type SortingState = { error?: string; ok?: string } | null;
 
 /** Only admin and quality record inspections (RLS and the RPC enforce the same). */
 const WRITERS = ["admin", "quality"] as const;
@@ -68,7 +70,7 @@ export async function saveInspection(_prev: QcState, fd: FormData): Promise<QcSt
 
   if (error || !data) {
     const msg = error?.message ?? "";
-    if (/qc_inspections_batch_no_key|duplicate key/.test(msg)) return { error: "That batch number already exists." };
+    if (/qc_inspections_order_batch_key|qc_inspections_batch_no_key|duplicate key/.test(msg)) return { error: "That batch number already exists on this order." };
     if (/qc_hold_needs_customer_reason/.test(msg)) return { error: "Write the reason the customer will see for the hold." };
     if (KNOWN.test(msg)) return { error: msg };
     if (/permitted|row-level/i.test(msg)) return { error: "Your role can't record inspections." };
@@ -85,5 +87,47 @@ export async function setInspectionPublished(fd: FormData): Promise<void> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
   const supabase = await createClient();
   await supabase.from("qc_inspections").update({ published: fd.get("published") === "true" }).eq("id", id);
+  refresh();
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Record one batch's sorting from the daily "on hold products for sorting" report (internal only). */
+export async function addSortingRecord(_prev: SortingState, fd: FormData): Promise<SortingState> {
+  await requireStaff([...WRITERS]);
+  const s = (k: string) => String(fd.get(k) ?? "").trim();
+  const inspectionId = s("inspection_id");
+  const sortedOn = s("sorted_on");
+  if (!/^[0-9a-f-]{36}$/i.test(inspectionId)) return { error: "Choose the batch." };
+  if (!DATE.test(sortedOn)) return { error: "Enter the date of the report." };
+  const sorted = parseCartons(s("sorted_cartons"), "Quantity");
+  if (typeof sorted !== "number") return sorted;
+  const waste = parseCartons(s("waste_cartons"), "Waste");
+  if (typeof waste !== "number") return waste;
+  if (sorted + waste === 0) return { error: "Enter the quantity or the waste in cartons." };
+
+  const supabase = await createClient();
+  const { data: batch } = await supabase.from("qc_inspections").select("batch_no").eq("id", inspectionId).maybeSingle<{ batch_no: string }>();
+  if (!batch) return { error: "Batch not found." };
+  const { error } = await supabase.from("sorting_records").insert({
+    inspection_id: inspectionId,
+    sorted_on: sortedOn,
+    sorted_cartons: sorted,
+    waste_cartons: waste,
+    reported_by: s("reported_by").slice(0, 100) || null,
+    notes: s("notes").slice(0, 1000) || null,
+  });
+  if (error) return { error: /permitted|row-level/i.test(error.message) ? "Your role can't record sorting." : "Couldn't save the sorting report." };
+  refresh();
+  return { ok: `Batch ${batch.batch_no}: ${sorted} carton${sorted === 1 ? "" : "s"}, ${waste} waste saved.` };
+}
+
+/** Remove a sorting report entered by mistake. */
+export async function deleteSortingRecord(fd: FormData): Promise<void> {
+  await requireStaff([...WRITERS]);
+  const id = String(fd.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("sorting_records").delete().eq("id", id);
   refresh();
 }
