@@ -13,13 +13,11 @@ import {
   fileExt,
   fileProblem,
   formatBytes,
-  mimeFor,
   safeFileName,
   type AttachmentType,
 } from "@/lib/files";
 import { formatDate, formatQty } from "@/lib/format";
-import { createClient } from "@/lib/supabase/client";
-import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
+import { uploadToStorage } from "@/lib/upload";
 
 export type WizardBrand = {
   id: string;
@@ -73,34 +71,6 @@ type FileItem = {
 const STEPS = ["Product", "Specs & quantity", "PO & attachments", "Review & submit"];
 
 const digits = (v: string) => v.replace(/\D/g, "").replace(/^0+/, "");
-
-/**
- * Uploads straight from the browser to Storage (the 20 MB files never pass
- * through the app server), into this company's `uploads/` folder. Storage
- * policies stop a customer writing anywhere else.
- */
-async function uploadToStorage(file: File, path: string, onProgress: (pct: number) => void): Promise<void> {
-  const { data } = await createClient().auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Your session has expired. Log in again, then retry.");
-
-  const encoded = path.split("/").map(encodeURIComponent).join("/");
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${supabaseUrl()}/storage/v1/object/order-attachments/${encoded}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("apikey", supabaseAnonKey());
-    xhr.setRequestHeader("x-upsert", "false");
-    xhr.setRequestHeader("Content-Type", mimeFor(file.name) ?? "application/octet-stream");
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(xhr.status === 413 ? "File too large (limit 20 MB)" : "Upload failed. Check your connection and retry."));
-    xhr.onerror = () => reject(new Error("Upload failed. Check your connection and retry."));
-    xhr.send(file);
-  });
-}
 
 function Stepper({ step, onGo }: { step: Step; onGo: (s: Step) => void }) {
   return (
@@ -243,7 +213,7 @@ export default function NewOrderWizard({
     if (!file) return;
     const path = `${companyId}/uploads/${crypto.randomUUID()}/${safeFileName(file.name)}`;
     update(key, { status: "uploading", progress: 0, error: undefined });
-    uploadToStorage(file, path, (progress) => update(key, { progress }))
+    uploadToStorage("order-attachments", file, path, (progress) => update(key, { progress }))
       .then(() => update(key, { status: "done", progress: 100, path }))
       .catch((e: Error) => update(key, { status: "failed", error: e.message, retryable: true }));
   };

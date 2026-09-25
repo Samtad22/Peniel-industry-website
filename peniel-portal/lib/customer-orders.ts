@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/lib/order-status";
 import type { AttachmentType } from "@/lib/files";
 import { buildTimeline, type TimelineStep } from "@/lib/order-timeline";
+import type { CustomerProof } from "@/components/customer/ProofCard";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -46,6 +47,8 @@ export type CustomerOrderDetailData = {
   updated_at: string;
   steps: TimelineStep[];
   attachments: { id: string; file_name: string; type: AttachmentType; size_bytes: number }[];
+  /** Proofs sent for this order that are waiting for the customer's answer. */
+  proofs: CustomerProof[];
   /** Conversation with Peniel about this order; replies go to `threadId`. */
   threadId: string | null;
   messages: CustomerMessage[];
@@ -64,10 +67,10 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       "id, order_no, po_number, brand_id, brand_name, quantity, completed_qty, due_date, requested_date, status, customer_reason, delivery_method, delivery_address, updated_at",
     )
     .eq("id", id)
-    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "steps" | "attachments" | "threadId" | "messages">>();
+    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "steps" | "attachments" | "proofs" | "threadId" | "messages">>();
   if (!o) return null;
 
-  const [{ data: brand }, { data: events }, { data: files }, { data: threads }] = await Promise.all([
+  const [{ data: brand }, { data: events }, { data: files }, { data: threads }, { data: proofs }] = await Promise.all([
     supabase.from("customer_brands").select("size, finish, liner").eq("id", o.brand_id).maybeSingle<CustomerBrand>(),
     supabase
       .from("customer_order_timeline")
@@ -87,6 +90,13 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       .eq("order_id", id)
       .order("last_message_at", { ascending: false })
       .returns<{ id: string }[]>(),
+    supabase
+      .from("customer_proofs")
+      .select("id, version, brand_name, order_no, status, note, approve_by, created_at, file_name, mime_type")
+      .eq("order_id", id)
+      .eq("status", "sent")
+      .order("created_at", { ascending: false })
+      .returns<CustomerProof[]>(),
   ]);
 
   const threadIds = (threads ?? []).map((t) => t.id);
@@ -112,6 +122,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       events: events ?? [],
     }),
     attachments: (files ?? []).map((f) => ({ ...f, size_bytes: Number(f.size_bytes) })),
+    proofs: proofs ?? [],
     threadId: threadIds[0] ?? null,
     messages: messages ?? [],
   };

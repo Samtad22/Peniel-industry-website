@@ -5,6 +5,8 @@ import StatusBadge, { Pill } from "@/components/ui/StatusBadge";
 import { formatDate, formatDateTime, formatDayMonth, formatQty } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
 import { REJECT_LIMIT_PCT } from "@/lib/production-math";
+import BookPickupDialog from "@/components/customer/BookPickupDialog";
+import { PICKUP_PILL, STOCK_PILL, type PickupStatus } from "@/lib/inventory";
 import { RESULT_PILL } from "@/lib/qc";
 
 export type ProductionTab = "output" | "quality" | "stock";
@@ -51,13 +53,19 @@ export type ProductionData = {
   output: OutputRow[];
   quality: { batches: BatchRow[]; filter: "all" | "released" | "on_hold"; defects: { label: string; count: number }[]; sampled: number };
   stock: StockRow[];
+  bookings: BookingRow[];
+  pickupMin: string;
 };
 
-const STOCK_PILL = {
-  available: { label: "Available for pickup", style: { background: "var(--color-text)", color: "var(--color-bg)" } },
-  reserved: { label: "Reserved", style: { borderColor: "var(--color-text)" } },
-  on_hold: { label: "❚❚ On hold (QC)", style: { background: "var(--color-accent-800)", color: "var(--color-bg)" } },
-} as const;
+export type BookingRow = {
+  id: string;
+  requested_at: string;
+  proposed_time: string | null;
+  status: PickupStatus;
+  delivery_note_no: string | null;
+  batches: string[];
+};
+
 
 const TITLES: Record<ProductionTab, string> = {
   output: "Your orders in production",
@@ -279,7 +287,9 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
   );
 }
 
-function Stock({ rows }: { rows: StockRow[] }) {
+function Stock({ rows, bookings, pickupMin }: { rows: StockRow[]; bookings: BookingRow[]; pickupMin: string }) {
+  const booked = new Set(bookings.filter((b) => b.status !== "collected").flatMap((b) => b.batches));
+  const bookable = rows.filter((r) => r.status === "available" && !booked.has(r.batch_no));
   const sum = (s: StockRow["status"]) => rows.filter((r) => r.status === s).reduce((t, r) => t + r.quantity, 0);
   return (
     <>
@@ -287,7 +297,13 @@ function Stock({ rows }: { rows: StockRow[] }) {
         <div className="-ml-0.5 grid sm:grid-cols-3">
           <div className="border-b-2 border-l-2 border-divider bg-text px-4 py-5 text-bg sm:px-10">
             <h6 className="m-0">Available for pickup</h6>
-            <div className="kpi">{formatQty(sum("available"))}</div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="kpi">{formatQty(sum("available"))}</span>
+              <BookPickupDialog
+                min={pickupMin}
+                stock={bookable.map((r) => ({ id: r.id, label: `${r.brand_name} · batch ${r.batch_no} · ${r.quantity.toLocaleString("en-US")}` }))}
+              />
+            </div>
           </div>
           <div className="border-b-2 border-l-2 border-divider px-4 py-5 sm:px-10">
             <h6 className="m-0 opacity-60">Reserved for dispatch</h6>
@@ -334,6 +350,42 @@ function Stock({ rows }: { rows: StockRow[] }) {
           </div>
         )}
         <p className="mb-0 mt-3 text-[12px] text-neutral-700">Pickup is at Bole Lemi Industrial Park. Bring the order number and PO.</p>
+        {bookings.length > 0 && (
+          <div className="mt-8">
+            <h4 className="mb-2 mt-0">Your pickups</h4>
+            <div className="overflow-x-auto">
+              <div className="min-w-[680px]">
+                <div className="th-row grid grid-cols-[minmax(0,1fr)_190px_190px_170px_130px] gap-3 border-b-2 border-divider py-2">
+                  <span>Batches</span>
+                  <span>You asked for</span>
+                  <span>Peniel</span>
+                  <span>Status</span>
+                  <span>Delivery note</span>
+                </div>
+                {bookings.map((b) => (
+                  <div key={b.id} className="grid grid-cols-[minmax(0,1fr)_190px_190px_170px_130px] items-center gap-3 border-b border-divider py-2.5 text-[14px]">
+                    <span className="truncate">{b.batches.join(", ") || "—"}</span>
+                    <span>{formatDateTime(b.requested_at)}</span>
+                    <span className={b.status === "rescheduled" ? "font-extrabold text-accent-800" : undefined}>
+                      {b.status === "rescheduled" && b.proposed_time
+                        ? `Proposes ${formatDateTime(b.proposed_time)}`
+                        : b.status === "confirmed" && b.proposed_time
+                          ? `Confirmed ${formatDateTime(b.proposed_time)}`
+                          : b.status === "requested"
+                            ? "Waiting to confirm"
+                            : "—"}
+                    </span>
+                    <span>
+                      <Pill style={PICKUP_PILL[b.status].style}>{PICKUP_PILL[b.status].label}</Pill>
+                    </span>
+                    <span>{b.delivery_note_no ?? "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="mb-0 mt-2 text-[12px] text-neutral-700">If Peniel proposes a new time that doesn&apos;t suit you, send a message.</p>
+          </div>
+        )}
       </div>
     </>
   );
@@ -346,7 +398,7 @@ export default function ProductionView({ d }: { d: ProductionData }) {
       <CustomerPageHead section="Production" title={TITLES[d.tab]} aside={<Tabs tab={d.tab} lastUpdated={d.lastUpdated} />} />
       {d.tab === "output" && <Output rows={d.output} />}
       {d.tab === "quality" && <Quality q={d.quality} />}
-      {d.tab === "stock" && <Stock rows={d.stock} />}
+      {d.tab === "stock" && <Stock rows={d.stock} bookings={d.bookings} pickupMin={d.pickupMin} />}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ProofCard from "@/components/customer/ProofCard";
 import ReplyForm from "@/components/customer/ReplyForm";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Timeline from "@/components/ui/Timeline";
@@ -52,6 +53,10 @@ export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrder
           {o.customer_reason && <span className="text-[15px]">{o.customer_reason}</span>}
         </div>
       )}
+      {o.proofs.map((p) => (
+        <ProofCard key={p.id} p={p} />
+      ))}
+
       {o.customer_reason && o.status !== "on_hold" && o.status !== "rejected" && (
         <div className="flex flex-col gap-1 bg-accent-100 px-4 py-3 text-accent-800">
           <b className="text-[12px]">UPDATE FROM PENIEL · {formatDate(o.updated_at)}</b>
@@ -136,6 +141,11 @@ export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrder
         {canReorder && (
           <Link href={`/orders/new?reorder=${o.id}`} className="btn btn-secondary btn-split min-h-12 text-text">
             Reorder<span aria-hidden="true">↻</span>
+          </Link>
+        )}
+        {!o.threadId && (
+          <Link href={`/messages?new=1&order=${o.id}`} className="btn btn-primary btn-split min-h-12">
+            Message Peniel<span aria-hidden="true">→</span>
           </Link>
         )}
         <Link href={`/orders/new?po_from=${o.id}`} className="btn btn-secondary btn-split min-h-12 text-text">

@@ -63,6 +63,7 @@ export const CUSTOMER_NAV: { href: string; label: string }[] = [
   { href: "/catalog", label: "Catalog" },
   { href: "/artwork", label: "Artwork" },
   { href: "/documents", label: "Documents" },
+  { href: "/messages", label: "Messages" },
 ];
 
 /** "Selam Haile" → "SH" */
