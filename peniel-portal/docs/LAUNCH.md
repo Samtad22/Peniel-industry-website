@@ -19,10 +19,12 @@ customers go in a **new, empty** project.
      it awake. If it pauses, press **Restore** in the dashboard.
    - Limits: 500 MB database, 1 GB file storage, 2 free projects per
      account (the test project counts as one).
-2. Region: choose the one nearest Addis Ababa that Supabase offers (for
-   example `eu-central-1`, Frankfurt).
-3. **SQL Editor.** Run each file in `supabase/migrations/` **in filename
-   order** (01_schema first, `20260928000001_message_attachments.sql` last).
+2. Region: **Central EU (Frankfurt)**, the nearest to Addis Ababa. Keep
+   the Data API turned on.
+3. **SQL Editor.** Run the one-file setup, `bash scripts/live-setup.sh >
+   peniel-live-setup.sql`, once: it holds every migration in order plus the
+   reference lists (defect types, hold reasons, production lines, raw
+   materials). It refuses to run on a project that's already set up.
    **Do not run `supabase/seed.sql`** here: it is sample data.
 4. **Companies and brands.** Add the real customers from **Ops → Customers**
    after the first admin exists (step 6).
@@ -36,9 +38,26 @@ customers go in a **new, empty** project.
      host `smtp.resend.com`, port `465`, user `resend`, and a Resend API key
      as the password. Sender `portal@penielindustry.org`. Without this,
      Supabase sends only a few invite emails per hour.
-6. **First admin.** Put the production keys in `.env.local` (or run it from a
-   machine that has them), then:
-   `npm run create-admin -- you@penielindustry.org "Your Name"`.
+6. **First admin** (after step 5, so the invite link points at the portal):
+   Authentication → Users → **Add user → Send invitation**, then run this in
+   the SQL Editor with the real name and email:
+   ```sql
+   insert into public.profiles (user_id, full_name, email, role)
+   select id, 'Full Name', email, 'admin' from auth.users
+   where lower(email) = lower('you@penielindustry.org')
+   on conflict (user_id) do update set role = 'admin', active = true, company_id = null;
+   ```
+   (Or, from a computer with the repo and the live keys in `.env.local`:
+   `npm run create-admin -- you@penielindustry.org "Your Name"`.)
+8. **Point Vercel at it.** In Vercel → Settings → Environment Variables,
+   production gets the live project and previews keep the test project:
+   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (these
+     currently cover Preview and Production): edit each one and untick
+     **Production**, then **Add** the same name again for **Production** only
+     with the live value (Project URL; Publishable key).
+   - `SUPABASE_SERVICE_ROLE_KEY` (Production): edit and paste the live
+     **Secret** key.
+   - Redeploy production.
 7. **Backups (manual on the free plan).** Once a week, from a computer with
    the Supabase CLI: `supabase db dump --db-url "<connection string>" -f
    peniel-YYYY-MM-DD.sql` (connection string: Dashboard → Connect). Keep
