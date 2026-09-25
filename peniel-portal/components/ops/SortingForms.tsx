@@ -5,7 +5,7 @@ import { addSortingRecord, deleteSortingRecord, type SortingState } from "@/app/
 import Modal from "@/components/ui/Modal";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { Button, Field, FormMessage } from "@/components/ui/form";
-import { cartonsLine } from "@/lib/sorting";
+import { cartonsLine, formatWastePct } from "@/lib/sorting";
 
 export type SortingBatch = { id: string; label: string };
 
@@ -39,14 +39,14 @@ export function SortingDialog({
 function SortingForm({ batches, today, close }: { batches: SortingBatch[]; today: string; close: () => void }) {
   const [batch, setBatch] = useState(batches.length === 1 ? batches[0].id : "");
   const [date, setDate] = useState(today);
-  const [sorted, setSorted] = useState("");
+  const [passed, setPassed] = useState("");
   const [waste, setWaste] = useState("");
   const [reporter, setReporter] = useState("");
   const [state, action, pending] = useActionState<SortingState, FormData>(async (prev, fd) => {
     const res = await addSortingRecord(prev, fd);
     // Saved: keep the date and reporter for the next batch in the same report.
     if (res?.ok) {
-      setSorted("");
+      setPassed("");
       setWaste("");
       if (batches.length > 1) setBatch("");
     }
@@ -87,15 +87,18 @@ function SortingForm({ batches, today, close }: { batches: SortingBatch[]; today
         </Field>
       </div>
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field label="Quantity (cartons)" htmlFor="so-qty">
-          <input id="so-qty" name="sorted_cartons" inputMode="numeric" pattern="\d*" value={sorted} onChange={(e) => setSorted(e.target.value)} className="input min-h-11" />
+        <Field label="Passed (cartons) · the report's Quantity" htmlFor="so-qty">
+          <input id="so-qty" name="passed_cartons" inputMode="numeric" pattern="\d*" value={passed} onChange={(e) => setPassed(e.target.value)} className="input min-h-11" />
         </Field>
-        <Field label="Waste (cartons)" htmlFor="so-waste">
+        <Field label="Waste (cartons) · scrapped" htmlFor="so-waste">
           <input id="so-waste" name="waste_cartons" inputMode="numeric" pattern="\d*" value={waste} onChange={(e) => setWaste(e.target.value)} className="input min-h-11" />
         </Field>
       </div>
       <span className="text-[12px] opacity-70">
-        {sorted || waste ? `${cartonsLine(Number(sorted) || 0)} sorted, ${cartonsLine(Number(waste) || 0)} waste. ` : ""}1 carton = 10,000 crowns.
+        {passed || waste
+          ? `${cartonsLine((Number(passed) || 0) + (Number(waste) || 0))} sorted: ${Number(passed) || 0} passed, ${Number(waste) || 0} waste (${formatWastePct(Number(passed) || 0, Number(waste) || 0)}). `
+          : ""}
+        1 carton = 10,000 crowns.
       </span>
       <Field label="Notes (internal)" htmlFor="so-notes">
         <textarea id="so-notes" name="notes" maxLength={1000} placeholder="Optional" className="input !min-h-[56px]" />
