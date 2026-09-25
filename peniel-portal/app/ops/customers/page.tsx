@@ -12,7 +12,9 @@ type CompanyRow = {
   name: string;
   code: string;
   address: string | null;
+  contact_name: string | null;
   contact_email: string | null;
+  contact_phone: string | null;
   created_at: string;
 };
 type BrandRow = {
@@ -36,7 +38,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const [{ data: companies }, { data: brands }, { data: people }, { data: orders }] = await Promise.all([
     supabase
       .from("companies")
-      .select("id, name, code, address, contact_email, created_at")
+      .select("id, name, code, address, contact_name, contact_email, contact_phone, created_at")
       .eq("active", true)
       .order("name")
       .returns<CompanyRow[]>(),
@@ -84,10 +86,28 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
             spec: [b.size, b.finish, b.liner].filter(Boolean).join(" · "),
             artwork: b.current ? `v${b.current.version} approved` : "No approved artwork",
             colour: b.colours.find((x) => HEX.test(x)) ?? null,
+            fields: { id: b.id, name: b.name, size: b.size, liner: b.liner, finish: b.finish, colours: b.colours },
           })),
         users: (people ?? []).filter((p) => p.company_id === pick.id),
+        fields: {
+          id: pick.id,
+          name: pick.name,
+          code: pick.code,
+          contact_name: pick.contact_name,
+          contact_email: pick.contact_email,
+          contact_phone: pick.contact_phone,
+          address: pick.address,
+        },
       }
     : null;
 
-  return <CustomersView companies={list} selected={selected} canInvite={me.role === "admin"} meId={me.user_id} />;
+  return (
+    <CustomersView
+      companies={list}
+      selected={selected}
+      canInvite={me.role === "admin"}
+      canEditBrands={me.role === "admin" || me.role === "sales"}
+      meId={me.user_id}
+    />
+  );
 }
