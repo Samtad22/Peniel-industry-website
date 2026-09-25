@@ -123,8 +123,9 @@ are tested without editing the tests.
    ```bash
    npm run create-admin -- you@penielindustry.org "Your Name"
    ```
-   Open the email, choose a password, then invite everyone else from
-   **Ops → Users**.
+   Open the email, choose a password, then invite everyone else: staff from
+   **Ops → Settings → Staff users & roles**, customer users from **Ops →
+   Customers** (pick the company, then **+ Invite user**).
 
 Supabase's built-in email sender only sends a few emails per hour. That is fine
 for testing. For real invites, connect Resend under Authentication → Emails →

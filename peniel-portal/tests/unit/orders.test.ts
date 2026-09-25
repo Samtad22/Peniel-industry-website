@@ -157,3 +157,13 @@ test("message files: only the caller's company folder, allowed types, up to 5", 
   assert.equal(messageBody("", [{ ...ok, mime: "image/jpeg" }]), "Attached: photo.jpg");
   assert.equal(messageBody("See photo", [{ ...ok, mime: "image/jpeg" }]), "See photo");
 });
+
+test("supabase project URL: any path or trailing slash is dropped", async () => {
+  const { projectOrigin } = await import("../../lib/supabase/env.ts");
+  assert.equal(projectOrigin("https://abcd.supabase.co"), "https://abcd.supabase.co");
+  assert.equal(projectOrigin(" https://abcd.supabase.co/ "), "https://abcd.supabase.co");
+  assert.equal(projectOrigin("https://abcd.supabase.co/rest/v1/"), "https://abcd.supabase.co");
+  assert.equal(projectOrigin("abcd.supabase.co"), "https://abcd.supabase.co");
+  assert.equal(projectOrigin('"https://abcd.supabase.co"'), "https://abcd.supabase.co");
+  assert.throws(() => projectOrigin("not a url"));
+});

@@ -4,7 +4,8 @@
 //
 // Reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and
 // NEXT_PUBLIC_SITE_URL from .env.local. Sends a normal invite email; the
-// admin then chooses a password and invites everyone else from Ops → Users.
+// admin then chooses a password and invites everyone else from Ops → Settings
+// (staff) and Ops → Customers (customer users).
 import { createClient } from "@supabase/supabase-js";
 
 const [email, ...nameParts] = process.argv.slice(2);
