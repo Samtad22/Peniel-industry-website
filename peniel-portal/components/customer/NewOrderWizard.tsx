@@ -5,7 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import clsx from "clsx";
 import { submitOrder } from "@/app/(customer)/orders/actions";
 import { CustomerPageHead } from "@/components/customer/CustomerPlanned";
-import Crown from "@/components/ui/Crown";
+import Crown, { InkSwatches } from "@/components/ui/Crown";
 import { Button } from "@/components/ui/form";
 import {
   ACCEPT,
@@ -17,6 +17,7 @@ import {
   type AttachmentType,
 } from "@/lib/files";
 import { formatDate, formatQty } from "@/lib/format";
+import { crownSizeLine } from "@/lib/inks";
 import { uploadToStorage } from "@/lib/upload";
 
 export type WizardBrand = {
@@ -27,6 +28,8 @@ export type WizardBrand = {
   finish: string | null;
   liner: string;
   colours: string[];
+  /** Crown image URL, when Peniel has one on file. */
+  crown: string | null;
 };
 
 export type WizardRecent = {
@@ -332,7 +335,7 @@ export default function NewOrderWizard({
                             }}
                             className="sr-only"
                           />
-                          <Crown colours={b.colours} size={40} />
+                          <Crown colours={b.colours} src={b.crown} size={56} alt="" />
                           <span className="text-[10px] uppercase tracking-[0.1em] text-accent-700">{b.spec}</span>
                           <b className="text-[15px]">{b.name}</b>
                           <span className="text-[12px] opacity-70">{b.liner} liner</span>
@@ -389,19 +392,30 @@ export default function NewOrderWizard({
             {step === 2 && brand && (
               <>
                 <div>
-                  <h4 className="mb-3 mt-0">{brand.name}</h4>
-                  <div className="grid grid-cols-2 border-l border-t border-divider sm:grid-cols-4">
+                  <div className="mb-3 flex items-center gap-4">
+                    <Crown colours={brand.colours} src={brand.crown} size={112} alt={`${brand.name} crown`} />
+                    <div className="min-w-0">
+                      <h4 className="m-0">{brand.name}</h4>
+                      <div className="text-[13px] opacity-70">{crownSizeLine(brand.size)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 border-l border-t border-divider">
                     {[
                       ["Size", brand.size],
                       ["Liner", brand.liner],
                       ["Finish", brand.finish ?? "—"],
-                      ["Colours", brand.colours.length ? brand.colours.join(", ") : "As on file"],
                     ].map(([k, v]) => (
                       <div key={k} className="border-b border-r border-divider px-3.5 py-3">
                         <div className="text-[11px] uppercase tracking-[0.08em] opacity-60">{k}</div>
                         <div className="mt-1 text-[15px] font-extrabold">{v}</div>
                       </div>
                     ))}
+                    <div className="col-span-3 border-b border-r border-divider px-3.5 py-3">
+                      <div className="mb-1.5 text-[11px] uppercase tracking-[0.08em] opacity-60">Pantone colours</div>
+                      <div className="text-[14px] font-bold">
+                        <InkSwatches colours={brand.colours} />
+                      </div>
+                    </div>
                   </div>
                   <p className="mb-0 mt-2 text-[12px] opacity-70">
                     These are your brand&apos;s specs on file at Peniel. To change them, contact Peniel before ordering.

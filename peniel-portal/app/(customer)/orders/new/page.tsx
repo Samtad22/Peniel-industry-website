@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import NewOrderWizard, { type WizardBrand, type WizardInitial, type WizardRecent } from "@/components/customer/NewOrderWizard";
+import { crownSrc } from "@/components/ui/Crown";
 import { requireCustomer } from "@/lib/auth";
 import { brandSpec, type CustomerBrand } from "@/lib/customer-orders";
 import type { AttachmentType } from "@/lib/files";
@@ -34,7 +35,7 @@ export default async function NewOrderPage({
   const [{ data: brands }, { data: recent }] = await Promise.all([
     supabase
       .from("customer_brands")
-      .select("id, name, size, finish, liner, colours, active")
+      .select("id, name, size, finish, liner, colours, crown_image_path, active")
       .eq("active", true)
       .order("name")
       .returns<CustomerBrand[]>(),
@@ -55,6 +56,7 @@ export default async function NewOrderPage({
     finish: b.finish,
     liner: b.liner,
     colours: b.colours,
+    crown: crownSrc(b),
   }));
   const recentOrders: WizardRecent[] = (recent ?? [])
     .filter((o) => wizardBrands.some((b) => b.id === o.brand_id))

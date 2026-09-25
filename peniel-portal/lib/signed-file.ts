@@ -17,26 +17,40 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function serveStoredFile(
   request: NextRequest,
   id: string,
-  opts: { bucket: string; staffTable: string; customerView: string; nameColumn?: string },
+  opts: {
+    bucket: string;
+    staffTable: string;
+    customerView: string;
+    nameColumn?: string;
+    /** Column holding the Storage path (default `file_path`). */
+    pathColumn?: string;
+    /** Seconds the signed URL lives (default 60). The redirect may be cached privately for slightly less. */
+    ttl?: number;
+  },
 ) {
   const profile = await getProfile();
   if (!profile) return NextResponse.redirect(new URL("/login", request.url));
   if (!UUID.test(id)) return new NextResponse("Not found", { status: 404 });
 
+  const pathCol = opts.pathColumn ?? "file_path";
   const nameCol = opts.nameColumn ?? "file_name";
+  const ttl = opts.ttl ?? 60;
   const supabase = await createClient();
   const { data } = await supabase
     .from(isStaffRole(profile.role) ? opts.staffTable : opts.customerView)
-    .select(nameCol === "file_path" ? "file_path" : `file_path, ${nameCol}`)
+    .select(nameCol === pathCol ? pathCol : `${pathCol}, ${nameCol}`)
     .eq("id", id)
     .maybeSingle<Record<string, string | null>>();
-  if (!data?.file_path) return new NextResponse("Not found", { status: 404 });
+  const path = data?.[pathCol];
+  if (!data || !path) return new NextResponse("Not found", { status: 404 });
 
-  const name = (nameCol !== "file_path" && data[nameCol]) || data.file_path.split("/").pop() || "file";
+  const name = (nameCol !== pathCol && data[nameCol]) || path.split("/").pop() || "file";
   const inline = request.nextUrl.searchParams.get("inline") === "1";
   const { data: signed, error } = await createAdminClient()
     .storage.from(opts.bucket)
-    .createSignedUrl(data.file_path, 60, inline ? undefined : { download: name });
+    .createSignedUrl(path, ttl, inline ? undefined : { download: name });
   if (error || !signed) return new NextResponse("This file is not available right now.", { status: 404 });
-  return NextResponse.redirect(signed.signedUrl);
+  const res = NextResponse.redirect(signed.signedUrl);
+  if (ttl > 60) res.headers.set("Cache-Control", `private, max-age=${ttl - 60}`);
+  return res;
 }

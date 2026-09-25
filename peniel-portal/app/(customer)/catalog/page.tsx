@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CustomerPageHead } from "@/components/customer/CustomerPlanned";
-import Crown from "@/components/ui/Crown";
+import Crown, { crownSrc, InkSwatches } from "@/components/ui/Crown";
 import { brandSpec, type CustomerBrand } from "@/lib/customer-orders";
 import { formatDate } from "@/lib/format";
+import { crownSizeLine } from "@/lib/inks";
 import { statusText, type OrderStatus } from "@/lib/order-status";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,7 +19,7 @@ export default async function CatalogPage() {
     supabase.from("customer_company").select("name").maybeSingle<{ name: string }>(),
     supabase
       .from("customer_brands")
-      .select("id, name, size, finish, liner, colours, active")
+      .select("id, name, size, finish, liner, colours, crown_image_path, active")
       .eq("active", true)
       .order("name")
       .returns<CustomerBrand[]>(),
@@ -43,18 +44,18 @@ export default async function CatalogPage() {
       <div className="grid sm:grid-cols-2 xl:grid-cols-3">
         {(brands ?? []).map((b) => (
           <div key={b.id} className={tile}>
-            <div className="grid h-[150px] place-items-center bg-surface">
-              <Crown colours={b.colours} size={96} />
+            <div className="grid h-[180px] place-items-center bg-surface">
+              <Crown colours={b.colours} src={crownSrc(b)} size={140} alt={`${b.name} crown`} />
             </div>
             <div className="text-[11px] uppercase tracking-[0.1em] text-accent-700">{brandSpec(b)}</div>
             <h4 className="m-0">{b.name}</h4>
             <div className="border-t border-divider text-[13px]">
-              {[
-                ["Size", b.size],
+              {([
+                ["Size", crownSizeLine(b.size)],
                 ["Liner", b.liner],
                 ["Finish", b.finish ?? "—"],
-                ["Colours", b.colours.length ? b.colours.join(", ") : "As on file"],
-              ].map(([k, v]) => (
+                ["Colours", <InkSwatches key="c" colours={b.colours} compact />],
+              ] as [string, React.ReactNode][]).map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[100px_1fr] border-b border-divider py-1.5">
                   <span className="opacity-60">{k}</span>
                   <span>{v}</span>

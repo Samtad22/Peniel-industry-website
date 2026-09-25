@@ -18,7 +18,7 @@ A company has many brands; a customer user sees all brands of their company.
 Internal-only columns are marked **(internal)**. They must never appear in customer views.
 
 - `companies` — id, name, code, contact details, active
-- `brands` — id, company_id, name, crown_image_path, spec (size, liner PVC-free/PVC, finish, colours), current_artwork_version_id, active
+- `brands` — id, company_id, name, crown_image_path (a PNG/JPG of the printed crown in the private `crowns` bucket), spec (size, liner PVC-free/PVC, finish, colours), current_artwork_version_id, active. Each colour is text: the Pantone name, then an optional `#hex` for the on-screen swatch, e.g. `PANTONE 485 C #DA291C` (`lib/inks.ts`). Customers see the crown image, crown size and Pantone swatches in the catalog, the new-order form and each order.
 - `profiles` — user_id (auth.users), company_id (null for staff), full_name, role, active, last_login_at
 - `orders` — id, order_no (`PN-YY-NNNN`, sequential per year), company_id, brand_id, po_number, quantity, requested_date, confirmed_due_date, revised_due_date, delivery_method (pickup/delivery), delivery_address, status, customer_reason, internal_notes **(internal)**, submitted_by, confirmed_by, timestamps
 - `order_status_events` — order_id, status, customer_reason, internal_notes **(internal)**, created_by, created_at (drives the customer timeline)

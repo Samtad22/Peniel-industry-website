@@ -1,10 +1,12 @@
 import Link from "next/link";
 import ProofCard from "@/components/customer/ProofCard";
 import ReplyForm from "@/components/customer/ReplyForm";
+import Crown, { InkSwatches } from "@/components/ui/Crown";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Timeline from "@/components/ui/Timeline";
 import { ATTACHMENT_TYPE_LABELS, fileExt, formatBytes } from "@/lib/files";
 import { formatDate, formatDateTime, formatQty } from "@/lib/format";
+import { crownSizeLine } from "@/lib/inks";
 import type { CustomerOrderDetailData } from "@/lib/customer-orders";
 
 const PROGRESS_STATUSES = ["in_production", "quality_check", "ready_for_pickup", "dispatched", "delivered"];
@@ -30,7 +32,8 @@ export default function OrderDetail({
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <Crown colours={o.colours} src={o.crown} size={variant === "page" ? 72 : 56} alt={`${o.brand_name} crown`} />
+        <div className="min-w-0 flex-1">
           <h6 className="m-0 text-accent-700">
             {o.order_no} · PO {o.po_number}
           </h6>
@@ -45,6 +48,11 @@ export default function OrderDetail({
           </div>
         </div>
         {variant === "panel" && <StatusBadge status={o.status} audience="customer" />}
+      </div>
+
+      <div className="flex flex-col gap-1.5 border-y border-divider py-2.5 text-[13px]">
+        <span className="opacity-70">{crownSizeLine(o.size)}</span>
+        <InkSwatches colours={o.colours} compact />
       </div>
 
       {o.status === "on_hold" && (
