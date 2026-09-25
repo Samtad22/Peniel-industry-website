@@ -76,17 +76,19 @@ customers go in a **new, empty** project.
 1. **Plan: Free** (decided): about 3,000 emails a month, 100 a day, one
    domain. Check the Settings page's email log after a month to see real
    volume.
-2. Add the domain `penielindustry.org` and add the DNS records Resend shows
-   (SPF, DKIM, and the bounce MX, usually on a `send.` subdomain). Wait for
-   "Verified".
-3. Create an API key with "Sending access" only. Put it in Vercel
-   (`RESEND_API_KEY`) and in Supabase SMTP (step 1.5).
+2. **Done:** `penielindustry.org` is already **Verified** in Resend, so its
+   email DNS records exist. Any `@penielindustry.org` sender works. Skip the
+   email rows in the DNS table below.
+3. Create a new API key named "Peniel Portal" with **Sending access** only,
+   limited to `penielindustry.org`. Put it in Vercel (`RESEND_API_KEY`,
+   marked Sensitive, Production) and in Supabase SMTP (step 1.5). A
+   separate key means it can be revoked without affecting the website.
 
 ## 4. DNS for penielindustry.org
 
-Do this after the domain is added in Vercel (step 2.4) and in Resend (step
-3.2): both then show the exact records. Add them at your DNS host, copying
-each value exactly.
+Do this after the domain is added in Vercel (step 2.4). Only the `portal`
+CNAME is still needed: the email records are already in place (Resend shows
+the domain as Verified). Copy each value exactly.
 
 | For | Type | Name / Host | Value | Notes |
 |---|---|---|---|---|
