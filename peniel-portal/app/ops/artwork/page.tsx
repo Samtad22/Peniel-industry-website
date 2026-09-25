@@ -123,7 +123,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
     return !b?.current?.approved_at || (p.responded_at ?? "") > b.current.approved_at;
   });
   const latestPerBrand = (brandId: string) => allProofs.find((p) => p.brand_id === brandId);
-  const COLS = "grid grid-cols-[44px_minmax(0,1fr)_96px_60px_170px_170px_minmax(0,1.2fr)] items-center gap-2.5";
+  const COLS = "grid grid-cols-[44px_minmax(0,1fr)_96px_60px_minmax(0,1.3fr)_170px] items-center gap-2.5";
   // New customer artwork first, then the latest answered ones.
   const fromCustomers = [...(submissions ?? [])].sort((a, b) => Number(b.status === "submitted") - Number(a.status === "submitted")).slice(0, 12);
 
@@ -255,15 +255,14 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
             </div>
           </div>
           <div className="overflow-x-auto">
-            <div className="min-w-[860px]">
+            <div className="min-w-[720px]">
               <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
                 <span>Proof</span>
                 <span>Brand · customer</span>
                 <span>Order</span>
                 <span>Sent</span>
-                <span>Status</span>
+                <span>Status · customer comment</span>
                 <span>Delivery</span>
-                <span>Customer comment</span>
               </div>
               {queue.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No proofs here.</p>}
               {queue.map((p) => {
@@ -290,8 +289,14 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                       )}
                     </span>
                     <span>{formatDayMonth(p.created_at)}</span>
-                    <span>
+                    <span className="flex min-w-0 flex-col items-start gap-1">
                       <Pill style={pill.style}>{pill.label}</Pill>
+                      {(p.customer_comment || p.responder) && (
+                        <span className="text-[12px] opacity-80">
+                          {p.customer_comment ? `“${p.customer_comment}”` : ""}
+                          {p.responder && ` — ${p.responder.full_name}`}
+                        </span>
+                      )}
                     </span>
                     <span className="flex flex-col gap-0.5 text-[12px]">
                       {p.physical_delivery === "courier" && (
@@ -334,10 +339,6 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                           }
                         />
                       )}
-                    </span>
-                    <span className="text-[12px] opacity-80">
-                      {p.customer_comment ? `“${p.customer_comment}”` : ""}
-                      {p.responder && ` — ${p.responder.full_name}`}
                     </span>
                   </div>
                 );

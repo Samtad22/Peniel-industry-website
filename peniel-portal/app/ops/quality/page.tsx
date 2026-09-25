@@ -8,7 +8,7 @@ import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/format";
 import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
-import { CROWN_HEIGHT, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
+import { CROWN_HEIGHT, LEAK_PRESSURE, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -110,7 +110,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="px-4 py-6 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="m-0">Crown height · last {heights.length} batches</h4>
+            <h4 className="m-0">Shell height · last {heights.length} batches</h4>
             <InternalOnly />
           </div>
           <div className="mb-4 mt-1 text-[12px] opacity-60">spec {CROWN_HEIGHT.spec} mm · oldest on the left</div>
@@ -120,7 +120,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
             max={CROWN_HEIGHT.max!}
             target={6}
             unit="mm"
-            title="Crown height per batch against the spec limits"
+            title="Shell height per batch against the CoA limits"
           />
           {trend && (
             <div className="mt-2.5 text-[12px] font-extrabold text-accent-700">
@@ -152,7 +152,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
               <span>Customer · brand</span>
               <span>Order</span>
               <span>Height</span>
-              <span>Torque</span>
+              <span>Leak</span>
               <span>Reject</span>
               <span>Result</span>
               <span>Published</span>
@@ -173,8 +173,8 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                   <Link href={`/ops/orders/${r.order_id}`} className="text-text">
                     {r.orders?.order_no ?? "—"}
                   </Link>
-                  <span>{measureValue(r.measurements, "crown_height_mm")?.toFixed(2) ?? "—"}</span>
-                  <span>{measureValue(r.measurements, "removal_torque")?.toFixed(1) ?? "—"}</span>
+                  <span>{measureValue(r.measurements, CROWN_HEIGHT.key)?.toFixed(2) ?? "—"}</span>
+                  <span>{measureValue(r.measurements, LEAK_PRESSURE.key)?.toFixed(1) ?? "—"}</span>
                   <span className={pct > REJECT_LIMIT_PCT ? "font-extrabold text-accent-700" : undefined}>{pct.toFixed(2)}%</span>
                   <span>
                     <Pill style={pill.style}>{pill.label}</Pill>
@@ -203,7 +203,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
           </div>
         </div>
         <p className="mb-0 mt-3 text-[12px] opacity-60">
-          Inspected {formatDate(today)} and earlier. Heights in mm, torque in lbf·in: internal only. Customers see the reject
+          Inspected {formatDate(today)} and earlier. Shell height in mm, leaking pressure in kg/cm²: internal only. Customers see the reject
           rate, defects by type and the result of published batches.
         </p>
       </div>

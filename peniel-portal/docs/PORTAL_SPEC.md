@@ -25,14 +25,15 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `order_attachments` — order_id, company_id, file_path, file_name, size, type (purchase_order/specification/other), uploaded_by
 - `production_lines` **(internal table)** — id, name
 - `production_entries` — id, order_id, entry_date, shift, line_id **(internal)**, produced_qty, reject_qty, entered_by, published (bool)
-- `qc_inspections` — id, batch_no, order_id, inspected_at, sample_size, measurements jsonb **(internal)**, reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
+- `qc_inspections` — id, batch_no, order_id, inspected_at, sample_size, measurements jsonb **(internal)** (the 11 measured parameters of the Certificate of Analysis PIC-OF-053, see `lib/qc.ts`), reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
 - `qc_defects` — inspection_id, defect_type, count
-- `defect_types` — code, customer_label (e.g. "Print misregister", "Liner voids", "Crown height out of tolerance", "Scratches", "Colour variation")
+- `defect_types` — code, customer_label, active, sort_order: the 13 visual checks of the Certificate of Analysis (standard 0%), e.g. "Bent crowns", "Incomplete liner", "Off-center graphics"
 - `raw_materials` / `raw_material_movements` **(internal)**
 - `finished_stock` — id, company_id, brand_id, order_id, batch_no, quantity, location **(internal)**, ready_since, status (available/reserved/on_hold), customer_reason
 - `pickup_bookings` — id, company_id, stock ids, requested_at, status (requested/confirmed/rescheduled/collected), proposed_time, vehicle, driver, delivery_note_no
 - `artwork_versions` — id, brand_id, version, file_path, approved_at, approved_by
-- `proofs` — id, brand_id, order_id (nullable), file_path, status (sent/approved/changes_requested), customer_comment, sent_by, responded_by
+- `proofs` — id, brand_id, order_id (nullable), file_path (nullable for a physical-only proof), status (sent/approved/changes_requested), customer_comment, sent_by, responded_by, physical_delivery (courier/peniel_driver), courier, tracking_number, dispatched_at, delivery_driver **(internal)**, delivery_vehicle **(internal)**
+- `artwork_submissions` — artwork a customer sends Peniel: company_id, brand_id, order_id, title, note, file, status (submitted/accepted/changes_requested), staff_comment (customer-facing), reviewed_by, artwork_version_id
 - `documents` — id, company_id, brand_id, order_id, type, file_path, visibility (customer/internal), uploaded_by
 - `message_threads` / `messages` — company_id, order_id (nullable), assigned_to, author, body, read flags
 - `hold_reason_presets` — editable customer-facing phrases for staff to pick from
@@ -45,16 +46,16 @@ Customers get **no direct SELECT** on the tables above. They read through views 
 - `customer_daily_output` — aggregated from published `production_entries` by order and date (sum produced, sum rejects, reject %); no line or shift
 - `customer_quality_batches`, `customer_defects_by_type` — from published inspections only; no measurements
 - `customer_finished_stock` — no location
-- `customer_proofs`, `customer_artwork`, `customer_documents` (visibility = customer only)
+- `customer_proofs` (incl. courier and tracking number, never driver or vehicle), `customer_artwork`, `customer_artwork_submissions`, `customer_documents` (visibility = customer only)
 
-Customer writes are limited to: create order (status `submitted`), upload attachments to own orders, approve/request changes on own proofs, book pickups, send messages.
+Customer writes are limited to: create order (status `submitted`), upload attachments to own orders, approve/request changes on own proofs, send artwork to Peniel for review, book pickups, send messages.
 
 ## 3. Order statuses
 `submitted → confirmed → awaiting_approval → scheduled → in_production → quality_check → ready_for_pickup / dispatched → delivered`, plus `on_hold` from any active state. `on_hold` and any due-date change require `customer_reason`.
 
 ## 4. Notifications (email)
-- To customer: order confirmed, proof awaiting approval, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message.
-- To staff: new order submitted, proof approved / changes requested, pickup requested, new customer message.
+- To customer: order confirmed, proof awaiting approval, physical proof on its way (with DHL tracking), artwork reviewed, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message.
+- To staff: new order submitted, artwork received from a customer, proof approved / changes requested, pickup requested, new customer message.
 
 ## 5. Build phases
 

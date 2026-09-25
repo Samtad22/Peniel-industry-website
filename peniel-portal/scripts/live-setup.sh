@@ -44,14 +44,8 @@ cat <<'SQL'
 -- Reference lists (edit any names here before running, or rename later)
 -- ============================================================================
 
--- Defect types customers see on quality results.
-insert into public.defect_types (code, customer_label) values
-  ('print_misregister', 'Print misregister'),
-  ('liner_voids',       'Liner voids'),
-  ('height_oot',        'Crown height out of tolerance'),
-  ('scratches',         'Scratches'),
-  ('colour_variation',  'Colour variation')
-on conflict (code) do nothing;
+-- Defect types customers see on quality results: the visual checks of the
+-- Certificate of Analysis (PIC-OF-053), set by the CoA migration above.
 
 -- Customer-facing hold reasons staff can pick from.
 insert into public.hold_reason_presets (text, sort_order) values

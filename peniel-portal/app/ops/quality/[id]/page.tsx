@@ -5,7 +5,7 @@ import OpsHeader from "@/components/ops/OpsHeader";
 import { requireStaff } from "@/lib/auth";
 import { formatDate, formatQty } from "@/lib/format";
 import { loadPresets } from "@/lib/presets";
-import { MEASURES, measureValue } from "@/lib/qc";
+import { MEASURES, measureValue, VISUAL_SAMPLE } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -76,6 +76,7 @@ export default async function InspectionPage({
       .from("defect_types")
       .select("code, customer_label")
       .eq("active", true)
+      .order("sort_order")
       .order("customer_label")
       .returns<{ code: string; customer_label: string }[]>(),
     loadPresets(supabase),
@@ -110,7 +111,7 @@ export default async function InspectionPage({
         batch_no: "",
         order_id: orderOptions.some((o) => o.id === order) ? order! : "",
         inspected_at: addisLocal(new Date()),
-        sample_size: "",
+        sample_size: String(VISUAL_SAMPLE),
         measurements: {},
         defects: {},
         result: "",

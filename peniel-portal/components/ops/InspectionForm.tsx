@@ -9,7 +9,7 @@ import { Button, FormMessage } from "@/components/ui/form";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { formatDate } from "@/lib/format";
 import { rejectPct, REJECT_LIMIT_PCT } from "@/lib/production-math";
-import { checkMeasure, MEASURES, RESULT_PILL } from "@/lib/qc";
+import { checkMeasure, coaFindings, COA_DOCUMENT, DEFECT_SAMPLE, MEASURES, RESULT_PILL, VISUAL_SAMPLE } from "@/lib/qc";
 
 export type InspectionInitial = {
   id?: string;
@@ -56,6 +56,12 @@ export default function InspectionForm({
   const pct = rejectPct(total, size);
   const over = pct > REJECT_LIMIT_PCT;
   const pill = result ? RESULT_PILL[result] : RESULT_PILL.none;
+  const findings = coaFindings(
+    Object.fromEntries(Object.entries(measures).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v.replace(",", "."))])),
+    Object.fromEntries(Object.entries(defects).map(([k, v]) => [k, num(v)])),
+    new Map(defectTypes.map((d) => [d.code, d.customer_label])),
+  );
+  const measured = Object.values(measures).filter((v) => v !== "").length;
 
   return (
     <form action={action} className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_460px]">
@@ -89,21 +95,27 @@ export default function InspectionForm({
 
         <div>
           <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-            <h5 className="m-0">Measurements</h5>
+            <h5 className="m-0">
+              Measurements <span className="text-[12px] font-normal opacity-60">· Certificate of Analysis {COA_DOCUMENT}</span>
+            </h5>
             <InternalOnly>Spec values internal · customers see only the result</InternalOnly>
           </div>
-          <div className="th-row grid grid-cols-[minmax(0,1fr)_130px_110px_80px] gap-3 border-b-2 border-divider py-1.5 sm:grid-cols-[minmax(0,1fr)_150px_150px_110px]">
-            <span>Measure</span>
+          <div className="overflow-x-auto">
+          <div className="min-w-[560px]">
+          <div className="th-row grid grid-cols-[minmax(0,1fr)_56px_150px_120px_90px] gap-3 border-b-2 border-divider py-1.5">
+            <span>Parameter</span>
+            <span>Sample</span>
             <span>Result</span>
-            <span>Spec</span>
+            <span>Standard</span>
             <span>Check</span>
           </div>
           {MEASURES.map((m) => {
             const raw = measures[m.key] ?? "";
             const check = raw ? checkMeasure(m, Number(raw.replace(",", "."))) : null;
             return (
-              <div key={m.key} className="grid grid-cols-[minmax(0,1fr)_130px_110px_80px] items-center gap-3 border-b border-divider py-1.5 text-[14px] sm:grid-cols-[minmax(0,1fr)_150px_150px_110px]">
+              <div key={m.key} className="grid grid-cols-[minmax(0,1fr)_56px_150px_120px_90px] items-center gap-3 border-b border-divider py-1.5 text-[14px]">
                 <label htmlFor={`m-${m.key}`}>{m.label}</label>
+                <span className="text-[12px] opacity-60">{m.sample}</span>
                 <span className="flex items-center gap-1.5">
                   <input
                     id={`m-${m.key}`}
@@ -115,21 +127,34 @@ export default function InspectionForm({
                   />
                   <span className="text-[12px] opacity-60">{m.unit}</span>
                 </span>
-                <span className="text-[13px] opacity-70">{m.spec}</span>
+                <span className="text-[13px] opacity-70">
+                  {m.spec} {m.unit}
+                </span>
                 <span className={clsx("text-[12px] font-extrabold", check && check !== "ok" ? "text-accent-700" : "text-neutral-700")}>
                   {check === "ok" ? "✓ in spec" : check ? `⚠ ${check}` : ""}
                 </span>
               </div>
             );
           })}
+          </div>
+          </div>
         </div>
 
         <div>
-          <h5 className="mb-1.5 mt-0">Defects found (count in sample)</h5>
+          <h5 className="mb-1.5 mt-0">
+            Visual checks · defects found{" "}
+            <span className="text-[12px] font-normal opacity-60">
+              (standard 0% · sample {VISUAL_SAMPLE}
+              {Object.keys(DEFECT_SAMPLE).length ? `, corrosion ${DEFECT_SAMPLE.corrosion}` : ""})
+            </span>
+          </h5>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {defectTypes.map((d) => (
               <label key={d.code} className="grid grid-cols-[minmax(0,1fr)_90px] items-center gap-2 bg-surface px-2.5 py-2 text-[13px]">
-                <span>{d.customer_label}</span>
+                <span>
+                  {d.customer_label}
+                  {DEFECT_SAMPLE[d.code] && <span className="block text-[11px] opacity-60">sample {DEFECT_SAMPLE[d.code]}</span>}
+                </span>
                 <input
                   name={`d_${d.code}`}
                   inputMode="numeric"
@@ -167,6 +192,22 @@ export default function InspectionForm({
       </fieldset>
 
       <fieldset disabled={!canEdit} className="m-0 flex min-w-0 flex-col gap-3.5 border-0 bg-surface px-4 py-6 sm:px-8 xl:pl-6">
+        <div
+          className={clsx("flex flex-col gap-1 px-3 py-2.5 text-[13px]", findings.length ? "bg-accent-100 text-accent-800" : "bg-bg")}
+          role="status"
+        >
+          <b>
+            {findings.length
+              ? `Does not conform to the CoA · ${findings.length} finding${findings.length === 1 ? "" : "s"}`
+              : measured
+                ? `Conforms to the CoA so far (${measured} of ${MEASURES.length} parameters measured)`
+                : "Enter the measurements to check against the CoA"}
+          </b>
+          {findings.map((f) => (
+            <span key={f}>· {f}</span>
+          ))}
+          <span className="flex items-center gap-1 text-[11px] opacity-70">Internal: customers see only the release decision and defect counts.</span>
+        </div>
         <div className="flex items-center justify-between gap-2">
           <h4 className="m-0">Release decision</h4>
           <CustomerSees />
