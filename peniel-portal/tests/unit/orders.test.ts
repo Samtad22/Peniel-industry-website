@@ -124,3 +124,21 @@ test("qc: measurement values, spec checks and trend warning", async () => {
   assert.equal(risingTrend([1, 2, 3, 4, 5, 6, 7]), true);
   assert.equal(risingTrend([1, 2, 3, 2, 5, 6, 7]), false);
 });
+
+test("email: content is escaped and links point at the portal", async () => {
+  const { renderEmail } = await import("../../lib/email-template.ts");
+  const { html, text } = renderEmail(
+    {
+      subject: "x",
+      heading: "Order <b>PN-26-0001</b>",
+      lines: ['PO "HB-1" & co'],
+      note: "<script>alert(1)</script>",
+      cta: { label: "View order", path: "/orders/abc" },
+    },
+    "https://portal.penielindustry.org",
+  );
+  assert.ok(!html.includes("<script>") && !html.includes("<b>PN"));
+  assert.ok(html.includes("&lt;script&gt;") && html.includes("&quot;HB-1&quot; &amp; co"));
+  assert.ok(html.includes('href="https://portal.penielindustry.org/orders/abc"'));
+  assert.match(text, /View order: https:\/\/portal\.penielindustry\.org\/orders\/abc/);
+});

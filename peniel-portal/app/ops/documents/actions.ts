@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/auth";
 import { DOC_TYPES } from "@/lib/documents";
 import { fileProblem, mimeFor } from "@/lib/files";
 import { createClient } from "@/lib/supabase/server";
+import { notifyDocumentShared } from "@/lib/notify";
 
 export type DocState = { error?: string; ok?: string } | null;
 
@@ -35,7 +36,7 @@ export async function createDocument(input: {
     const { data: o } = await supabase.from("orders").select("company_id").eq("id", input.orderId).maybeSingle<{ company_id: string }>();
     if (o?.company_id !== input.companyId) return { error: "That order belongs to a different customer." };
   }
-  const { error } = await supabase.from("documents").insert({
+  const { data: doc, error } = await supabase.from("documents").insert({
     company_id: input.companyId,
     order_id: UUID.test(input.orderId) ? input.orderId : null,
     brand_id: UUID.test(input.brandId) ? input.brandId : null,
@@ -47,10 +48,11 @@ export async function createDocument(input: {
     mime_type: mimeFor(input.name),
     visibility: input.visibility === "customer" ? "customer" : "internal",
     uploaded_by: me.user_id,
-  });
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't file documents." : "Couldn't save the document." };
+  }).select("id").single<{ id: string }>();
+  if (error || !doc) return { error: /row-level|permission/i.test(error.message) ? "Your role can't file documents." : "Couldn't save the document." };
   revalidatePath("/ops/documents");
   revalidatePath("/documents");
+  if (input.visibility === "customer") notifyDocumentShared(doc.id);
   return { ok: input.visibility === "customer" ? "Uploaded. The customer can see it now." : "Uploaded. Internal only." };
 }
 
@@ -60,7 +62,8 @@ export async function setDocumentVisibility(fd: FormData): Promise<void> {
   const vis = fd.get("visibility") === "customer" ? "customer" : "internal";
   if (!UUID.test(id)) return;
   const supabase = await createClient();
-  await supabase.from("documents").update({ visibility: vis }).eq("id", id);
+  const { data: changed } = await supabase.from("documents").update({ visibility: vis }).eq("id", id).select("id");
+  if (vis === "customer" && changed?.length) notifyDocumentShared(id);
   revalidatePath("/ops/documents");
   revalidatePath("/documents");
 }

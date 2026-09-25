@@ -6,7 +6,10 @@ and the full specification is in [docs/PORTAL_SPEC.md](docs/PORTAL_SPEC.md).
 
 The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 
-## Status: Phase 4 (Inventory, artwork, documents, messages)
+## Status: Phase 5 (Notifications and launch)
+
+All five phases are built. Going live is a checklist of dashboard steps,
+some of which need a decision first: see [docs/LAUNCH.md](docs/LAUNCH.md).
 
 | Area | Where |
 |---|---|
@@ -18,15 +21,18 @@ The marketing site in `../peniel-industry/` is a separate app and is unchanged.
 | Orders: submit with PO, status rules, reject reasons, order audit for staff | `supabase/migrations/20260924000001_orders.sql` |
 | Production & QC: publish stamps, frozen published entries, `qc_save_inspection` | `supabase/migrations/20260925000001_production_quality.sql` |
 | Internal message notes, documents, proof versions, stock collection, raw material movements | `supabase/migrations/20260926000001_inventory_artwork_documents_messages.sql` |
+| Email log for notifications (admin-only) | `supabase/migrations/20260927000001_notifications.sql` |
 | Seed data (Habesha + 2 other breweries) | `supabase/seed.sql` |
 | Sign-in, invite, set password, forgot password | `app/login`, `app/auth`, `app/forgot-password` |
 | Customer: Orders, New order, Catalog, Production (Output / Quality / Stock + pickup booking), Artwork (proof approval), Documents, Messages | `app/(customer)` |
 | Staff: Dashboard, Order inbox, Orders, Production, Quality control, Inventory + Pickups, Artwork, Documents, Customers, Messages, Settings | `app/ops` |
 | Tablet production entry for the floor | `app/production-entry` |
 | File downloads (checked, then a 60-second signed URL) | `app/files/{attachments,documents,proofs,artwork}/[id]` |
+| Notification emails (Resend; off until keys are set, see Ops → Settings) | `lib/notify.ts`, `lib/email.ts` |
+| Staff "Preview as customer" for an order | `app/ops/orders/[id]/preview` |
 | Isolation and rules tests | `tests/db` |
 
-Pages for later phases show a "Planned · Phase N" placeholder.
+Ops → Maintenance is in the design but not in the spec, so it shows a "Planned" placeholder.
 
 ### How an order with its PO is placed
 
@@ -121,7 +127,9 @@ are tested without editing the tests.
 
 Supabase's built-in email sender only sends a few emails per hour. That is fine
 for testing. For real invites, connect Resend under Authentication → Emails →
-SMTP Settings. Resend is also used for notifications in Phase 5.
+SMTP Settings. Resend also sends the notification emails: set
+`RESEND_API_KEY` and `EMAIL_FROM` in `.env.local` to turn them on. Without
+them, emails are logged as "skipped" on Ops → Settings and nothing else changes.
 
 ## Design reference
 

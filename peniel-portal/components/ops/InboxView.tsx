@@ -121,9 +121,14 @@ export default function InboxView({
                   {o.company} · {o.brand}
                 </h3>
               </div>
-              <Link href={`/ops/orders/${o.id}`} className="btn btn-secondary text-text">
-                Order page →
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
+                  Preview as customer ↗
+                </Link>
+                <Link href={`/ops/orders/${o.id}`} className="btn btn-secondary text-text">
+                  Order page →
+                </Link>
+              </div>
             </div>
             <div className="flex flex-col px-4 py-4 text-[14px] sm:px-6">
               {(

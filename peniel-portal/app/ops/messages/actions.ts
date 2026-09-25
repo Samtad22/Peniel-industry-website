@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { notifyMessageToCustomer } from "@/lib/notify";
 
 export type MessageState = { error?: string; ok?: string } | null;
 
@@ -31,6 +32,7 @@ export async function sendStaffMessage(_prev: MessageState, fd: FormData): Promi
   if (error) return { error: "Couldn't send. Please try again." };
   if (!internal) {
     await supabase.from("message_threads").update({ last_message_at: new Date().toISOString() }).eq("id", threadId);
+    notifyMessageToCustomer(threadId, body);
   }
   await supabase.from("messages").update({ read_by_staff: true }).eq("thread_id", threadId).eq("read_by_staff", false);
   refresh();
@@ -77,6 +79,7 @@ export async function startThread(_prev: MessageState, fd: FormData): Promise<Me
     .single<{ id: string }>();
   if (error || !t) return { error: "Couldn't start the conversation." };
   await supabase.from("messages").insert({ thread_id: t.id, author_id: me.user_id, body, read_by_staff: true });
+  notifyMessageToCustomer(t.id, body);
   refresh();
   redirect(`/ops/messages?t=${t.id}`);
 }

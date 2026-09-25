@@ -13,7 +13,16 @@ const PROGRESS_STATUSES = ["in_production", "quality_check", "ready_for_pickup",
  * One order for its customer: design 1b's detail panel on wide screens and
  * 1s on phones. Everything here comes from customer_* views.
  */
-export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrderDetailData; variant?: "panel" | "page" }) {
+export default function OrderDetail({
+  o,
+  variant = "panel",
+  preview = false,
+}: {
+  o: CustomerOrderDetailData;
+  variant?: "panel" | "page";
+  /** Staff "Preview as customer": same content, no forms. */
+  preview?: boolean;
+}) {
   const pct = o.quantity > 0 ? Math.min(100, Math.round((o.completed_qty / o.quantity) * 100)) : 0;
   const showProgress = o.completed_qty > 0 || PROGRESS_STATUSES.includes(o.status);
   const canReorder = o.status !== "submitted";
@@ -54,7 +63,7 @@ export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrder
         </div>
       )}
       {o.proofs.map((p) => (
-        <ProofCard key={p.id} p={p} />
+        <ProofCard key={p.id} p={p} preview={preview} />
       ))}
 
       {o.customer_reason && o.status !== "on_hold" && o.status !== "rejected" && (
@@ -108,7 +117,7 @@ export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrder
               </div>
             ))}
           </div>
-          {o.threadId && <ReplyForm threadId={o.threadId} />}
+          {o.threadId && !preview && <ReplyForm threadId={o.threadId} />}
         </section>
       )}
 
@@ -137,7 +146,8 @@ export default function OrderDetail({ o, variant = "panel" }: { o: CustomerOrder
         </div>
       </section>
 
-      <div className="grid gap-2">
+      {/* In a staff preview the customer's buttons are shown but can't be used. */}
+      <div className={preview ? "grid gap-2 opacity-60" : "grid gap-2"} inert={preview}>
         {canReorder && (
           <Link href={`/orders/new?reorder=${o.id}`} className="btn btn-secondary btn-split min-h-12 text-text">
             Reorder<span aria-hidden="true">↻</span>

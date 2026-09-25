@@ -1,4 +1,5 @@
-import SettingsView from "@/components/ops/SettingsView";
+import SettingsView, { type EmailLogRow } from "@/components/ops/SettingsView";
+import { emailConfigured } from "@/lib/email";
 import type { UserRow } from "@/components/ops/UsersTable";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +11,7 @@ export default async function SettingsPage() {
   const me = await requireStaff(opsRolesFor("settings"));
   const supabase = await createClient();
 
-  const [{ data: staff }, { data: presets }] = await Promise.all([
+  const [{ data: staff }, { data: presets }, { data: log }] = await Promise.all([
     supabase
       .from("profiles")
       .select("user_id, full_name, email, role, active, last_login_at")
@@ -24,7 +25,20 @@ export default async function SettingsPage() {
       .eq("kind", "hold")
       .order("sort_order")
       .returns<{ id: string; text: string }[]>(),
+    supabase
+      .from("notification_log")
+      .select("id, kind, recipient, subject, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(15)
+      .returns<EmailLogRow[]>(),
   ]);
 
-  return <SettingsView staff={staff ?? []} presets={presets ?? []} meId={me.user_id} />;
+  return (
+    <SettingsView
+      staff={staff ?? []}
+      presets={presets ?? []}
+      meId={me.user_id}
+      email={{ configured: emailConfigured(), from: process.env.EMAIL_FROM ?? null, log: log ?? [] }}
+    />
+  );
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
 import { NotesForm, StaffReplyForm, StatusControl, type Preset } from "@/components/ops/OrderForms";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -84,7 +85,14 @@ export default function StaffOrderView({
         ]
           .filter(Boolean)
           .join(" · ")}
-        actions={<StatusBadge status={o.status} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge status={o.status} />
+            <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
+              Preview as customer ↗
+            </Link>
+          </div>
+        }
       />
       <div className="grid xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex flex-col gap-[18px] px-4 py-6 sm:px-8 xl:border-r-2 xl:border-divider">

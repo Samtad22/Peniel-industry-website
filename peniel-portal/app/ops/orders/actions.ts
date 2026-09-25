@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addisDateISO } from "@/lib/format";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
+import { notifyMessageToCustomer, notifyOrderUpdate } from "@/lib/notify";
 
 export type OrderActionState = { error?: string; ok?: string } | null;
 
@@ -55,6 +56,7 @@ export async function confirmOrder(_prev: OrderActionState, fd: FormData): Promi
   if (!data?.length) return { error: "This order has already been handled." };
 
   refresh(id);
+  notifyOrderUpdate(id);
   return { ok: "Order confirmed. The customer sees it as Confirmed with this due date." };
 }
 
@@ -76,11 +78,19 @@ export async function rejectOrder(_prev: OrderActionState, fd: FormData): Promis
   if (!data?.length) return { error: "Only new or confirmed orders can be rejected." };
 
   refresh(id);
+  notifyOrderUpdate(id);
   return { ok: "Order rejected. The customer sees your message." };
 }
 
 /** Post a message to the customer on this order's conversation (starting one if needed). */
 async function postToCustomer(orderId: string, body: string, authorId: string): Promise<string | null> {
+  const res = await postToCustomerThread(orderId, body, authorId);
+  if (typeof res === "string") return res;
+  notifyMessageToCustomer(res.threadId, body);
+  return null;
+}
+
+async function postToCustomerThread(orderId: string, body: string, authorId: string): Promise<string | { threadId: string }> {
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("orders")
@@ -119,7 +129,7 @@ async function postToCustomer(orderId: string, body: string, authorId: string): 
   await supabase.from("message_threads").update({ last_message_at: new Date().toISOString() }).eq("id", threadId);
   // Replying means the customer's messages have been seen.
   await supabase.from("messages").update({ read_by_staff: true }).eq("thread_id", threadId).eq("read_by_staff", false);
-  return null;
+  return { threadId };
 }
 
 export async function askCustomer(_prev: OrderActionState, fd: FormData): Promise<OrderActionState> {
@@ -173,6 +183,7 @@ export async function setOrderStatus(_prev: OrderActionState, fd: FormData): Pro
   if (error) return { error: explain(error.message) };
 
   refresh(id);
+  if (status !== current.status || dateChanged) notifyOrderUpdate(id, { dateChanged });
   return {
     ok:
       status === current.status

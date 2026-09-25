@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fileProblem, mimeFor, type AttachmentType } from "@/lib/files";
+import { notifyMessageToStaff, notifyOrderSubmitted } from "@/lib/notify";
 
 export type SubmitOrderInput = {
   brandId: string;
@@ -70,6 +71,7 @@ export async function submitOrder(input: SubmitOrderInput): Promise<ActionState>
   }
 
   revalidatePath("/orders");
+  notifyOrderSubmitted(data.id);
   redirect(`/orders?submitted=${data.id}`);
 }
 
@@ -84,6 +86,7 @@ export async function replyOnOrder(_prev: ActionState, formData: FormData): Prom
   const supabase = await createClient();
   const { error } = await supabase.rpc("customer_send_message", { p_body: body, p_thread_id: threadId });
   if (error) return { error: "We couldn't send your reply. Please try again." };
+  notifyMessageToStaff(threadId, body);
 
   revalidatePath("/orders");
   return { ok: "Sent. Peniel will reply here." };
