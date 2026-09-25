@@ -38,7 +38,16 @@ export type StaffOrder = {
   steps: TimelineStep[];
   messages: StaffMessage[];
   activity: { when: string; who: string; what: string; detail: string }[];
-  production: { entries: number; produced: number; rejects: number; lines: string[]; batches: { batch_no: string; result: string | null }[] };
+  production: {
+    entries: number;
+    produced: number;
+    /** Camera rejects: crowns the liner camera pushed out, sent to sorting. */
+    rejects: number;
+    lines: string[];
+    batches: { batch_no: string; result: string | null }[];
+    /** Sorting of the camera rejects, in cartons (internal). */
+    sorting: { reports: number; passed: number; waste: number };
+  };
   /** Finished crowns of this order still at Peniel (not collected). */
   stock: { quantity: number; batches: string[] };
 };
@@ -74,7 +83,7 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
     .maybeSingle<OrderRow>();
   if (!o) return null;
 
-  const [files, events, threads, audit, attachAudit, entries, inspections, stock] = await Promise.all([
+  const [files, events, threads, audit, attachAudit, entries, inspections, stock, sorting] = await Promise.all([
     supabase
       .from("order_attachments")
       .select("id, file_name, type, size_bytes, mime_type")
@@ -121,6 +130,7 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
       .eq("order_id", id)
       .is("collected_at", null)
       .returns<{ batch_no: string; quantity: number }[]>(),
+    supabase.from("sorting_records").select("passed_cartons, waste_cartons").eq("order_id", id).returns<{ passed_cartons: number; waste_cartons: number }[]>(),
   ]);
 
   const threadIds = (threads.data ?? []).map((t) => t.id);
@@ -177,6 +187,11 @@ export async function loadStaffOrder(supabase: Supabase, id: string): Promise<St
       rejects: e.reduce((s, x) => s + Number(x.reject_qty), 0),
       lines: [...new Set(e.map((x) => x.production_lines?.name).filter((x): x is string => Boolean(x)))],
       batches: inspections.data ?? [],
+      sorting: {
+        reports: (sorting.data ?? []).length,
+        passed: (sorting.data ?? []).reduce((t, x) => t + Number(x.passed_cartons), 0),
+        waste: (sorting.data ?? []).reduce((t, x) => t + Number(x.waste_cartons), 0),
+      },
     },
     stock: {
       quantity: (stock.data ?? []).reduce((t, x) => t + Number(x.quantity), 0),

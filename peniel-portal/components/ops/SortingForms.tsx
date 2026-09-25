@@ -7,17 +7,21 @@ import { InternalOnly } from "@/components/ui/Visibility";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { cartonsLine, formatWastePct } from "@/lib/sorting";
 
-export type SortingBatch = { id: string; label: string };
+/** An order whose camera rejects can be sorted, with the batch numbers already known for it. */
+export type SortingOrder = { id: string; label: string; batches: string[] };
 
-/** "+ Record sorting": one batch from the daily sorting report (internal only). */
+/** "+ Record sorting": one order and batch from the daily sorting report (internal only). */
 export function SortingDialog({
-  batches,
+  orders,
+  fixed,
   today,
   triggerLabel = "+ Record sorting",
   variant = "primary",
 }: {
-  /** Held batches to choose from; one entry = that batch, no choice. */
-  batches: SortingBatch[];
+  /** Orders to choose from. */
+  orders: SortingOrder[];
+  /** One order and batch, no choice (from an inspection). */
+  fixed?: { orderId: string; batchNo: string; label: string };
   today: string;
   triggerLabel?: string;
   variant?: "primary" | "secondary";
@@ -31,13 +35,24 @@ export function SortingDialog({
         </Button>
       )}
     >
-      {(close) => <SortingForm batches={batches} today={today} close={close} />}
+      {(close) => <SortingForm orders={orders} fixed={fixed} today={today} close={close} />}
     </Modal>
   );
 }
 
-function SortingForm({ batches, today, close }: { batches: SortingBatch[]; today: string; close: () => void }) {
-  const [batch, setBatch] = useState(batches.length === 1 ? batches[0].id : "");
+function SortingForm({
+  orders,
+  fixed,
+  today,
+  close,
+}: {
+  orders: SortingOrder[];
+  fixed?: { orderId: string; batchNo: string; label: string };
+  today: string;
+  close: () => void;
+}) {
+  const [order, setOrder] = useState(fixed?.orderId ?? (orders.length === 1 ? orders[0].id : ""));
+  const [batch, setBatch] = useState(fixed?.batchNo ?? "");
   const [date, setDate] = useState(today);
   const [passed, setPassed] = useState("");
   const [waste, setWaste] = useState("");
@@ -48,36 +63,59 @@ function SortingForm({ batches, today, close }: { batches: SortingBatch[]; today
     if (res?.ok) {
       setPassed("");
       setWaste("");
-      if (batches.length > 1) setBatch("");
+      if (!fixed) setBatch("");
     }
     return res;
   }, null);
+  const known = orders.find((o) => o.id === order)?.batches ?? [];
 
   return (
     <form action={action} className="flex flex-col gap-3.5">
       <div className="flex justify-end">
-        <InternalOnly>Internal only · customers see the batch on hold, then released</InternalOnly>
+        <InternalOnly>Internal only · customers see only the reject rate after sorting</InternalOnly>
       </div>
-      {batches.length === 1 ? (
+      <p className="m-0 text-[13px] opacity-80">Crowns the liner camera pushed out, sorted by hand: what passed and what was scrapped.</p>
+      {fixed ? (
         <>
-          <input type="hidden" name="inspection_id" value={batches[0].id} />
+          <input type="hidden" name="order_id" value={fixed.orderId} />
+          <input type="hidden" name="batch_no" value={fixed.batchNo} />
           <p className="m-0 text-[14px]">
-            <b>{batches[0].label}</b>
+            <b>{fixed.label}</b>
           </p>
         </>
       ) : (
-        <Field label="Batch on hold" htmlFor="so-batch">
-          <select id="so-batch" name="inspection_id" required value={batch} onChange={(e) => setBatch(e.target.value)} className="input min-h-11">
-            <option value="">Choose a batch…</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="grid gap-3.5 sm:grid-cols-[minmax(0,1fr)_160px]">
+          <Field label="Order" htmlFor="so-order">
+            <select id="so-order" name="order_id" required value={order} onChange={(e) => setOrder(e.target.value)} className="input min-h-11">
+              <option value="">Choose an order…</option>
+              {orders.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Batch" htmlFor="so-batch">
+            <input
+              id="so-batch"
+              name="batch_no"
+              required
+              maxLength={40}
+              list="so-batches"
+              value={batch}
+              onChange={(e) => setBatch(e.target.value)}
+              placeholder="e.g. 015"
+              className="input min-h-11"
+            />
+            <datalist id="so-batches">
+              {known.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
+          </Field>
+        </div>
       )}
-      {batches.length === 0 && <p className="m-0 text-[13px] opacity-70">No batches are on hold. Put a batch on hold from its inspection first.</p>}
+      {!fixed && orders.length === 0 && <p className="m-0 text-[13px] opacity-70">No orders in production right now.</p>}
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field label="Date of the report" htmlFor="so-date">
           <input id="so-date" name="sorted_on" type="date" required max={today} value={date} onChange={(e) => setDate(e.target.value)} className="input min-h-11" />
@@ -108,7 +146,7 @@ function SortingForm({ batches, today, close }: { batches: SortingBatch[]; today
         <Button type="button" variant="secondary" onClick={close}>
           {state?.ok ? "Done" : "Cancel"}
         </Button>
-        <Button type="submit" disabled={pending || batches.length === 0} icon="→" className="w-[170px]">
+        <Button type="submit" disabled={pending || (!fixed && orders.length === 0)} icon="→" className="w-[170px]">
           {pending ? "Saving…" : state?.ok ? "Save another" : "Save"}
         </Button>
       </div>

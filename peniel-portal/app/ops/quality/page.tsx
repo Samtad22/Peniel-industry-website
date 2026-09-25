@@ -11,7 +11,7 @@ import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/forma
 import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
 import { CROWN_HEIGHT, LEAK_PRESSURE, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
-import { cartonsLine, formatWastePct, sortingTotals, type SortingRecord } from "@/lib/sorting";
+import { formatCartons, formatWastePct, orderSorting, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Quality control" };
@@ -31,6 +31,10 @@ type Row = {
 };
 
 type SortRow = SortingRecord & { created_at: string };
+type SortOrder = { id: string; order_no: string; status: string; companies: { name: string } | null; brands: { name: string } | null };
+
+/** Orders whose runs can still send camera rejects to sorting. */
+const SORTING_STATUSES = ["scheduled", "in_production", "quality_check", "on_hold", "ready_for_pickup", "dispatched"];
 
 const FILTERS = { all: "All", held: "Held", unpublished: "Unpublished" } as const;
 
@@ -55,13 +59,30 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
     supabase.from("defect_types").select("code, customer_label").returns<{ code: string; customer_label: string }[]>(),
     supabase
       .from("sorting_records")
-      .select("id, inspection_id, sorted_on, passed_cartons, waste_cartons, reported_by, notes, created_at")
+      .select("id, order_id, batch_no, sorted_on, passed_cartons, waste_cartons, reported_by, notes, created_at")
       .order("sorted_on", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(500)
+      .limit(1000)
       .returns<SortRow[]>(),
   ]);
   const sortings = sortData ?? [];
+
+  // Sorting (internal): orders in production, plus orders sorted recently, with their camera rejects.
+  const { data: activeOrders } = await supabase
+    .from("orders")
+    .select("id, order_no, status, companies(name), brands(name)")
+    .or(`status.in.(${SORTING_STATUSES.join(",")}),id.in.(${[...new Set(sortings.map((x) => x.order_id))].join(",") || "00000000-0000-0000-0000-000000000000"})`)
+    .order("order_no", { ascending: false })
+    .limit(200)
+    .returns<SortOrder[]>();
+  const sortOrders = activeOrders ?? [];
+  const { data: runs } = sortOrders.length
+    ? await supabase
+        .from("production_entries")
+        .select("order_id, produced_qty, reject_qty")
+        .in("order_id", sortOrders.map((o) => o.id))
+        .returns<{ order_id: string; produced_qty: number; reject_qty: number }[]>()
+    : { data: [] };
   const all = data ?? [];
   const label = new Map((types ?? []).map((t) => [t.code, t.customer_label]));
 
@@ -80,16 +101,26 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
     .reverse();
   const trend = risingTrend(heights.map((p) => p.value));
 
-  // Sorting (internal): every held batch, plus released batches that were sorted.
-  const byId = new Map(all.map((r) => [r.id, r]));
-  const batchLabel = (r: Row) => `${r.orders?.brands?.name ?? "-"} · batch ${r.batch_no} · ${r.orders?.order_no ?? ""}`;
-  const sortBatches = all
-    .filter((r) => r.result === "on_hold" || sortings.some((x) => x.inspection_id === r.id))
-    .map((r) => ({ r, t: sortingTotals(sortings.filter((x) => x.inspection_id === r.id)) }))
-    .sort((a, b) => Number(b.r.result === "on_hold") - Number(a.r.result === "on_hold") || (b.t.lastSorted ?? "").localeCompare(a.t.lastSorted ?? ""))
+  const orderLabel = (o: SortOrder | undefined) => (o ? `${o.brands?.name ?? "-"} · ${o.order_no}` : "-");
+  const orderById = new Map(sortOrders.map((o) => [o.id, o]));
+  const sortRows = sortOrders
+    .map((o) => {
+      const mine = (runs ?? []).filter((r) => r.order_id === o.id);
+      const produced = mine.reduce((t, r) => t + Number(r.produced_qty), 0);
+      const camera = mine.reduce((t, r) => t + Number(r.reject_qty), 0);
+      return { o, t: orderSorting(produced, camera, sortings.filter((x) => x.order_id === o.id)) };
+    })
+    .filter(({ t }) => t.camera > 0 || t.reports > 0)
+    .sort((a, b) => b.t.waiting - a.t.waiting || (b.t.lastSorted ?? "").localeCompare(a.t.lastSorted ?? ""))
     .slice(0, 30);
-  const heldOptions = all.filter((r) => r.result === "on_hold").map((r) => ({ id: r.id, label: `${batchLabel(r)} · ${r.orders?.companies?.name ?? ""}` }));
-  const SORT_COLS = "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_150px_150px_150px_70px_100px_90px] items-center gap-2.5";
+  const sortOptions = sortOrders
+    .filter((o) => SORTING_STATUSES.includes(o.status))
+    .map((o) => ({
+      id: o.id,
+      label: `${orderLabel(o)} · ${o.companies?.name ?? ""}`,
+      batches: [...new Set([...all.filter((r) => r.order_id === o.id).map((r) => r.batch_no), ...sortings.filter((x) => x.order_id === o.id).map((x) => x.batch_no)])].sort(),
+    }));
+  const SORT_COLS = "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_90px_80px_80px_80px_80px_110px_100px] items-center gap-2.5";
   const REPORT_COLS = "grid grid-cols-[100px_minmax(0,1.6fr)_90px_90px_90px_70px_minmax(0,1fr)_60px] items-center gap-2.5";
 
   const rows = all.filter((r) => (f === "held" ? r.result === "on_hold" : f === "unpublished" ? !r.published : true));
@@ -154,50 +185,47 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
-      <div className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
+      <div id="sorting" className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h4 className="m-0">Sorting · batches on hold</h4>
-            <InternalOnly>Internal only · customers see on hold, then released</InternalOnly>
+            <h4 className="m-0">Sorting · camera rejects</h4>
+            <InternalOnly>Internal only · customers see only the reject rate after sorting</InternalOnly>
           </div>
-          {canEdit && <SortingDialog batches={heldOptions} today={today} />}
+          {canEdit && <SortingDialog orders={sortOptions} today={today} />}
         </div>
         <div className="mb-3 text-[12px] opacity-60">
-          From the daily &ldquo;on hold products for sorting&rdquo; report: Quantity = cartons passed, Waste = cartons scrapped, sorted = passed + waste.
-          1 carton = 10,000 crowns.
+          Cartons the liner camera pushed out on each run, sorted by hand: passed crowns stay internal, waste is the customer&apos;s reject rate
+          after sorting. Counts in cartons: 1 carton = 10,000 crowns.
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[1060px]">
             <div className={`${SORT_COLS} th-row border-b-2 border-divider py-2`}>
-              <span>Batch</span>
+              <span>Order</span>
               <span>Customer</span>
+              <span>Camera rejects</span>
               <span>Sorted</span>
               <span>Passed</span>
               <span>Waste</span>
-              <span>Waste %</span>
+              <span>To sort</span>
+              <span>Reject rate after sorting</span>
               <span>Last report</span>
-              <span>Status</span>
             </div>
-            {sortBatches.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No batches on hold.</p>}
-            {sortBatches.map(({ r, t }) => {
-              const pill = r.result ? RESULT_PILL[r.result] : RESULT_PILL.none;
-              return (
-                <div key={r.id} className={`${SORT_COLS} border-b border-divider py-2.5 text-[13px]`}>
-                  <Link href={`/ops/quality/${r.id}#sorting`} className="truncate font-extrabold">
-                    {batchLabel(r)}
-                  </Link>
-                  <span className="truncate">{r.orders?.companies?.name ?? "-"}</span>
-                  <span>{t.reports ? cartonsLine(t.sorted) : <span className="opacity-60">Not sorted yet</span>}</span>
-                  <span>{t.reports ? cartonsLine(t.passed) : "-"}</span>
-                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? cartonsLine(t.waste) : "-"}</span>
-                  <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.wastePct == null ? "-" : `${t.wastePct.toFixed(1)}%`}</span>
-                  <span>{t.lastSorted ? formatDate(t.lastSorted) : "-"}</span>
-                  <span>
-                    <Pill style={pill.style}>{pill.label}</Pill>
-                  </span>
-                </div>
-              );
-            })}
+            {sortRows.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No camera rejects logged on the orders in production.</p>}
+            {sortRows.map(({ o, t }) => (
+              <div key={o.id} className={`${SORT_COLS} border-b border-divider py-2.5 text-[13px]`}>
+                <Link href={`/ops/orders/${o.id}`} className="truncate font-extrabold">
+                  {orderLabel(o)}
+                </Link>
+                <span className="truncate">{o.companies?.name ?? "-"}</span>
+                <span>{formatCartons(t.camera)}</span>
+                <span>{t.reports ? t.sorted : "-"}</span>
+                <span>{t.reports ? t.passed : "-"}</span>
+                <span className={t.waste ? "font-extrabold text-accent-700" : undefined}>{t.reports ? t.waste : "-"}</span>
+                <span className={t.waiting ? "font-extrabold" : "opacity-60"}>{t.waiting ? formatCartons(t.waiting) : "0"}</span>
+                <span>{t.rejectPct == null ? <span className="opacity-60">Not sorted yet</span> : `${t.rejectPct.toFixed(2)}%`}</span>
+                <span>{t.lastSorted ? formatDate(t.lastSorted) : "-"}</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -208,7 +236,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
               <div className="min-w-[900px]">
                 <div className={`${REPORT_COLS} th-row border-b-2 border-divider py-2`}>
                   <span>Date</span>
-                  <span>Batch</span>
+                  <span>Order · batch</span>
                   <span>Sorted</span>
                   <span>Passed</span>
                   <span>Waste</span>
@@ -217,11 +245,12 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                   <span />
                 </div>
                 {sortings.slice(0, 15).map((x) => {
-                  const b = byId.get(x.inspection_id);
                   return (
                     <div key={x.id} className={`${REPORT_COLS} border-b border-divider py-2 text-[13px]`} title={x.notes ?? undefined}>
                       <span>{formatDate(x.sorted_on)}</span>
-                      <span className="truncate">{b ? batchLabel(b) : "-"}</span>
+                      <span className="truncate">
+                        {orderLabel(orderById.get(x.order_id))} · batch {x.batch_no}
+                      </span>
                       <span>{x.passed_cartons + x.waste_cartons}</span>
                       <span>{x.passed_cartons}</span>
                       <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>

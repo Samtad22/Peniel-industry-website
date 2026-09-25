@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/lib/order-status";
 import type { AttachmentType } from "@/lib/files";
 import { buildTimeline, type TimelineStep } from "@/lib/order-timeline";
+import { rejectPctAfterSorting } from "@/lib/sorting";
 import type { CustomerProof } from "@/components/customer/ProofCard";
 import { crownSrc } from "@/components/ui/Crown";
 
@@ -44,6 +45,8 @@ export type CustomerOrderDetailData = {
   size: string;
   quantity: number;
   completed_qty: number;
+  /** Final rejects after Peniel's sorting over the crowns produced; null until reported. */
+  reject_pct: number | null;
   due_date: string | null;
   requested_date: string | null;
   status: OrderStatus;
@@ -70,7 +73,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
   const { data: o } = await supabase
     .from("customer_orders")
     .select(
-      "id, order_no, po_number, brand_id, brand_name, quantity, completed_qty, due_date, requested_date, status, customer_reason, delivery_method, delivery_address, updated_at",
+      "id, order_no, po_number, brand_id, brand_name, quantity, completed_qty, reject_pct, due_date, requested_date, status, customer_reason, delivery_method, delivery_address, updated_at",
     )
     .eq("id", id)
     .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "crown" | "colours" | "size" | "steps" | "attachments" | "proofs" | "threadId" | "messages">>();
@@ -119,6 +122,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
     ...o,
     quantity: Number(o.quantity),
     completed_qty: Number(o.completed_qty),
+    reject_pct: o.reject_pct == null ? null : Number(o.reject_pct),
     spec: brand ? brandSpec(brand) : "",
     liner: brand?.liner ?? "",
     crown: brand ? crownSrc(brand) : null,
@@ -171,7 +175,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
     }>();
   if (!o) return null;
 
-  const [{ data: output }, { data: events }, { data: files }, { data: threads }, { data: proofs }] = await Promise.all([
+  const [{ data: output }, { data: events }, { data: files }, { data: threads }, { data: proofs }, { data: sorted }] = await Promise.all([
     supabase.from("production_entries").select("produced_qty, reject_qty").eq("order_id", id).eq("published", true),
     supabase
       .from("order_status_events")
@@ -193,6 +197,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
       .eq("status", "sent")
       .order("created_at", { ascending: false })
       .returns<Omit<CustomerProof, "brand_name" | "order_no">[]>(),
+    supabase.from("sorting_records").select("waste_cartons").eq("order_id", id).returns<{ waste_cartons: number }[]>(),
   ]);
 
   const threadIds = (threads ?? []).map((t) => t.id);
@@ -221,6 +226,13 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
     size: o.brands?.size ?? "",
     quantity: Number(o.quantity),
     completed_qty: (output ?? []).reduce((s, e) => s + Number(e.produced_qty) - Number(e.reject_qty), 0),
+    // As customer_orders.reject_pct: waste after sorting over the crowns produced.
+    reject_pct: sorted?.length
+      ? rejectPctAfterSorting(
+          (output ?? []).reduce((s, e) => s + Number(e.produced_qty), 0),
+          sorted.reduce((s, r) => s + Number(r.waste_cartons), 0),
+        )
+      : null,
     due_date: due,
     requested_date: o.requested_date,
     status: o.status,

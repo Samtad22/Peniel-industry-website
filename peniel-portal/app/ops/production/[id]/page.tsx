@@ -116,9 +116,9 @@ export default async function OrderProductionPage({ params }: { params: Promise<
             </div>
           </div>
           <div className={kpi}>
-            <h6 className="m-0 opacity-60">Reject rate</h6>
+            <h6 className="m-0 opacity-60">Camera reject rate</h6>
             <div className="text-[40px] font-extrabold leading-[1.1]">{produced ? `${rejectPct(rejects, produced).toFixed(2)}%` : "-"}</div>
-            <div className="text-[12px]">per-batch rates are published by QC</div>
+            <div className="text-[12px]">sorted by hand; the customer sees the waste after sorting</div>
           </div>
           <div className={kpi}>
             <h6 className="m-0 flex items-center gap-2 opacity-60">
@@ -161,7 +161,7 @@ export default async function OrderProductionPage({ params }: { params: Promise<
                 <span>Shift</span>
                 <span>Line</span>
                 <span className="text-right">Produced</span>
-                <span className="text-right">Rejects</span>
+                <span className="text-right">Camera rejects</span>
                 <span>Published</span>
               </div>
               {entries.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No entries yet.</p>}

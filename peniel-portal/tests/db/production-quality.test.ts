@@ -94,7 +94,9 @@ describe("production entries", () => {
         [HAB_ORDER_HABESHA],
       );
       assert.equal(rows.length, 1);
-      assert.equal(Number(rows[0].produced_qty), 500_000);
+      // Produced minus camera rejects: the crowns that count toward the order.
+      assert.equal(Number(rows[0].produced_qty), 499_000);
+      assert.equal(rows[0].reject_qty, null);
       assert.ok(rows[0].published_at);
       assert.deepEqual(Object.keys(rows[0]).sort(), [
         "entry_date",

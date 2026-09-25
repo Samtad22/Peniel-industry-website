@@ -1,13 +1,17 @@
-// Sorting of held batches (internal only). The sorting report counts cartons
-// (one carton holds 10,000 crowns): "Quantity" is the cartons that passed,
-// "Waste" the cartons scrapped, so cartons sorted = passed + waste.
+// Sorting (internal only). On every run the liner camera pushes out crowns it
+// thinks are defective (production entries' camera rejects); sorters check
+// them by hand. The sorting report counts cartons (one carton holds 10,000
+// crowns): "Quantity" is the cartons that passed, "Waste" the cartons
+// scrapped, so cartons sorted = passed + waste. Passed crowns stay internal;
+// the waste is the customer's reject rate after sorting.
 // Shared by the browser and the server.
 
 export const CROWNS_PER_CARTON = 10_000;
 
 export type SortingRecord = {
   id: string;
-  inspection_id: string;
+  order_id: string;
+  batch_no: string;
   sorted_on: string;
   passed_cartons: number;
   waste_cartons: number;
@@ -47,6 +51,32 @@ export function sortingTotals(records: Pick<SortingRecord, "passed_cartons" | "w
     waste,
     wastePct: wastePct(passed, waste),
     lastSorted: records.reduce<string | null>((d, r) => (!d || r.sorted_on > d ? r.sorted_on : d), null),
+  };
+}
+
+/** Camera rejects (crowns) in cartons, rounded to one decimal: 102,000 → 10.2. */
+export const cartonsOf = (crowns: number): number => Math.round((10 * Math.max(0, Number(crowns) || 0)) / CROWNS_PER_CARTON) / 10;
+
+/** "10.2", "10", "0": a carton count that may not be whole. */
+export const formatCartons = (cartons: number): string => cartons.toLocaleString("en-US", { maximumFractionDigits: 1 });
+
+/** Waste after sorting over the crowns produced, as customer_orders.reject_pct computes it: 2 cartons of 12M → 0.17. */
+export const rejectPctAfterSorting = (produced: number, wasteCartons: number): number | null =>
+  produced > 0 ? Math.min(100, Math.round((100 * 100 * wasteCartons * CROWNS_PER_CARTON) / produced) / 100) : null;
+
+/**
+ * One order's camera rejects against its sorting: cartons still waiting to be
+ * sorted, and the reject rate after sorting (waste over crowns produced, as
+ * customer_orders.reject_pct computes it). Null rate: nothing sorted yet.
+ */
+export function orderSorting(produced: number, cameraRejects: number, records: Pick<SortingRecord, "passed_cartons" | "waste_cartons" | "sorted_on">[]) {
+  const t = sortingTotals(records);
+  const camera = cartonsOf(cameraRejects);
+  return {
+    ...t,
+    camera,
+    waiting: Math.max(0, Math.round(10 * (camera - t.sorted)) / 10),
+    rejectPct: t.reports ? rejectPctAfterSorting(produced, t.waste) : null,
   };
 }
 

@@ -18,6 +18,8 @@ export type OutputRow = {
   status: OrderStatus;
   quantity: number;
   completed: number;
+  /** Reject rate of the order after sorting; null until Peniel reports it. */
+  rejectPct: number | null;
   today: number;
   projection: string | null;
   perDay: number | null;
@@ -126,6 +128,11 @@ function Output({ rows }: { rows: OutputRow[] }) {
               <div className="mt-2 h-1.5 bg-surface">
                 <div className={`h-full ${pct >= 100 ? "bg-text" : "bg-accent"}`} style={{ width: `${pct}%` }} />
               </div>
+              {o.rejectPct != null && (
+                <div className={`mt-1.5 text-[12px] ${o.rejectPct > REJECT_LIMIT_PCT ? "font-extrabold text-accent-700" : "opacity-70"}`}>
+                  Reject rate {o.rejectPct.toFixed(2)}%
+                </div>
+              )}
             </div>
             <div className="border-divider px-4 py-4 sm:px-5 max-md:border-t md:border-l xl:py-6">
               <h6 className="m-0 opacity-60">Produced today</h6>
