@@ -147,7 +147,7 @@ the domain as Verified). Copy each value exactly.
 - [ ] Confirm it as staff: the customer receives "Order confirmed".
 - [ ] Open the order → **Preview as customer ↗**: no internal notes, lines or
       locations.
-- [ ] Remove the test company's user (Ops → Users → deactivate).
+- [ ] Deactivate the test customer user (Ops → Customers → the company → user list).
 - [ ] Next day: Supabase shows a completed backup.
 
 ## Rolling back
