@@ -167,3 +167,17 @@ test("supabase project URL: any path or trailing slash is dropped", async () => 
   assert.equal(projectOrigin('"https://abcd.supabase.co"'), "https://abcd.supabase.co");
   assert.throws(() => projectOrigin("not a url"));
 });
+
+test("proof delivery: DHL gets a tracking link; drivers stay anonymous", async () => {
+  const { trackingUrl, deliveryLine } = await import("../../lib/proofs.ts");
+  assert.equal(
+    trackingUrl("DHL", " 123 456 "),
+    "https://www.dhl.com/et-en/home/tracking/tracking-express.html?submit=1&tracking-id=123%20456",
+  );
+  assert.equal(trackingUrl("dhl express", "1234567890")?.endsWith("tracking-id=1234567890"), true);
+  assert.equal(trackingUrl("Aramex", "1234"), null);
+  assert.equal(trackingUrl("DHL", null), null);
+  assert.equal(deliveryLine({ physical_delivery: "courier", courier: "DHL", tracking_number: "1234567890" }), "Physical proof by DHL · tracking 1234567890");
+  assert.equal(deliveryLine({ physical_delivery: "peniel_driver", courier: null, tracking_number: null }), "Physical proof delivered by Peniel");
+  assert.equal(deliveryLine({ physical_delivery: null, courier: null, tracking_number: null }), null);
+});

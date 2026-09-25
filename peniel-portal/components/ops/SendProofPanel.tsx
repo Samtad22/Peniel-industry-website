@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { sendProof, type ArtworkState } from "@/app/ops/artwork/actions";
+import { DeliveryFields, NO_DELIVERY, type DeliveryValue } from "@/components/ops/ArtworkForms";
 import { CustomerWarning } from "@/components/ops/OrderForms";
 import FileDrop from "@/components/ui/FileDrop";
 import { Button, FormMessage } from "@/components/ui/form";
@@ -29,6 +30,7 @@ export default function SendProofPanel({
   const [note, setNote] = useState("");
   const [approveBy, setApproveBy] = useState("");
   const [setAwaiting, setSetAwaiting] = useState(true);
+  const [delivery, setDelivery] = useState<DeliveryValue>(NO_DELIVERY);
   const [progress, setProgress] = useState<number | null>(null);
   const [state, setState] = useState<ArtworkState>(null);
   const [pending, start] = useTransition();
@@ -36,25 +38,40 @@ export default function SendProofPanel({
   const brand = brands.find((b) => b.id === brandId);
   const order = orders.find((o) => o.id === orderId);
 
+  const canSend = Boolean(brandId) && (file ? !fileProblem(file) : Boolean(delivery.method));
+
   const send = () => {
-    if (!file || !brandId) return;
+    if (!canSend) return;
     setState(null);
-    setProgress(0);
-    const path = `${companyId}/proofs/${crypto.randomUUID()}/${safeFileName(file.name)}`;
+    const path = file ? `${companyId}/proofs/${crypto.randomUUID()}/${safeFileName(file.name)}` : "";
     start(async () => {
-      try {
-        await uploadToStorage("proofs", file, path, setProgress);
-      } catch (e) {
-        setProgress(null);
-        setState({ error: (e as Error).message });
-        return;
+      if (file) {
+        setProgress(0);
+        try {
+          await uploadToStorage("proofs", file, path, setProgress);
+        } catch (e) {
+          setProgress(null);
+          setState({ error: (e as Error).message });
+          return;
+        }
       }
-      const res = await sendProof({ brandId, orderId, path, name: file.name, size: file.size, note, approveBy, setAwaiting });
+      const res = await sendProof({
+        brandId,
+        orderId,
+        path,
+        name: file?.name ?? "",
+        size: file?.size ?? 0,
+        note,
+        approveBy,
+        setAwaiting,
+        delivery,
+      });
       setProgress(null);
       setState(res);
       if (res?.ok) {
         setFile(null);
         setNote("");
+        setDelivery(NO_DELIVERY);
       }
     });
   };
@@ -88,6 +105,8 @@ export default function SendProofPanel({
         </div>
       )}
       <FileDrop id="proof-file" file={file} onFile={setFile} />
+      {delivery.method && !file && <span className="-mt-2 text-[12px] opacity-70">No file needed for a physical-only proof.</span>}
+      <DeliveryFields value={delivery} onChange={setDelivery} idPrefix="sp" />
       <div className="field">
         <label htmlFor="sp-note" className="!flex justify-between gap-2">
           Note to customer
@@ -108,7 +127,7 @@ export default function SendProofPanel({
       )}
       {progress !== null && <div className="text-[12px]">Uploading… {progress}%</div>}
       <FormMessage state={state} />
-      <Button type="button" onClick={send} disabled={!file || !!fileProblem(file) || !brandId || pending} icon="→" className="px-4 py-3">
+      <Button type="button" onClick={send} disabled={!canSend || pending} icon="→" className="px-4 py-3">
         {pending ? "Sending…" : "Send proof to customer"}
       </Button>
     </div>

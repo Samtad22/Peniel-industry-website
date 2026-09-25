@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { notifyProofAnswered } from "@/lib/notify";
+import { fileProblem, mimeFor } from "@/lib/files";
+import { notifyArtworkSubmitted, notifyProofAnswered } from "@/lib/notify";
 
 export type ProofState = { error?: string; ok?: string } | null;
+
+const UUID = /^[0-9a-f-]{36}$/i;
 
 /** Approve a proof, or request changes with a comment (customer_respond_to_proof checks it is yours). */
 export async function respondToProof(_prev: ProofState, fd: FormData): Promise<ProofState> {
@@ -25,4 +28,42 @@ export async function respondToProof(_prev: ProofState, fd: FormData): Promise<P
   revalidatePath("/orders");
   notifyProofAnswered(proofId);
   return { ok: approve ? "Approved. Peniel will schedule production." : "Sent. Peniel will send a new proof." };
+}
+
+/** Send artwork (already uploaded to artwork/{company}/submissions/…) to Peniel for review. */
+export async function submitArtwork(input: {
+  title: string;
+  note: string;
+  brandId: string;
+  orderId: string;
+  path: string;
+  name: string;
+  size: number;
+}): Promise<ProofState> {
+  const me = await requireCustomer();
+  const title = input.title.trim();
+  if (!title) return { error: "Give the artwork a short title, e.g. “Negus 2027 label”." };
+  if (title.length > 150 || input.note.length > 2000) return { error: "That's too long. Please shorten the title or note." };
+  const problem = fileProblem({ name: input.name, size: input.size });
+  if (problem) return { error: problem };
+  if (!input.path.startsWith(`${me.company_id}/submissions/`)) return { error: "Upload the file again." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("customer_submit_artwork", {
+    p_title: title,
+    p_path: input.path,
+    p_name: input.name,
+    p_size: input.size,
+    p_mime: mimeFor(input.name),
+    p_brand_id: UUID.test(input.brandId) ? input.brandId : null,
+    p_order_id: UUID.test(input.orderId) ? input.orderId : null,
+    p_note: input.note.trim() || null,
+  });
+  if (error || !data) {
+    console.error("customer_submit_artwork failed", error?.code, error?.message);
+    return { error: "We couldn't send your artwork. Please try again." };
+  }
+  revalidatePath("/artwork");
+  notifyArtworkSubmitted(data as string);
+  return { ok: "Sent. Peniel will review it and reply here." };
 }

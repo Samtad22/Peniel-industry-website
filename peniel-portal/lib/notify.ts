@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { sendEmails, type EmailContent } from "@/lib/email";
 import { formatDate } from "@/lib/format";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
+import { deliveryLine, trackingUrl, type PhysicalDelivery } from "@/lib/proofs";
 import type { StaffRole } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -132,9 +133,11 @@ export function notifyProofSent(proofId: string) {
   run(async (db) => {
     const { data: p } = await db
       .from("proofs")
-      .select("id, version, note, approve_by, brands(name, company_id), orders(order_no)")
+      .select("id, version, note, approve_by, physical_delivery, courier, tracking_number, brands(name, company_id), orders(order_no)")
       .eq("id", proofId)
-      .maybeSingle<{ id: string; version: number | null; note: string | null; approve_by: string | null; brands: { name: string; company_id: string } | null; orders: { order_no: string } | null }>();
+      .maybeSingle<
+        { id: string; version: number | null; note: string | null; approve_by: string | null; brands: { name: string; company_id: string } | null; orders: { order_no: string } | null } & ProofDelivery
+      >();
     if (!p?.brands) return;
     await sendEmails(
       await customerEmails(db, p.brands.company_id),
@@ -144,11 +147,68 @@ export function notifyProofSent(proofId: string) {
         lines: [
           ...(p.orders ? [`For order ${p.orders.order_no}.`] : []),
           ...(p.approve_by ? [`Please answer by ${formatDate(p.approve_by)} to keep your due date.`] : []),
+          ...deliveryLines(p),
         ],
         note: p.note,
         cta: { label: "Review the proof", path: "/artwork" },
       },
       { kind: "proof_sent", companyId: p.brands.company_id, entityId: p.id },
+    );
+  });
+}
+
+type ProofDelivery = { physical_delivery: PhysicalDelivery | null; courier: string | null; tracking_number: string | null };
+
+/** Customer-safe lines about a physical proof (never the driver or vehicle). */
+function deliveryLines(p: ProofDelivery): string[] {
+  const line = deliveryLine(p);
+  if (!line) return [];
+  const url = trackingUrl(p.courier, p.tracking_number);
+  return [`${line}.`, ...(url ? [`Track it on DHL: ${url}`] : [])];
+}
+
+/** A physical proof was dispatched (or its tracking number added later). */
+export function notifyProofDispatched(proofId: string) {
+  run(async (db) => {
+    const { data: p } = await db
+      .from("proofs")
+      .select("id, version, physical_delivery, courier, tracking_number, brands(name, company_id), orders(order_no)")
+      .eq("id", proofId)
+      .maybeSingle<{ id: string; version: number | null; brands: { name: string; company_id: string } | null; orders: { order_no: string } | null } & ProofDelivery>();
+    if (!p?.brands || !p.physical_delivery) return;
+    await sendEmails(
+      await customerEmails(db, p.brands.company_id),
+      {
+        subject: `Proof ${p.version ? `v${p.version} ` : ""}for ${p.brands.name} is on its way`,
+        heading: `Your ${p.brands.name} proof is on its way`,
+        lines: [...(p.orders ? [`For order ${p.orders.order_no}.`] : []), ...deliveryLines(p), "When you've checked it, approve it or ask for changes in the portal."],
+        cta: { label: "Open Artwork", path: "/artwork" },
+      },
+      { kind: "proof_dispatched", companyId: p.brands.company_id, entityId: p.id },
+    );
+  });
+}
+
+/** Peniel answered artwork the customer sent. */
+export function notifySubmissionReviewed(submissionId: string) {
+  run(async (db) => {
+    const { data: s } = await db
+      .from("artwork_submissions")
+      .select("id, title, status, staff_comment, company_id")
+      .eq("id", submissionId)
+      .maybeSingle<{ id: string; title: string; status: string; staff_comment: string | null; company_id: string }>();
+    if (!s || s.status === "submitted") return;
+    const accepted = s.status === "accepted";
+    await sendEmails(
+      await customerEmails(db, s.company_id),
+      {
+        subject: accepted ? `Peniel accepted your artwork: ${s.title}` : `Peniel asked for changes: ${s.title}`,
+        heading: accepted ? "Your artwork was accepted" : "Peniel asked for changes to your artwork",
+        lines: [s.title],
+        note: s.staff_comment,
+        cta: { label: "Open Artwork", path: "/artwork" },
+      },
+      { kind: accepted ? "artwork_accepted" : "artwork_changes_requested", companyId: s.company_id, entityId: s.id },
     );
   });
 }
@@ -245,6 +305,29 @@ export function notifyProofAnswered(proofId: string) {
         cta: { label: "Open Artwork", path: "/ops/artwork" },
       },
       { kind: approved ? "proof_approved" : "proof_changes_requested", companyId: p.brands.company_id, entityId: p.id },
+    );
+  });
+}
+
+/** A customer sent artwork for Peniel to review. */
+export function notifyArtworkSubmitted(submissionId: string) {
+  run(async (db) => {
+    const { data: s } = await db
+      .from("artwork_submissions")
+      .select("id, title, note, company_id, companies(name), brands(name)")
+      .eq("id", submissionId)
+      .maybeSingle<{ id: string; title: string; note: string | null; company_id: string; companies: { name: string } | null; brands: { name: string } | null }>();
+    if (!s) return;
+    await sendEmails(
+      await staffEmails(db, ["admin", "sales"]),
+      {
+        subject: `${s.companies?.name ?? "A customer"} sent artwork: ${s.title}`,
+        heading: "New artwork from a customer",
+        lines: [[s.companies?.name, s.brands?.name, s.title].filter(Boolean).join(" · ")],
+        note: s.note,
+        cta: { label: "Review it in Artwork", path: `/ops/artwork?c=${s.company_id}` },
+      },
+      { kind: "artwork_submitted", companyId: s.company_id, entityId: s.id },
     );
   });
 }
