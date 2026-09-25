@@ -167,3 +167,39 @@ test("supabase project URL: any path or trailing slash is dropped", async () => 
   assert.equal(projectOrigin('"https://abcd.supabase.co"'), "https://abcd.supabase.co");
   assert.throws(() => projectOrigin("not a url"));
 });
+
+test("proof delivery: DHL gets a tracking link; drivers stay anonymous", async () => {
+  const { trackingUrl, deliveryLine } = await import("../../lib/proofs.ts");
+  assert.equal(
+    trackingUrl("DHL", " 123 456 "),
+    "https://www.dhl.com/et-en/home/tracking/tracking-express.html?submit=1&tracking-id=123%20456",
+  );
+  assert.equal(trackingUrl("dhl express", "1234567890")?.endsWith("tracking-id=1234567890"), true);
+  assert.equal(trackingUrl("Aramex", "1234"), null);
+  assert.equal(trackingUrl("DHL", null), null);
+  assert.equal(deliveryLine({ physical_delivery: "courier", courier: "DHL", tracking_number: "1234567890" }), "Physical proof by DHL · tracking 1234567890");
+  assert.equal(deliveryLine({ physical_delivery: "peniel_driver", courier: null, tracking_number: null }), "Physical proof delivered by Peniel");
+  assert.equal(deliveryLine({ physical_delivery: null, courier: null, tracking_number: null }), null);
+});
+
+test("CoA spec: limits from PIC-OF-053, older keys still read, findings listed", async () => {
+  const { MEASURES, checkMeasure, measureValue, coaFindings } = await import("../../lib/qc.ts");
+  const by = (k: string) => MEASURES.find((m) => m.key === k)!;
+  assert.equal(MEASURES.length, 11);
+  assert.equal(checkMeasure(by("shell_height_mm"), 6.16), "high");
+  assert.equal(checkMeasure(by("shell_internal_diameter_mm"), 26.77), "ok");
+  assert.equal(checkMeasure(by("shell_internal_diameter_mm"), 26.8), "high");
+  assert.equal(checkMeasure(by("shell_metal_hardness_hr30t"), 55), "low");
+  assert.equal(checkMeasure(by("liner_weight_mg"), 205), "ok");
+  assert.equal(checkMeasure(by("leaking_pressure_kgcm2"), 7.9), "low");
+  assert.equal(checkMeasure(by("release_performance_kgcm2"), 10.35), "ok");
+  assert.equal(checkMeasure(by("scratch_dust_mg"), 26), "high");
+  // An inspection saved before the CoA update still shows its height.
+  assert.equal(measureValue({ crown_height_mm: 6.05 }, "shell_height_mm"), 6.05);
+  const labels = new Map([["bent_crowns", "Bent crowns"]]);
+  assert.deepEqual(coaFindings({ shell_height_mm: 6.0, liner_weight_mg: 150 }, { bent_crowns: 2 }, labels), [
+    "Liner weight below 190 ± 30 mg",
+    "Bent crowns: 2 found (standard 0%)",
+  ]);
+  assert.deepEqual(coaFindings({ shell_height_mm: 6.0 }, {}, labels), []);
+});

@@ -26,12 +26,15 @@ insert into public.brands (id, company_id, name, liner, finish) values
   ('a3000000-0000-4000-8000-000000000001', '33333333-3333-4333-8333-333333333333', 'St. George', 'PVC',     'Gloss');
 
 -- Reference data -------------------------------------------------------------
-insert into public.defect_types (code, customer_label) values
-  ('print_misregister', 'Print misregister'),
-  ('liner_voids',       'Liner voids'),
-  ('height_oot',        'Crown height out of tolerance'),
-  ('scratches',         'Scratches'),
-  ('colour_variation',  'Colour variation');
+-- The design's placeholder defect types, retired by the CoA migration; the
+-- sample inspections below still use them. Current types: the CoA checks.
+insert into public.defect_types (code, customer_label, active) values
+  ('print_misregister', 'Print misregister', false),
+  ('liner_voids',       'Liner voids', false),
+  ('height_oot',        'Crown height out of tolerance', false),
+  ('scratches',         'Scratches', false),
+  ('colour_variation',  'Colour variation', false)
+on conflict (code) do nothing;
 
 insert into public.hold_reason_presets (text, sort_order) values
   ('Waiting for your approval of the updated artwork.', 1),

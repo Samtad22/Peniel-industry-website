@@ -36,6 +36,8 @@ export const FORBIDDEN_COLUMNS = [
   "location",
   "inspector_id",
   "entered_by",
+  "delivery_driver",
+  "delivery_vehicle",
 ];
 
 export type Role = "customer_user" | "admin" | "sales" | "production" | "quality" | "warehouse";

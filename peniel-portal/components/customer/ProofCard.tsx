@@ -5,7 +5,7 @@ import { respondToProof, type ProofState } from "@/app/(customer)/artwork/action
 import { Pill } from "@/components/ui/StatusBadge";
 import { Button, FormMessage } from "@/components/ui/form";
 import { formatDate } from "@/lib/format";
-import { proofPill, type ProofStatus } from "@/lib/proofs";
+import { deliveryLine, proofPill, trackingUrl, type PhysicalDelivery, type ProofStatus } from "@/lib/proofs";
 
 export type CustomerProof = {
   id: string;
@@ -18,7 +18,28 @@ export type CustomerProof = {
   created_at: string;
   file_name: string | null;
   mime_type: string | null;
+  /** Physical sample: courier (with tracking) or delivered by Peniel. Never driver details. */
+  physical_delivery?: PhysicalDelivery | null;
+  courier?: string | null;
+  tracking_number?: string | null;
 };
+
+/** "Physical proof by DHL · tracking …" with a link to DHL tracking. */
+export function ProofDelivery({ p }: { p: Pick<CustomerProof, "physical_delivery" | "courier" | "tracking_number"> }) {
+  const line = deliveryLine({ physical_delivery: p.physical_delivery ?? null, courier: p.courier ?? null, tracking_number: p.tracking_number ?? null });
+  if (!line) return null;
+  const url = trackingUrl(p.courier ?? null, p.tracking_number ?? null);
+  return (
+    <div className="flex flex-col gap-0.5 bg-surface px-2.5 py-2 text-[13px]">
+      <span>📦 {line}</span>
+      {url && (
+        <a href={url} target="_blank" rel="noreferrer" className="font-semibold">
+          Track on DHL ↗
+        </a>
+      )}
+    </div>
+  );
+}
 
 /** An artwork proof to approve or send back (customer design 1c). */
 export default function ProofCard({ p, preview = false }: { p: CustomerProof; preview?: boolean }) {
@@ -37,6 +58,15 @@ export default function ProofCard({ p, preview = false }: { p: CustomerProof; pr
         <span className="text-[12px] opacity-70">Sent {formatDate(p.created_at)} by Peniel</span>
       </div>
       <div className="grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
+        {!p.file_name ? (
+          <div className="grid aspect-square place-items-center bg-surface p-4 text-center text-[13px]">
+            <span className="flex flex-col items-center gap-1">
+              <span className="text-[28px]" aria-hidden="true">📦</span>
+              <b>Physical sample</b>
+              <span className="text-[12px] opacity-70">Check the printed crowns Peniel sent you, then answer here.</span>
+            </span>
+          </div>
+        ) : (
         <a href={src} target="_blank" rel="noreferrer" className="grid aspect-square place-items-center overflow-hidden bg-surface text-[13px] text-text no-underline">
           {isImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -49,10 +79,12 @@ export default function ProofCard({ p, preview = false }: { p: CustomerProof; pr
             </span>
           )}
         </a>
+        )}
         <div className="flex flex-col gap-2 text-[14px]">
           <span>
             <Pill style={pill.style}>{pill.label}</Pill>
           </span>
+          <ProofDelivery p={p} />
           {p.note && (
             <div className="border-t border-divider pt-2">
               <div className="text-[11px] uppercase tracking-[0.08em] opacity-60">Note from Peniel</div>
@@ -62,9 +94,11 @@ export default function ProofCard({ p, preview = false }: { p: CustomerProof; pr
           {p.approve_by && p.status === "sent" && (
             <div className="bg-accent-100 px-2.5 py-2 text-[13px] text-accent-800">Please answer by {formatDate(p.approve_by)} to keep your due date.</div>
           )}
-          <a href={`/files/proofs/${p.id}`} className="text-[13px]">
-            Download proof ↓
-          </a>
+          {p.file_name && (
+            <a href={`/files/proofs/${p.id}`} className="text-[13px]">
+              Download proof ↓
+            </a>
+          )}
         </div>
       </div>
       {preview && p.status === "sent" && (

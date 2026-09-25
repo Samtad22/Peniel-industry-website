@@ -92,7 +92,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       .returns<{ id: string }[]>(),
     supabase
       .from("customer_proofs")
-      .select("id, version, brand_name, order_no, status, note, approve_by, created_at, file_name, mime_type")
+      .select("id, version, brand_name, order_no, status, note, approve_by, created_at, file_name, mime_type, physical_delivery, courier, tracking_number")
       .eq("order_id", id)
       .eq("status", "sent")
       .order("created_at", { ascending: false })
@@ -179,7 +179,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
     supabase.from("message_threads").select("id").eq("order_id", id).order("last_message_at", { ascending: false }).returns<{ id: string }[]>(),
     supabase
       .from("proofs")
-      .select("id, version, status, note, approve_by, created_at, file_name, mime_type")
+      .select("id, version, status, note, approve_by, created_at, file_name, mime_type, physical_delivery, courier, tracking_number")
       .eq("order_id", id)
       .eq("status", "sent")
       .order("created_at", { ascending: false })
