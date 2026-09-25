@@ -86,7 +86,10 @@ customers go in a **new, empty** project.
 
    Preview deployments should point at the **test** Supabase project, never
    production.
-4. **Domain.** Project → Settings → Domains → add
+4. **Region: done.** Functions run in **Frankfurt (`fra1`)**, next to the
+   live Supabase project (Settings → Functions → Region). Keep them in the
+   same region as the database; each page makes several database calls.
+5. **Domain.** Project → Settings → Domains → add
    `portal.penielindustry.org`. Vercel then shows the DNS record to add
    (step 4 below).
 
