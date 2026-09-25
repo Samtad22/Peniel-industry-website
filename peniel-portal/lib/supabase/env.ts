@@ -10,8 +10,10 @@ export function supabaseUrl(): string {
  * call a 404 ("Invalid path specified in request URL"), so drop any path.
  */
 export function projectOrigin(url: string): string {
+  // Also forgive stray quotes/spaces and a missing "https://".
+  const v = url.trim().replace(/^["']+|["']+$/g, "").trim();
   try {
-    return new URL(url.trim()).origin;
+    return new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`).origin;
   } catch {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL must be the project URL, like https://abcd1234.supabase.co");
   }

@@ -163,5 +163,7 @@ test("supabase project URL: any path or trailing slash is dropped", async () => 
   assert.equal(projectOrigin("https://abcd.supabase.co"), "https://abcd.supabase.co");
   assert.equal(projectOrigin(" https://abcd.supabase.co/ "), "https://abcd.supabase.co");
   assert.equal(projectOrigin("https://abcd.supabase.co/rest/v1/"), "https://abcd.supabase.co");
-  assert.throws(() => projectOrigin("abcd.supabase.co"));
+  assert.equal(projectOrigin("abcd.supabase.co"), "https://abcd.supabase.co");
+  assert.equal(projectOrigin('"https://abcd.supabase.co"'), "https://abcd.supabase.co");
+  assert.throws(() => projectOrigin("not a url"));
 });
