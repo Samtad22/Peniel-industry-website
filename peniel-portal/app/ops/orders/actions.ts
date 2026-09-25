@@ -155,20 +155,44 @@ export async function setOrderStatus(_prev: OrderActionState, fd: FormData): Pro
   if (reason.length > MAX_TEXT) return { error: "Keep the customer message under 1,000 characters." };
   if (newDue && !DATE.test(newDue)) return { error: "Check the new due date." };
 
+  // Ready for pickup: the crowns go into stock, where the customer books a pickup.
+  const addStock = status === "ready_for_pickup" && fd.get("add_stock") === "on";
+  const stockBatch = str(fd, "stock_batch").slice(0, 40);
+  const stockQty = Number(str(fd, "stock_quantity").replace(/[,\s]/g, ""));
+  if (addStock && !stockBatch) return { error: "Enter the batch number of the crowns going into stock." };
+  if (addStock && !(Number.isInteger(stockQty) && stockQty > 0)) return { error: "Enter how many crowns go into stock." };
+
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("orders")
-    .select("status, confirmed_due_date, revised_due_date")
+    .select("status, confirmed_due_date, revised_due_date, company_id, brand_id")
     .eq("id", id)
-    .maybeSingle<{ status: OrderStatus; confirmed_due_date: string | null; revised_due_date: string | null }>();
+    .maybeSingle<{ status: OrderStatus; confirmed_due_date: string | null; revised_due_date: string | null; company_id: string; brand_id: string }>();
   if (!current) return { error: "Order not found." };
   if (current.status === "submitted") return { error: "Confirm or reject new orders in the Order inbox first." };
 
   const due = current.revised_due_date ?? current.confirmed_due_date;
   const dateChanged = Boolean(newDue) && newDue !== due;
-  if (status === current.status && !dateChanged && !reason) return { error: "Nothing to change." };
+  if (status === current.status && !dateChanged && !reason && !addStock) return { error: "Nothing to change." };
   if ((status === "on_hold" || status === "rejected" || dateChanged) && !reason) {
     return { error: "Write the reason the customer will see." };
+  }
+
+  if (addStock) {
+    const { error: stockError } = await supabase.from("finished_stock").insert({
+      company_id: current.company_id,
+      brand_id: current.brand_id,
+      order_id: id,
+      batch_no: stockBatch,
+      quantity: stockQty,
+      location: str(fd, "stock_location").slice(0, 100) || null,
+      status: "available",
+    });
+    if (stockError) {
+      return { error: /row-level|permission/i.test(stockError.message) ? "Your role can't add stock." : "Couldn't add the stock. Nothing was changed." };
+    }
+    revalidatePath("/ops/inventory");
+    revalidatePath("/production");
   }
 
   const patch: Record<string, unknown> = {
@@ -179,16 +203,23 @@ export async function setOrderStatus(_prev: OrderActionState, fd: FormData): Pro
   };
   if (dateChanged) patch.revised_due_date = newDue;
 
-  const { error } = await supabase.from("orders").update(patch).eq("id", id);
-  if (error) return { error: explain(error.message) };
+  // Only adding stock to an order that is already Ready for pickup: the order itself doesn't change.
+  const orderChanges = status !== current.status || dateChanged || Boolean(reason);
+  if (orderChanges) {
+    const { error } = await supabase.from("orders").update(patch).eq("id", id);
+    if (error) return { error: explain(error.message) };
+  }
 
   refresh(id);
   if (status !== current.status || dateChanged) notifyOrderUpdate(id, { dateChanged });
+  const stockLine = addStock ? ` ${stockQty.toLocaleString("en-US")} crowns (batch ${stockBatch}) are in stock; the customer can book a pickup.` : "";
   return {
     ok:
-      status === current.status
-        ? "Saved. The customer sees the update on their order."
-        : `Status set to ${ORDER_STATUS_LABELS[status]}.`,
+      (status === current.status
+        ? addStock
+          ? "Stock added."
+          : "Saved. The customer sees the update on their order."
+        : `Status set to ${ORDER_STATUS_LABELS[status]}.`) + stockLine,
   };
 }
 
