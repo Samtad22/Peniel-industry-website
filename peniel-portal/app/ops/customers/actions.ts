@@ -3,11 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
+import { fileProblem, mimeFor } from "@/lib/files";
+import { formatInk } from "@/lib/inks";
 import { createClient } from "@/lib/supabase/server";
 
 export type CustomerState = { error?: string; ok?: string } | null;
 
 const UUID = /^[0-9a-f-]{36}$/i;
+/** Colours per brand (the most on any crown Peniel prints is six). */
+const MAX_INKS = 8;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const str = (fd: FormData, k: string, max = 200) => String(fd.get(k) ?? "").trim().slice(0, max);
 
@@ -71,11 +75,12 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
   if (!name) return { error: "Enter the brand name." };
   if (liner !== "PVC-free" && liner !== "PVC") return { error: "Choose the liner." };
 
-  const colours = str(fd, "colours", 300)
-    .split(",")
-    .map((c) => c.trim())
+  const hexes = fd.getAll("ink_hex").map(String);
+  const colours = fd
+    .getAll("ink_name")
+    .map((n, i) => formatInk({ name: String(n), hex: hexes[i] || null }))
     .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, MAX_INKS);
   const row = {
     company_id: companyId,
     name,
@@ -94,7 +99,7 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
     if (error.code === "42501") return { error: "Your role can't change brands." };
     return { error: "Couldn't save the brand. Please try again." };
   }
-  revalidatePath("/ops/customers");
+  refreshBrands();
   return { ok: UUID.test(id) ? "Brand updated." : `${name} added. Customers can now order it.` };
 }
 
@@ -106,4 +111,79 @@ export async function retireBrand(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("brands").update({ active: false }).eq("id", id);
   revalidatePath("/ops/customers");
+}
+
+function refreshBrands() {
+  revalidatePath("/ops/customers");
+  revalidatePath("/ops/artwork");
+  revalidatePath("/catalog");
+  revalidatePath("/orders", "layout");
+}
+
+/** A brand's company, read under the caller's RLS (null when not visible). */
+async function brandCompany(supabase: Awaited<ReturnType<typeof createClient>>, brandId: string) {
+  if (!UUID.test(brandId)) return null;
+  const { data } = await supabase.from("brands").select("company_id").eq("id", brandId).maybeSingle<{ company_id: string }>();
+  return data?.company_id ?? null;
+}
+
+const IMAGE = /\.(png|jpe?g)$/i;
+
+/** Point a brand at its crown image, already uploaded to crowns/{company}/crowns/… (admin and sales). */
+export async function setCrownImage(input: { brandId: string; path: string; name: string; size: number }): Promise<CustomerState> {
+  await requireStaff(["admin", "sales"]);
+  if (!IMAGE.test(input.name)) return { error: "Use a PNG or JPG image of the crown." };
+  const problem = fileProblem(input);
+  if (problem) return { error: problem };
+  const supabase = await createClient();
+  const companyId = await brandCompany(supabase, input.brandId);
+  if (!companyId) return { error: "Brand not found." };
+  if (!input.path.startsWith(`${companyId}/crowns/`) || input.path.includes("..")) return { error: "Upload the image again." };
+  const { data, error } = await supabase.from("brands").update({ crown_image_path: input.path }).eq("id", input.brandId).select("id");
+  if (error || !data?.length) return { error: error?.code === "42501" ? "Your role can't change brands." : "Couldn't save the crown image." };
+  refreshBrands();
+  return { ok: "Crown image saved. Customers see it when they order." };
+}
+
+/** Remove a brand's crown image (the plain colour crown shows instead). */
+export async function clearCrownImage(fd: FormData): Promise<void> {
+  await requireStaff(["admin", "sales"]);
+  const id = str(fd, "id", 36);
+  if (!UUID.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("brands").update({ crown_image_path: null }).eq("id", id);
+  refreshBrands();
+}
+
+/**
+ * Artwork Peniel already holds for a brand (PDF, AI, EPS…), uploaded to
+ * artwork/{company}/artwork/…: it becomes the brand's next, current version.
+ */
+export async function addArtworkOnFile(input: { brandId: string; path: string; name: string; size: number }): Promise<CustomerState> {
+  const me = await requireStaff(["admin", "sales"]);
+  const problem = fileProblem(input, "artwork");
+  if (problem) return { error: problem };
+  const supabase = await createClient();
+  const companyId = await brandCompany(supabase, input.brandId);
+  if (!companyId) return { error: "Brand not found." };
+  if (!input.path.startsWith(`${companyId}/artwork/`) || input.path.includes("..")) return { error: "Upload the file again." };
+  if (!mimeFor(input.name)) return { error: "Only PDF, AI, EPS, JPG or PNG artwork can be added." };
+
+  const { data: last } = await supabase
+    .from("artwork_versions")
+    .select("version")
+    .eq("brand_id", input.brandId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ version: number }>();
+  const version = (last?.version ?? 0) + 1;
+  const { data: v, error } = await supabase
+    .from("artwork_versions")
+    .insert({ brand_id: input.brandId, version, file_path: input.path, approved_at: new Date().toISOString(), approved_by: me.user_id })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !v) return { error: error?.code === "42501" ? "Your role can't add artwork." : "Couldn't save the artwork." };
+  await supabase.from("brands").update({ current_artwork_version_id: v.id }).eq("id", input.brandId);
+  refreshBrands();
+  return { ok: `Saved as v${version}, the current artwork. Customers can download it under Artwork.` };
 }

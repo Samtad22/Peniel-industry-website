@@ -15,7 +15,7 @@ export type CustomerOrderRow = {
   customer_reason: string | null;
 };
 
-export type BrandCard = { id: string; name: string; spec: string; colours: string[]; open: number };
+export type BrandCard = { id: string; name: string; spec: string; colours: string[]; crown: string | null; open: number };
 
 export type OrdersHomeData = {
   orders: CustomerOrderRow[];
@@ -172,7 +172,7 @@ export default function OrdersHomeView({ d, detail }: { d: OrdersHomeData; detai
                     (i ? "border-l-2 border-divider" : "sm:pl-10")
                   }
                 >
-                  <Crown colours={b.colours} size={32} />
+                  <Crown colours={b.colours} src={b.crown} size={36} alt="" />
                   <span className="min-w-0 flex-1 text-[13px]">
                     <b className="block truncate text-[14px]">{b.name}</b>
                     <span className="opacity-65">{b.open ? `${b.open} open` : "No open orders"}</span>

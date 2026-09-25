@@ -4,6 +4,7 @@ import type { OrderStatus } from "@/lib/order-status";
 import type { AttachmentType } from "@/lib/files";
 import { buildTimeline, type TimelineStep } from "@/lib/order-timeline";
 import type { CustomerProof } from "@/components/customer/ProofCard";
+import { crownSrc } from "@/components/ui/Crown";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -14,6 +15,7 @@ export type CustomerBrand = {
   liner: string;
   finish: string | null;
   colours: string[];
+  crown_image_path: string | null;
   active: boolean;
 };
 
@@ -36,6 +38,10 @@ export type CustomerOrderDetailData = {
   brand_name: string;
   spec: string;
   liner: string;
+  /** Crown image URL (null: none on file) and the brand's print colours. */
+  crown: string | null;
+  colours: string[];
+  size: string;
   quantity: number;
   completed_qty: number;
   due_date: string | null;
@@ -67,11 +73,11 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       "id, order_no, po_number, brand_id, brand_name, quantity, completed_qty, due_date, requested_date, status, customer_reason, delivery_method, delivery_address, updated_at",
     )
     .eq("id", id)
-    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "steps" | "attachments" | "proofs" | "threadId" | "messages">>();
+    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "crown" | "colours" | "size" | "steps" | "attachments" | "proofs" | "threadId" | "messages">>();
   if (!o) return null;
 
   const [{ data: brand }, { data: events }, { data: files }, { data: threads }, { data: proofs }] = await Promise.all([
-    supabase.from("customer_brands").select("size, finish, liner").eq("id", o.brand_id).maybeSingle<CustomerBrand>(),
+    supabase.from("customer_brands").select("id, size, finish, liner, colours, crown_image_path").eq("id", o.brand_id).maybeSingle<CustomerBrand>(),
     supabase
       .from("customer_order_timeline")
       .select("status, created_at, customer_reason")
@@ -115,6 +121,9 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
     completed_qty: Number(o.completed_qty),
     spec: brand ? brandSpec(brand) : "",
     liner: brand?.liner ?? "",
+    crown: brand ? crownSrc(brand) : null,
+    colours: brand?.colours ?? [],
+    size: brand?.size ?? "",
     steps: buildTimeline({
       status: o.status,
       delivery_method: o.delivery_method,
@@ -141,7 +150,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
   const { data: o } = await supabase
     .from("orders")
     .select(
-      "id, order_no, po_number, brand_id, quantity, requested_date, confirmed_due_date, revised_due_date, status, customer_reason, delivery_method, delivery_address, updated_at, brands(name, size, finish, liner)",
+      "id, order_no, po_number, brand_id, quantity, requested_date, confirmed_due_date, revised_due_date, status, customer_reason, delivery_method, delivery_address, updated_at, brands(id, name, size, finish, liner, colours, crown_image_path)",
     )
     .eq("id", id)
     .maybeSingle<{
@@ -158,7 +167,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
       delivery_method: "pickup" | "delivery";
       delivery_address: string | null;
       updated_at: string;
-      brands: { name: string; size: string; finish: string | null; liner: string } | null;
+      brands: { id: string; name: string; size: string; finish: string | null; liner: string; colours: string[]; crown_image_path: string | null } | null;
     }>();
   if (!o) return null;
 
@@ -207,6 +216,9 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
     brand_name: brandName,
     spec: o.brands ? brandSpec(o.brands) : "",
     liner: o.brands?.liner ?? "",
+    crown: o.brands ? crownSrc(o.brands) : null,
+    colours: o.brands?.colours ?? [],
+    size: o.brands?.size ?? "",
     quantity: Number(o.quantity),
     completed_qty: (output ?? []).reduce((s, e) => s + Number(e.produced_qty) - Number(e.reject_qty), 0),
     due_date: due,

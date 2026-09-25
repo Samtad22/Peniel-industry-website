@@ -4,7 +4,7 @@ import { lockArtwork, lockSubmission } from "@/app/ops/artwork/actions";
 import { DispatchDialog, ReviewSubmissionForm, NO_DELIVERY } from "@/components/ops/ArtworkForms";
 import OpsHeader from "@/components/ops/OpsHeader";
 import SendProofPanel from "@/components/ops/SendProofPanel";
-import Crown from "@/components/ui/Crown";
+import Crown, { crownSrc } from "@/components/ui/Crown";
 import { Pill } from "@/components/ui/StatusBadge";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth } from "@/lib/format";
@@ -24,6 +24,7 @@ type Brand = {
   finish: string | null;
   liner: string;
   colours: string[];
+  crown_image_path: string | null;
   current: { id: string; version: number; approved_at: string | null } | null;
 };
 
@@ -77,7 +78,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
     supabase.from("companies").select("id, name").eq("active", true).order("name").returns<{ id: string; name: string }[]>(),
     supabase
       .from("brands")
-      .select("id, name, company_id, size, finish, liner, colours, current:artwork_versions!brands_current_artwork_fk(id, version, approved_at)")
+      .select("id, name, company_id, size, finish, liner, colours, crown_image_path, current:artwork_versions!brands_current_artwork_fk(id, version, approved_at)")
       .eq("active", true)
       .order("name")
       .returns<Brand[]>(),
@@ -157,7 +158,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
             const latest = latestPerBrand(b.id);
             return (
               <div key={b.id} className="flex flex-col gap-1.5 border-l-2 border-divider px-4 py-4 text-[13px] sm:px-6">
-                <Crown colours={b.colours} size={44} />
+                <Crown colours={b.colours} src={crownSrc(b)} size={44} alt="" />
                 <b className="text-[15px]">{b.name}</b>
                 <span className="opacity-70">{[b.size, b.finish, b.liner].filter(Boolean).join(" · ")}</span>
                 <span className={b.current ? "font-extrabold" : "opacity-60"}>

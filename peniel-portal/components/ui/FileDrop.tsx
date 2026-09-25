@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import clsx from "clsx";
-import { ACCEPT, fileExt, fileProblem, formatBytes } from "@/lib/files";
+import { ACCEPT, ARTWORK_ACCEPT, fileExt, fileProblem, formatBytes, type UploadKind } from "@/lib/files";
 
 /** One file chosen with a drop zone or the file browser. */
-export default function FileDrop({ file, onFile, id }: { file: File | null; onFile: (f: File | null) => void; id: string }) {
+export default function FileDrop({ file, onFile, id, kind = "document" }: { file: File | null; onFile: (f: File | null) => void; id: string; kind?: UploadKind }) {
   const [drag, setDrag] = useState(false);
   if (file) {
-    const problem = fileProblem(file);
+    const problem = fileProblem(file, kind);
     return (
       <div className={clsx("grid grid-cols-[40px_minmax(0,1fr)_28px] items-center gap-2.5 p-2.5 text-[13px]", problem ? "bg-accent-100" : "bg-surface")}>
         <span className={clsx("py-1 text-center font-mono text-[10px] font-semibold", problem ? "bg-accent text-bg" : "bg-bg")}>{fileExt(file.name)}</span>
@@ -43,8 +43,8 @@ export default function FileDrop({ file, onFile, id }: { file: File | null; onFi
       <b className="text-[15px]">
         Drop a file here or <span className="text-accent underline underline-offset-2">browse</span>
       </b>
-      <span className="opacity-70">PDF, JPG, PNG, XLSX, DOCX · up to 20 MB</span>
-      <input id={id} type="file" accept={ACCEPT} className="sr-only" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+      <span className="opacity-70">{kind === "artwork" ? "PDF, AI, EPS, JPG, PNG, XLSX, DOCX" : "PDF, JPG, PNG, XLSX, DOCX"} · up to 20 MB</span>
+      <input id={id} type="file" accept={kind === "artwork" ? ARTWORK_ACCEPT : ACCEPT} className="sr-only" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
     </label>
   );
 }

@@ -27,7 +27,10 @@ customers go in a **new, empty** project.
    materials). It refuses to run on a project that's already set up.
    **Do not run `supabase/seed.sql`** here: it is sample data.
 4. **Companies and brands.** Add the real customers from **Ops → Customers**
-   after the first admin exists (step 6).
+   after the first admin exists (step 6). Each brand's crown image goes in
+   with **Import crown images** (one PNG per brand, named after it, e.g.
+   `st-george.png`) or from the brand's **Edit** dialog, which also takes the
+   artwork on file (PDF, AI, EPS).
 5. **Authentication settings**:
    - *Sign In / Providers → Email*: turn **off** "Allow new users to sign up".
    - *URL Configuration*: Site URL `https://portal.penielindustry.org`;

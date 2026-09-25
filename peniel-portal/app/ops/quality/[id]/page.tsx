@@ -129,6 +129,13 @@ export default async function InspectionPage({
             ? `Batch ${insp.batch_no} · ${insp.orders?.brands?.name ?? ""} · ${insp.orders?.order_no ?? ""}`
             : `New inspection · ${formatDate(new Date())}`
         }
+        actions={
+          insp ? (
+            <a href={`/certificates/${insp.id}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-text">
+              Certificate of Analysis ↗
+            </a>
+          ) : undefined
+        }
       />
       <InspectionForm
         initial={initial}

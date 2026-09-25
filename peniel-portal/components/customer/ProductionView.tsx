@@ -253,20 +253,21 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <div className="min-w-[900px]">
-            <div className="th-row grid grid-cols-[110px_120px_130px_100px_130px_minmax(0,1fr)] gap-3 border-b-2 border-divider py-2">
+          <div className="min-w-[1000px]">
+            <div className="th-row grid grid-cols-[110px_120px_130px_100px_130px_minmax(0,1fr)_110px] gap-3 border-b-2 border-divider py-2">
               <span>Batch</span>
               <span>Order</span>
               <span>Date</span>
               <span>Reject %</span>
               <span>Result</span>
               <span>Note from Peniel</span>
+              <span>Certificate</span>
             </div>
             {shown.map((b) => {
               const pill = b.result ? RESULT_PILL[b.result] : { label: "Being inspected", style: RESULT_PILL.none.style };
               const pct = Number(b.reject_pct);
               return (
-                <div key={b.id} className="grid grid-cols-[110px_120px_130px_100px_130px_minmax(0,1fr)] items-center gap-3 border-b border-divider py-2.5 text-[14px]">
+                <div key={b.id} className="grid grid-cols-[110px_120px_130px_100px_130px_minmax(0,1fr)_110px] items-center gap-3 border-b border-divider py-2.5 text-[14px]">
                   <b>{b.batch_no}</b>
                   <Link href={`/orders/${b.order_id}`} className="text-text">
                     {b.order_no}
@@ -277,6 +278,15 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
                     <Pill style={pill.style}>{pill.label}</Pill>
                   </span>
                   <span className={`text-[13px] ${b.result === "on_hold" ? "text-accent-800" : "opacity-70"}`}>{b.customer_reason ?? ""}</span>
+                  <span className="text-[13px]">
+                    {b.result === "released" ? (
+                      <a href={`/certificates/${b.id}`} target="_blank" rel="noreferrer" className="font-semibold">
+                        CoA ↗
+                      </a>
+                    ) : (
+                      <span className="opacity-50">—</span>
+                    )}
+                  </span>
                 </div>
               );
             })}

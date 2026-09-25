@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Crown, { crownSrc, InkSwatches } from "@/components/ui/Crown";
 import { BrandDialog, CompanyDialog, type BrandFields, type CompanyFields } from "./CustomerForms";
+import CrownImport from "./CrownImport";
 import InviteDialog from "./InviteDialog";
 import UsersTable, { type UserRow } from "./UsersTable";
 
@@ -9,7 +11,6 @@ export type BrandCard = {
   name: string;
   spec: string;
   artwork: string;
-  colour: string | null;
   fields: BrandFields;
 };
 export type CompanyDetail = {
@@ -98,22 +99,27 @@ export default function CustomersView({
           <div className="border-b-2 border-divider px-4 py-5 sm:px-8">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h4 className="m-0">Brands</h4>
-              {canEditBrands && <BrandDialog companyId={selected.id} triggerLabel="+ Add brand" variant="secondary" />}
+              {canEditBrands && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {selected.brands.length > 0 && (
+                    <CrownImport companyId={selected.id} companyName={selected.name} brands={selected.brands.map((b) => ({ id: b.id, name: b.name }))} />
+                  )}
+                  <BrandDialog companyId={selected.id} triggerLabel="+ Add brand" variant="secondary" />
+                </div>
+              )}
             </div>
             <div className="overflow-hidden border-t-2 border-divider">
               <div className="-ml-px grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
                 {selected.brands.map((b) => (
                   <div key={b.id} className="flex flex-col gap-1 border-l border-divider p-3.5 text-[13px]">
-                    <div
-                      className="mb-1 size-11 rounded-full"
-                      style={{
-                        background: b.colour ?? "var(--color-text)",
-                        boxShadow: "inset 0 0 0 4px var(--color-neutral-600)",
-                      }}
-                      aria-hidden="true"
-                    />
+                    <span className="mb-1">
+                      <Crown colours={b.fields.colours} src={crownSrc(b.fields)} size={56} alt={`${b.name} crown`} />
+                    </span>
                     <b>{b.name}</b>
                     <span className="text-[12px] opacity-70">{b.spec}</span>
+                    <span className="text-[12px]">
+                      <InkSwatches colours={b.fields.colours} compact />
+                    </span>
                     <span className="text-[12px]">{b.artwork}</span>
                     {canEditBrands && <BrandDialog companyId={selected.id} brand={b.fields} triggerLabel="Edit" variant="link" />}
                   </div>

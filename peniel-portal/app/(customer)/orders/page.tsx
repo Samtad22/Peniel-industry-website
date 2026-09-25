@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import OrderDetail from "@/components/customer/OrderDetail";
 import OrdersHomeView, { type CustomerOrderRow } from "@/components/customer/OrdersHomeView";
+import { crownSrc } from "@/components/ui/Crown";
 import { brandSpec, loadCustomerOrder, type CustomerBrand } from "@/lib/customer-orders";
 import { OPEN_STATUSES, ORDER_STATUSES, type OrderStatus } from "@/lib/order-status";
 import { createClient } from "@/lib/supabase/server";
@@ -40,7 +41,7 @@ export default async function OrdersPage({
       .returns<Row[]>(),
     supabase
       .from("customer_brands")
-      .select("id, name, size, finish, liner, colours, active")
+      .select("id, name, size, finish, liner, colours, crown_image_path, active")
       .order("name")
       .returns<CustomerBrand[]>(),
     supabase
@@ -94,6 +95,7 @@ export default async function OrdersPage({
             name: b.name,
             spec: brandSpec(b),
             colours: b.colours,
+            crown: crownSrc(b),
             open: openRows.filter((o) => o.brand_id === b.id).length,
           })),
         kpis: {

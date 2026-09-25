@@ -203,3 +203,13 @@ test("CoA spec: limits from PIC-OF-053, older keys still read, findings listed",
   ]);
   assert.deepEqual(coaFindings({ shell_height_mm: 6.0 }, {}, labels), []);
 });
+
+test("artwork uploads also take AI and EPS; other uploads don't", async () => {
+  const { fileProblem, mimeFor, fileExt } = await import("../../lib/files.ts");
+  assert.equal(fileProblem({ name: "label.ai", size: 5000 }, "artwork"), null);
+  assert.equal(fileProblem({ name: "label.eps", size: 5000 }, "artwork"), null);
+  assert.match(fileProblem({ name: "label.ai", size: 5000 }) ?? "", /Only PDF/);
+  assert.match(fileProblem({ name: "label.psd", size: 5000 }, "artwork") ?? "", /Only PDF, AI, EPS/);
+  assert.equal(mimeFor("Label.EPS"), "application/postscript");
+  assert.equal(fileExt("label.ai"), "AI");
+});

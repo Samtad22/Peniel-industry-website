@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { respondToProof, type ProofState } from "@/app/(customer)/artwork/actions";
 import { Pill } from "@/components/ui/StatusBadge";
 import { Button, FormMessage } from "@/components/ui/form";
+import { fileExt } from "@/lib/files";
 import { formatDate } from "@/lib/format";
 import { deliveryLine, proofPill, trackingUrl, type PhysicalDelivery, type ProofStatus } from "@/lib/proofs";
 
@@ -73,7 +74,7 @@ export default function ProofCard({ p, preview = false }: { p: CustomerProof; pr
             <img src={src} alt={`Proof ${p.file_name ?? ""}`} loading="lazy" className="h-full w-full object-contain" />
           ) : (
             <span className="flex flex-col items-center gap-1 p-4 text-center">
-              <span className="font-mono text-[11px] font-semibold opacity-60">PDF</span>
+              <span className="font-mono text-[11px] font-semibold opacity-60">{fileExt(p.file_name)}</span>
               <b>Open proof ↗</b>
               <span className="text-[12px] opacity-60">{p.file_name}</span>
             </span>

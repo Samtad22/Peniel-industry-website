@@ -5,7 +5,7 @@ import type { MessageFile } from "@/lib/message-files";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 
-export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork" | "message-attachments";
+export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork" | "crowns" | "message-attachments";
 
 export async function uploadToStorage(
   bucket: Bucket,

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CustomerPageHead } from "@/components/customer/CustomerPlanned";
 import ProofCard, { ProofDelivery, type CustomerProof } from "@/components/customer/ProofCard";
 import SendArtworkDialog from "@/components/customer/SendArtworkDialog";
-import Crown from "@/components/ui/Crown";
+import Crown, { crownSrc } from "@/components/ui/Crown";
 import { Pill } from "@/components/ui/StatusBadge";
 import { formatDate } from "@/lib/format";
 import { requireCustomer } from "@/lib/auth";
@@ -34,7 +34,12 @@ export default async function ArtworkPage() {
   const me = await requireCustomer();
   const supabase = await createClient();
   const [{ data: brands }, { data: artwork }, { data: proofs }, { data: submissions }, { data: orders }] = await Promise.all([
-    supabase.from("customer_brands").select("id, name, colours").eq("active", true).order("name").returns<{ id: string; name: string; colours: string[] }[]>(),
+    supabase
+      .from("customer_brands")
+      .select("id, name, colours, crown_image_path")
+      .eq("active", true)
+      .order("name")
+      .returns<{ id: string; name: string; colours: string[]; crown_image_path: string | null }[]>(),
     supabase
       .from("customer_artwork")
       .select("id, brand_id, version, approved_at, is_current")
@@ -94,7 +99,7 @@ export default async function ArtworkPage() {
             return (
               <div key={b.id} className="grid grid-cols-[96px_minmax(0,1fr)] gap-4 border-l-2 border-divider px-4 py-5 sm:px-10">
                 <div className="grid size-24 place-items-center bg-surface">
-                  <Crown colours={b.colours} size={72} />
+                  <Crown colours={b.colours} src={crownSrc(b)} size={84} alt={`${b.name} crown`} />
                 </div>
                 <div className="flex min-w-0 flex-col gap-1.5 text-[13px]">
                   <b className="text-[16px]">{b.name}</b>

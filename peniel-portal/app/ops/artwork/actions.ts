@@ -71,7 +71,7 @@ export async function sendProof(input: {
   if (!UUID.test(input.brandId)) return { error: "Choose the brand." };
   const hasFile = Boolean(input.path);
   if (!hasFile && !input.delivery.method) return { error: "Attach the proof file, or choose a courier or driver for a physical proof." };
-  const problem = hasFile ? fileProblem(input) : null;
+  const problem = hasFile ? fileProblem(input, "artwork") : null;
   if (problem) return { error: problem };
   const delivery = deliveryColumns(input.delivery);
   if ("error" in delivery) return { error: String(delivery.error) };
