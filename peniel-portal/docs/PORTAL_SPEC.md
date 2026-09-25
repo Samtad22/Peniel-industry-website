@@ -25,8 +25,9 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `order_attachments` — order_id, company_id, file_path, file_name, size, type (purchase_order/specification/other), uploaded_by
 - `production_lines` **(internal table)** — id, name
 - `production_entries` — id, order_id, entry_date, shift, line_id **(internal)**, produced_qty, reject_qty, entered_by, published (bool)
-- `qc_inspections` — id, batch_no, order_id, inspected_at, sample_size, measurements jsonb **(internal)** (the 11 measured parameters of the Certificate of Analysis PIC-OF-053, see `lib/qc.ts`), reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
+- `qc_inspections` — id, batch_no (unique within its order: batch numbers restart per brand), order_id, inspected_at, sample_size, measurements jsonb **(internal)** (the 11 measured parameters of the Certificate of Analysis PIC-OF-053, see `lib/qc.ts`), reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
 - `qc_defects` — inspection_id, defect_type, count
+- `sorting_records` **(internal table)** — inspection_id, sorted_on, sorted_cartons, waste_cartons (1 carton = 10,000 crowns), reported_by, notes, entered_by: the daily "on hold products for sorting" report, one row per batch per day. Recorded by quality (and admin); customers only ever see the batch as on hold, then released.
 - `defect_types` — code, customer_label, active, sort_order: the 13 visual checks of the Certificate of Analysis (standard 0%), e.g. "Bent crowns", "Incomplete liner", "Off-center graphics"
 - `raw_materials` / `raw_material_movements` **(internal)**
 - `finished_stock` — id, company_id, brand_id, order_id, batch_no, quantity, location **(internal)**, ready_since, status (available/reserved/on_hold), customer_reason

@@ -64,6 +64,7 @@ export type BookingRow = {
   status: PickupStatus;
   delivery_note_no: string | null;
   batches: string[];
+  stockIds: string[];
 };
 
 
@@ -298,8 +299,9 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
 }
 
 function Stock({ rows, bookings, pickupMin }: { rows: StockRow[]; bookings: BookingRow[]; pickupMin: string }) {
-  const booked = new Set(bookings.filter((b) => b.status !== "collected").flatMap((b) => b.batches));
-  const bookable = rows.filter((r) => r.status === "available" && !booked.has(r.batch_no));
+  // By stock ID: batch numbers restart per brand, so two brands can share one.
+  const booked = new Set(bookings.filter((b) => b.status !== "collected").flatMap((b) => b.stockIds));
+  const bookable = rows.filter((r) => r.status === "available" && !booked.has(r.id));
   const sum = (s: StockRow["status"]) => rows.filter((r) => r.status === s).reduce((t, r) => t + r.quantity, 0);
   return (
     <>
