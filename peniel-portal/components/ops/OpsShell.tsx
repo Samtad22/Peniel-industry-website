@@ -13,21 +13,19 @@ export default function OpsShell({
   name,
   role,
   badges,
+  badgesAsOf = 0,
   children,
 }: {
   name: string;
   role: StaffRole;
   badges: OpsBadges;
+  /** When the badges were counted on the server (ms); the sidebar refreshes them after that. */
+  badgesAsOf?: number;
   children: React.ReactNode;
 }) {
   const visible = OPS_NAV.filter((n) => n.roles.includes(role));
   const hidden = OPS_NAV.length - visible.length;
-  const items = visible.map((n) => ({
-    href: n.href,
-    label: n.label,
-    area: n.area,
-    badge: n.area in badges ? badges[n.area as keyof OpsBadges] : undefined,
-  }));
+  const items = visible.map((n) => ({ href: n.href, label: n.label, area: n.area }));
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[232px_minmax(0,1fr)]">
@@ -45,7 +43,7 @@ export default function OpsShell({
           <div className="mt-1.5 border border-neutral-600 px-2.5 py-2 font-extrabold">{ROLE_LABELS[role]}</div>
         </div>
 
-        <OpsNavLinks items={items} />
+        <OpsNavLinks items={items} badges={badges as Record<string, number>} asOf={badgesAsOf} />
 
         <div className="hidden px-5 text-[11px] opacity-50 md:block">
           {hidden ? `${hidden} areas hidden for this role` : "All areas visible"}

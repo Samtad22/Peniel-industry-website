@@ -1,6 +1,6 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
-import type { OpsArea, StaffRole } from "@/lib/roles";
+import { OPS_NAV, type OpsArea, type StaffRole } from "@/lib/roles";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -22,6 +22,9 @@ async function seenMap(supabase: Supabase, userId: string, since: string): Promi
   const m = new Map((data ?? []).map((r) => [r.area, r.seen_at]));
   return { get: (area) => m.get(area) ?? since };
 }
+
+/** When badges were counted (ms), so the nav knows which counts are newer. */
+export const countedAt = (): number => Date.now();
 
 const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
 
@@ -99,4 +102,18 @@ export async function staffSeenBadges(
   ]);
 
   return { orders, production, inventory: pickups + stock, documents, settings: failed };
+}
+
+/** Every staff badge: work waiting (inbox, messages, held batches, artwork) plus what's new since the last visit. */
+export async function staffBadges(supabase: Supabase, me: { user_id: string; role: StaffRole; created_at: string }): Promise<Record<string, number>> {
+  const visible = (area: OpsArea) => OPS_NAV.some((n) => n.area === area && n.roles.includes(me.role));
+  const head = { count: "exact" as const, head: true };
+  const [inbox, messages, held, artwork, seen] = await Promise.all([
+    count(supabase.from("orders").select("id", head).eq("status", "submitted")),
+    count(supabase.from("messages").select("id", head).eq("read_by_staff", false)),
+    count(supabase.from("qc_inspections").select("id", head).eq("result", "on_hold")),
+    count(supabase.from("artwork_submissions").select("id", head).eq("status", "submitted")),
+    staffSeenBadges(supabase, me, visible),
+  ]);
+  return { inbox, messages, quality: held, artwork, ...seen };
 }

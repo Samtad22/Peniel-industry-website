@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMarkSeen } from "@/components/ui/useMarkSeen";
+import { useTabBadges } from "@/components/ui/useTabBadges";
 
-export type OpsNavItem = { href: string; label: string; area?: string; badge?: number };
+export type OpsNavItem = { href: string; label: string; area?: string };
 
 /** Tabs whose badge means "new since you last looked"; the others count work waiting (inbox, messages, held batches, artwork). */
 const SEEN = ["orders", "production", "inventory", "documents", "settings"] as const;
@@ -12,14 +12,15 @@ const SEEN = ["orders", "production", "inventory", "documents", "settings"] as c
 const isActive = (href: string, pathname: string) => (href === "/ops" ? pathname === "/ops" : pathname === href || pathname.startsWith(`${href}/`));
 
 /** Sidebar links (OpsNav in the design). Active item: solid accent, bold. */
-export default function OpsNavLinks({ items }: { items: OpsNavItem[] }) {
+export default function OpsNavLinks({ items, badges: initial, asOf }: { items: OpsNavItem[]; badges: Record<string, number>; asOf: number }) {
   const pathname = usePathname();
   const active = items.find((it) => isActive(it.href, pathname));
-  useMarkSeen(active?.area ?? null, active?.badge ?? 0, SEEN);
+  const badges = useTabBadges(initial, asOf, active?.area ?? null, SEEN);
   return (
     <nav aria-label="Peniel Ops" className="flex gap-0 overflow-x-auto md:flex-col md:overflow-visible md:py-2">
       {items.map((it) => {
         const active = isActive(it.href, pathname);
+        const badge = it.area ? (badges[it.area] ?? 0) : 0;
         return (
           <Link
             key={it.href}
@@ -31,13 +32,13 @@ export default function OpsNavLinks({ items }: { items: OpsNavItem[] }) {
             }
           >
             <span>{it.label}</span>
-            {!!it.badge && (
+            {badge > 0 && (
               <span
                 className={
                   "px-[7px] py-px text-[11px] font-extrabold " + (active ? "bg-bg text-text" : "bg-accent text-bg")
                 }
               >
-                {it.badge > 99 ? "99+" : it.badge}
+                {badge > 99 ? "99+" : badge}
               </span>
             )}
           </Link>
