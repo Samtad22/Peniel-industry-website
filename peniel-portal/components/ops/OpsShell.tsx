@@ -4,7 +4,7 @@ import SignOutButton from "@/components/SignOutButton";
 import { initials, OPS_NAV, ROLE_LABELS, type StaffRole } from "@/lib/roles";
 import OpsNavLinks from "./OpsNavLinks";
 
-export type OpsBadges = Partial<Record<"inbox" | "messages" | "quality", number>>;
+export type OpsBadges = Partial<Record<"inbox" | "messages" | "quality" | "artwork", number>>;
 
 /** Peniel Ops frame: 232px ink sidebar (OpsNav) + main area. */
 export default function OpsShell({
