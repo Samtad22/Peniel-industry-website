@@ -1,7 +1,20 @@
 export function supabaseUrl(): string {
   const v = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!v) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set — copy .env.example to .env.local");
-  return v;
+  return projectOrigin(v);
+}
+
+/**
+ * Just `https://<ref>.supabase.co`. The dashboard also shows the REST
+ * endpoint (`…/rest/v1/`); pasting that as the project URL makes every auth
+ * call a 404 ("Invalid path specified in request URL"), so drop any path.
+ */
+export function projectOrigin(url: string): string {
+  try {
+    return new URL(url.trim()).origin;
+  } catch {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must be the project URL, like https://abcd1234.supabase.co");
+  }
 }
 
 export function supabaseAnonKey(): string {
