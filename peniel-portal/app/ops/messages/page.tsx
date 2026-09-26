@@ -10,6 +10,7 @@ import type { MessageAttachment } from "@/lib/message-files";
 import { OPEN_STATUSES } from "@/lib/order-status";
 import { opsRolesFor, ROLE_LABELS } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
+import { OpsTopBar } from "@/components/ops/OpsHeader";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -111,6 +112,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   };
 
   return (
+    <>
+      <OpsTopBar />
     <div className="grid grid-cols-[minmax(0,1fr)] lg:min-h-screen lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className="border-divider lg:border-r-2">
         <div className="flex flex-col gap-2.5 border-b-2 border-divider px-4 py-5 sm:px-6">
@@ -250,5 +253,6 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         <div className="px-6 py-10 text-[14px] opacity-70">No conversations yet. Customers&apos; messages appear here.</div>
       )}
     </div>
+    </>
   );
 }

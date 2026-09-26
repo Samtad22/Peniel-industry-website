@@ -66,12 +66,34 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {label}
     </Link>
   );
-  const COLS = "grid grid-cols-[minmax(0,1.2fr)_110px_110px_110px_130px_190px_minmax(0,1fr)_50px] items-center gap-3";
+  const COLS = "grid grid-cols-[minmax(0,1fr)_90px_90px_110px_110px_130px_minmax(0,1.3fr)_50px] items-center gap-2.5";
+  // Finished goods by customer (design 2f): one bar per customer, its batches below.
+  const groups = [...new Set(rows.map((r) => r.company_id))]
+    .map((id) => {
+      const mine = rows.filter((r) => r.company_id === id);
+      const sum = (st: StockStatus) => mine.filter((r) => r.status === st).reduce((t, r) => t + Number(r.quantity), 0);
+      const available = sum("available");
+      const reserved = sum("reserved");
+      const hold = sum("on_hold");
+      return {
+        id,
+        name: (mine[0].companies?.name ?? "-").replace(/\s+S\.C\.$/, ""),
+        brands: [...new Set(mine.map((r) => r.brands?.name ?? "-"))],
+        available,
+        reserved,
+        hold,
+        total: available + reserved + hold,
+        rows: mine,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  const maxTotal = Math.max(1, ...groups.map((g) => g.total));
 
   return (
     <>
       <OpsHeader
         title="Inventory"
+        sub="Raw materials are internal. Customers only ever see their own finished crowns."
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="seg">
@@ -96,36 +118,51 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {view !== "finished" && (
         <div className="border-b-2 border-divider">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 sm:px-8">
-            <h4 className="m-0 flex items-center gap-2">
+            <h2 className="m-0 flex items-center gap-2.5 text-[26px] sm:text-[30px]">
               Raw materials <InternalOnly />
-            </h4>
+            </h2>
             <MaterialDialog materials={(materials ?? []).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
           </div>
-          <div className="overflow-hidden">
-            <div className="-ml-0.5 mt-4 grid grid-cols-2 xl:grid-cols-4">
-              {(materials ?? []).map((m) => {
-                const onHand = Number(m.on_hand);
-                const reorder = m.reorder_level == null ? null : Number(m.reorder_level);
-                const low = reorder != null && onHand <= reorder;
-                const pct = reorder ? Math.min(100, (onHand / (reorder * 3)) * 100) : 50;
-                return (
-                  <div key={m.id} className={`flex flex-col gap-2 border-l-2 border-t-2 border-divider px-4 py-5 sm:px-6 ${low ? "bg-accent-100" : "bg-surface"}`}>
-                    <h6 className={`m-0 ${low ? "text-accent-800" : "opacity-60"}`}>{m.name}</h6>
-                    <div className={`text-[34px] font-extrabold leading-none ${low ? "text-accent-700" : ""}`}>
-                      {onHand.toLocaleString("en-US")} <span className="text-[14px] font-normal">{m.unit}</span>
-                    </div>
-                    <div className="relative h-2 bg-bg">
-                      <div className={`absolute inset-y-0 left-0 ${low ? "bg-accent" : "bg-text"}`} style={{ width: `${pct}%` }} />
-                      {reorder != null && <div className="absolute inset-y-[-3px] w-0.5 bg-accent-700" style={{ left: `${100 / 3}%` }} title={`Reorder at ${reorder}`} />}
-                    </div>
-                    <div className="flex justify-between gap-2 text-[12px]">
-                      <span className={low ? "font-extrabold text-accent-800" : "opacity-70"}>{low ? "Below reorder level" : "In stock"}</span>
-                      <span className="opacity-70">{reorder != null ? `reorder at ${reorder.toLocaleString("en-US")} ${m.unit}` : ""}</span>
-                    </div>
+          <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-4">
+            {(materials ?? []).map((m, i) => {
+              const onHand = Number(m.on_hand);
+              const reorder = m.reorder_level == null ? null : Number(m.reorder_level);
+              const low = reorder != null && onHand <= reorder;
+              // The tank is full at three times the reorder level; the dashed line is the reorder level.
+              const full = reorder ? reorder * 3 : Math.max(onHand, 1) * 2;
+              const pct = Math.min(85, (onHand / full) * 85);
+              const line = reorder ? (reorder / full) * 85 : null;
+              return (
+                <div
+                  key={m.id}
+                  className={`flex flex-col gap-3 border-divider px-4 pb-6 pt-[22px] sm:px-6 ${i % 2 ? "border-l-2" : ""} xl:[&:not(:first-child)]:border-l-2 max-xl:[&:nth-child(n+3)]:border-t-2 ${low ? "bg-accent-100" : ""}`}
+                >
+                  <h6 className={`m-0 ${low ? "text-accent-800" : ""}`}>{m.name}</h6>
+                  <div className="relative h-[160px] border-2 border-text bg-surface sm:h-[220px]">
+                    <div className={`absolute inset-x-0 bottom-0 ${low ? "bg-accent" : "bg-text"}`} style={{ height: `${pct}%` }} />
+                    {line != null && (
+                      <>
+                        <div className={`absolute -inset-x-1.5 border-t-2 border-dashed ${low ? "border-text" : "border-accent"}`} style={{ bottom: `${line}%` }} />
+                        <span
+                          className={`absolute right-1.5 bg-surface px-[3px] font-mono text-[10px] font-semibold ${low ? "text-text" : "text-accent-700"}`}
+                          style={{ bottom: `calc(${line}% + 4px)` }}
+                        >
+                          reorder
+                        </span>
+                      </>
+                    )}
+                    <span className={`absolute left-2.5 top-2.5 bg-surface px-1.5 py-1 text-[28px] font-extrabold leading-none tracking-[-.04em] sm:text-[36px] ${low ? "text-accent-800" : "text-text"}`}>
+                      {formatQty(onHand)}
+                      <span className="ml-1 text-[13px] font-normal">{m.unit}</span>
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className={`flex justify-between gap-2 text-[12px] ${low ? "font-extrabold text-accent-800" : ""}`}>
+                    <span>{low ? "Below reorder level" : "In stock"}</span>
+                    <span>{reorder != null ? `reorder at ${reorder.toLocaleString("en-US")} ${m.unit}` : "no reorder level"}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -133,7 +170,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       {view !== "raw" && (
         <div className="px-4 pb-8 pt-6 sm:px-8">
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-            <h4 className="m-0">Finished goods by customer &amp; brand</h4>
+            <h2 className="m-0 text-[26px] sm:text-[30px]">Finished goods by customer</h2>
             <form className="flex flex-wrap gap-2">
               {view !== "all" && <input type="hidden" name="v" value={view} />}
               <label htmlFor="inv-c" className="sr-only">Customer</label>
@@ -146,48 +183,69 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <button type="submit" className="btn btn-secondary text-text">Apply</button>
             </form>
           </div>
-          <div className="overflow-x-auto">
-            <div className="min-w-[1000px]">
-              <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
-                <span>Customer · brand</span>
-                <span>Batch</span>
-                <span className="text-right">Quantity</span>
-                <span className="flex items-center gap-1">Location</span>
-                <span>Ready since</span>
-                <span>Status</span>
-                <span>Order / reason</span>
-                <span />
-              </div>
-              {rows.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No finished stock.</p>}
-              {rows.map((s) => (
-                <div key={s.id} className={`${COLS} border-b border-divider py-2.5 text-[13px]`}>
-                  <span className="truncate">
-                    <b>{s.companies?.name}</b> · {s.brands?.name}
-                  </span>
-                  <span>{s.batch_no}</span>
-                  <b className="text-right tabular-nums">{formatQty(Number(s.quantity))}</b>
-                  <span className="opacity-80">{s.location ?? "-"}</span>
-                  <span>{formatDate(s.ready_since)}</span>
-                  <span>
-                    <Pill style={STOCK_PILL[s.status].style}>{STOCK_PILL[s.status].label}</Pill>
-                  </span>
-                  <span className="truncate text-[12px]">
-                    {s.order_id ? (
-                      <Link href={`/ops/orders/${s.order_id}`} className="text-text">
-                        {s.orders?.order_no}
-                      </Link>
-                    ) : null}
-                    {s.customer_reason && <span className="text-accent-800"> · {s.customer_reason}</span>}
-                  </span>
-                  <span>
-                    {canStock && (
-                      <StockStatusDialog id={s.id} label={s.batch_no} status={s.status} reason={s.customer_reason ?? ""} location={s.location ?? ""} />
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="mb-1 flex flex-wrap justify-end gap-3.5 text-[12px]">
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 bg-text" />
+              Available
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 bg-neutral-400" />
+              Reserved
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-3 bg-accent-800" />
+              On hold
+            </span>
           </div>
+          {groups.length === 0 && <p className="m-0 border-t-2 border-text py-3 text-[13px] opacity-60">No finished stock.</p>}
+          {groups.map((g) => (
+            <div key={g.id} className="border-b-2 border-divider py-4 first:border-t-2 first:border-t-text">
+              <div className="grid items-center gap-3 sm:grid-cols-[240px_minmax(0,1fr)_110px] sm:gap-5">
+                <div className="min-w-0">
+                  <b className="text-[16px]">{g.name}</b>
+                  <div className="truncate text-[12px] opacity-65">{g.brands.join(" · ")}</div>
+                </div>
+                <div className="flex h-[22px] gap-0.5" role="img" aria-label={`${formatQty(g.available)} available, ${formatQty(g.reserved)} reserved, ${formatQty(g.hold)} on hold`}>
+                  {g.available > 0 && <div className="bg-text" style={{ flex: g.available }} />}
+                  {g.reserved > 0 && <div className="bg-neutral-400" style={{ flex: g.reserved }} />}
+                  {g.hold > 0 && <div className="bg-accent-800" style={{ flex: g.hold }} />}
+                  <div style={{ flex: Math.max(0.0001, maxTotal - g.total) }} />
+                </div>
+                <b className="text-[24px] tracking-[-.03em] sm:text-right sm:text-[26px]">{formatQty(g.total)}</b>
+              </div>
+              <div className="mt-2.5 overflow-x-auto sm:ml-[260px]">
+                <div className="min-w-[780px]">
+                  {g.rows.map((s) => (
+                    <div key={s.id} className={`${COLS} border-t border-divider py-[7px] text-[13px]`}>
+                      <b className="truncate">{s.brands?.name}</b>
+                      <span>{s.batch_no}</span>
+                      <b className="text-right tabular-nums">{formatQty(Number(s.quantity))}</b>
+                      <span className="opacity-80" title="Internal">
+                        {s.location ?? "-"}
+                      </span>
+                      <span>{formatDate(s.ready_since)}</span>
+                      <span>
+                        <Pill style={STOCK_PILL[s.status].style}>{STOCK_PILL[s.status].label}</Pill>
+                      </span>
+                      <span className="truncate text-[12px] opacity-80">
+                        {s.order_id ? (
+                          <Link href={`/ops/orders/${s.order_id}`} className="text-text">
+                            {s.orders?.order_no}
+                          </Link>
+                        ) : null}
+                        {s.customer_reason && <span className="text-accent-800"> · {s.customer_reason}</span>}
+                      </span>
+                      <span>
+                        {canStock && (
+                          <StockStatusDialog id={s.id} label={s.batch_no} status={s.status} reason={s.customer_reason ?? ""} location={s.location ?? ""} />
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
           <p className="mb-0 mt-3 text-[12px] opacity-60">Locations are internal. Customers see their own stock, status and hold reasons.</p>
         </div>
       )}

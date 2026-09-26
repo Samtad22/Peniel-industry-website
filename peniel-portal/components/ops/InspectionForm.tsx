@@ -262,7 +262,7 @@ export default function InspectionForm({
           />
         </div>
         <div className="bg-bg">
-          <CustomerWarning boxed />
+          <CustomerWarning />
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-[11px] uppercase tracking-[0.08em] opacity-60">Customer preview · Production › Quality</span>

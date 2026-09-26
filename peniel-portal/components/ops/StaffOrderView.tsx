@@ -1,11 +1,13 @@
 import Link from "next/link";
-import OpsHeader from "@/components/ops/OpsHeader";
+import { Lock } from "lucide-react";
+import { OpsTopBar } from "@/components/ops/OpsHeader";
 import { NotesForm, StaffReplyForm, StatusControl, type Preset } from "@/components/ops/OrderForms";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Timeline from "@/components/ui/Timeline";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { ATTACHMENT_TYPE_LABELS, fileExt, formatBytes } from "@/lib/files";
-import { formatDateTime, formatQty } from "@/lib/format";
+import { formatDateTime, formatDayMonth, formatQty } from "@/lib/format";
+import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
 import { cartonsOf, formatCartons, rejectPctAfterSorting } from "@/lib/sorting";
 import type { StaffOrder } from "@/lib/staff-orders";
 
@@ -58,7 +60,21 @@ export function Conversation({ o, canEdit }: { o: StaffOrder; canEdit: boolean }
   );
 }
 
-/** Staff order page — design 1f. */
+/** The status track across the order page (design 2d). */
+const TRACK: OrderStatus[] = [
+  "submitted",
+  "confirmed",
+  "awaiting_approval",
+  "scheduled",
+  "in_production",
+  "quality_check",
+  "ready_for_pickup",
+  "dispatched",
+  "delivered",
+  "on_hold",
+];
+
+/** Staff order page, v2 (design 2d). */
 export default function StaffOrderView({
   o,
   canEdit,
@@ -73,32 +89,66 @@ export default function StaffOrderView({
   minDate: string;
 }) {
   const p = o.production;
+  const current = TRACK.indexOf(o.status);
+  const revised = o.revised_due_date && o.confirmed_due_date && o.revised_due_date !== o.confirmed_due_date;
   return (
     <>
-      <OpsHeader
-        crumb={{ label: "Orders", href: "/ops/orders", current: o.order_no }}
-        title={`${o.company} · ${o.brand} · ${o.quantity.toLocaleString("en-US")}`}
-        sub={[
-          `PO ${o.po_number}`,
-          o.spec,
-          o.liner,
-          o.delivery_method === "delivery" ? `Delivery to ${o.delivery_address ?? "-"}` : "Pickup at Bole Lemi",
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={o.status} />
-            <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
-              Preview as customer ↗
-            </Link>
+      <OpsTopBar current={o.order_no}>
+        <StatusBadge status={o.status} />
+        <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
+          Preview as customer ↗
+        </Link>
+      </OpsTopBar>
+
+      <div className="grid items-end gap-6 px-4 pb-[22px] pt-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="min-w-0">
+          <h1 className="m-0 break-words text-[52px] leading-[.85] tracking-[-.05em] sm:text-[88px]">{o.order_no}</h1>
+          <div className="mt-3 text-[15px] sm:text-[16px]">
+            <b>{o.company}</b> ·{" "}
+            {[`${o.brand}`, `${o.quantity.toLocaleString("en-US")} × ${[o.spec, o.liner].filter(Boolean).join(" · ")}`, `PO ${o.po_number}`].join(" · ")}
           </div>
-        }
-      />
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="mt-1 text-[13px] opacity-70">
+            {o.delivery_method === "delivery" ? `Delivery to ${o.delivery_address ?? "-"}` : "Pickup at Bole Lemi"}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 lg:items-end">
+          <span className="font-mono text-[11px] font-semibold tracking-[.1em] opacity-60">DUE DATE</span>
+          <span className="text-[32px] font-extrabold leading-none tracking-[-.03em] sm:text-[40px]">
+            {revised && <s className="mr-2 text-[22px] opacity-35">{formatDayMonth(o.confirmed_due_date)}</s>}
+            {o.due_date ? formatDayMonth(o.due_date) : "Not set"}
+          </span>
+        </div>
+      </div>
+
+      <ol className="m-0 grid list-none grid-cols-2 border-y-2 border-text p-0 sm:grid-cols-5 xl:grid-cols-10" aria-label="Order status">
+        {TRACK.map((st, i) => {
+          const now = st === o.status;
+          return (
+            <li
+              key={st}
+              aria-current={now ? "step" : undefined}
+              className={`flex flex-col gap-1 border-divider px-3 py-3 text-[13px] max-sm:[&:nth-child(even)]:border-l sm:[&:not(:nth-child(5n+1))]:border-l xl:[&:not(:first-child)]:border-l ${
+                now
+                  ? st === "on_hold"
+                    ? "bg-accent-800 font-extrabold text-bg"
+                    : "bg-text font-extrabold text-bg"
+                  : current >= 0 && o.status !== "on_hold" && i < current
+                    ? "bg-surface"
+                    : "opacity-55"
+              }`}
+            >
+              <span className="font-mono text-[10px] font-semibold opacity-60">{String(i + 1).padStart(2, "0")}</span>
+              <span>{ORDER_STATUS_LABELS[st]}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {o.status === "rejected" && <p className="m-0 bg-accent-100 px-4 py-2.5 text-[13px] font-extrabold text-accent-800 sm:px-8">This order was rejected.</p>}
+
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-[18px] px-4 py-6 sm:px-8 xl:border-r-2 xl:border-divider">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="m-0">Status</h4>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="m-0 text-[26px] sm:text-[30px]">Change status</h2>
             <CustomerSees />
           </div>
           {canEdit ? (
@@ -183,18 +233,7 @@ export default function StaffOrderView({
           </div>
         </div>
 
-        <div className="flex flex-col gap-[18px] bg-surface px-4 py-6 sm:px-8 xl:pl-6">
-          <div>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <h5 className="m-0">Internal notes</h5>
-              <span className="bg-text px-1.5 py-0.5 text-[10px] font-semibold text-bg">Never visible to customers</span>
-            </div>
-            <NotesForm orderId={o.id} notes={o.internal_notes ?? ""} canEdit={canEdit} />
-          </div>
-          <div>
-            <h5 className="mb-1.5 mt-0">Timeline</h5>
-            <Timeline steps={o.steps} tone="staff" />
-          </div>
+        <div className="flex flex-col gap-[18px] bg-surface px-4 py-6 sm:px-8">
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <h5 className="m-0">Messages with the customer</h5>
@@ -203,8 +242,17 @@ export default function StaffOrderView({
             <Conversation o={o} canEdit={canEdit} />
           </div>
           <div>
-            <h5 className="mb-1.5 mt-0">Activity log</h5>
-            <div className="border-t-2 border-divider">
+            <h5 className="mb-1.5 mt-0">Timeline</h5>
+            <Timeline steps={o.steps} tone="staff" />
+          </div>
+          <div className="internal-ground flex flex-col gap-2.5 border-2 border-neutral-400 p-[18px]">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-[.1em]">
+              <Lock size={13} strokeWidth={2.2} aria-hidden="true" />
+              INTERNAL · NEVER VISIBLE TO CUSTOMERS
+            </span>
+            <NotesForm orderId={o.id} notes={o.internal_notes ?? ""} canEdit={canEdit} />
+            <div className="bg-bg px-3 py-1">
+              <h6 className="mb-0 mt-2 opacity-60">Activity log</h6>
               {o.activity.length === 0 && <p className="m-0 py-2 text-[12px] opacity-60">No activity recorded.</p>}
               {o.activity.map((a, i) => (
                 <div key={i} className="flex flex-col gap-0.5 border-b border-divider py-2 text-[12px]">

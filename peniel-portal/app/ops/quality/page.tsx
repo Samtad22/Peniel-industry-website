@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { setInspectionPublished } from "@/app/ops/quality/actions";
-import OpsHeader from "@/components/ops/OpsHeader";
+import { OpsTopBar } from "@/components/ops/OpsHeader";
 import { DeleteSortingButton, SortingDialog } from "@/components/ops/SortingForms";
-import SpecChart from "@/components/ui/SpecChart";
 import { Pill } from "@/components/ui/StatusBadge";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/format";
 import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
-import { CROWN_HEIGHT, LEAK_PRESSURE, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
+import { CROWN_HEIGHT, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
 import { formatCartons, formatWastePct, orderSorting, type SortingRecord } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
@@ -124,65 +123,101 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
   const REPORT_COLS = "grid grid-cols-[100px_minmax(0,1.6fr)_90px_90px_90px_70px_minmax(0,1fr)_60px] items-center gap-2.5";
 
   const rows = all.filter((r) => (f === "held" ? r.result === "on_hold" : f === "unpublished" ? !r.published : true));
-  const COLS = "grid grid-cols-[100px_minmax(0,1fr)_100px_90px_90px_80px_130px_150px] items-center gap-2.5";
+  // The poster: the oldest held batch, else the latest inspection.
+  const held = all.filter((r) => r.result === "on_hold");
+  const focus = held.at(-1) ?? all[0] ?? null;
 
   return (
     <>
-      <OpsHeader
-        title="Quality control"
-        actions={
-          canEdit && (
-            <Link href="/ops/quality/new" className="btn btn-primary">
-              + Log inspection
-            </Link>
-          )
-        }
-      />
+      <OpsTopBar>
+        {canEdit && (
+          <Link href="/ops/quality/new" className="btn btn-primary">
+            + Log inspection
+          </Link>
+        )}
+      </OpsTopBar>
       {saved && <p className="m-0 bg-neutral-200 px-4 py-2.5 text-[13px] sm:px-8">Batch {saved} saved.</p>}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] border-b-2 border-divider xl:grid-cols-2">
-        <div className="border-divider px-4 py-6 sm:px-8 xl:border-r-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="m-0">Defects by type · last 7 days</h4>
-            <CustomerSees>Each customer sees only their own published batches</CustomerSees>
-          </div>
-          <div className="mb-4 mt-1 text-[12px] opacity-60">
-            All customers: {rejected.toLocaleString("en-US")} rejects of {formatQty(sampled)} sampled
-            {sampled ? ` (${((100 * rejected) / sampled).toFixed(2)}%)` : ""}.
-          </div>
-          <div className="flex flex-col gap-2.5 text-[13px]">
-            {defects.length === 0 && <p className="m-0 opacity-60">No defects recorded this week.</p>}
-            {defects.map(([code, n], i) => (
-              <div key={code} className="grid grid-cols-[170px_minmax(0,1fr)_48px] items-center gap-3" title={`${label.get(code) ?? code}: ${n}`}>
-                <span>{label.get(code) ?? code}</span>
-                <div className="h-[18px]">
-                  <div className={`h-full ${i === 0 ? "bg-accent" : "bg-text"}`} style={{ width: `${(n / topDefect) * 100}%` }} />
-                </div>
-                <b className="text-right">{n.toLocaleString("en-US")}</b>
+      <div className="grid xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        {focus ? (
+          <div className={`flex flex-col gap-3.5 px-4 py-7 text-bg sm:px-8 ${focus.result === "on_hold" ? "bg-accent-800" : "bg-text"}`}>
+            <span className="font-mono text-[11px] font-semibold tracking-[.1em]">
+              {focus.result === "on_hold" ? `❚❚ HELD · NEEDS A DECISION${held.length > 1 ? ` · 1 OF ${held.length}` : ""}` : "LATEST BATCH · NOTHING ON HOLD"}
+            </span>
+            <h1 className="m-0 break-words text-[52px] leading-[.88] tracking-[-.05em] text-bg sm:text-[72px]">
+              Batch
+              <br />
+              {focus.batch_no}
+            </h1>
+            <div className="grid grid-cols-2 border-t-2 border-accent-500 pt-3">
+              <div>
+                <span className="text-[11px] opacity-80">REJECT RATE</span>
+                <div className="text-[40px] font-extrabold leading-none tracking-[-.04em] sm:text-[48px]">{Number(focus.reject_pct).toFixed(2)}%</div>
               </div>
-            ))}
+              <div>
+                <span className="text-[11px] opacity-80">LIMIT</span>
+                <div className="text-[40px] font-extrabold leading-none tracking-[-.04em] opacity-55 sm:text-[48px]">{REJECT_LIMIT_PCT.toFixed(2)}%</div>
+              </div>
+            </div>
+            <span className="text-[14px]">
+              {focus.orders?.brands?.name ?? "-"} · {focus.orders?.order_no ?? "-"} · {focus.orders?.companies?.name ?? ""} · inspected {formatDate(focus.inspected_at)}, sample of{" "}
+              {focus.sample_size.toLocaleString("en-US")}.
+              {measureValue(focus.measurements, CROWN_HEIGHT.key) != null && ` Shell height ${measureValue(focus.measurements, CROWN_HEIGHT.key)!.toFixed(2)} mm (spec ${CROWN_HEIGHT.spec}).`}
+            </span>
+            <div className="mt-auto flex flex-wrap gap-2">
+              <Link href={`/ops/quality/${focus.id}`} className="btn flex-1 justify-between bg-bg !text-text hover:bg-neutral-200">
+                {focus.result === "on_hold" ? "Decide" : "Open"}
+                <span aria-hidden="true">→</span>
+              </Link>
+              <Link href={`/ops/orders/${focus.order_id}/preview`} target="_blank" className="btn flex-1 justify-between border-2 border-bg !text-bg hover:bg-bg/10">
+                Customer view ↗
+              </Link>
+            </div>
           </div>
-        </div>
-        <div className="px-4 py-6 sm:px-8">
+        ) : (
+          <div className="flex flex-col justify-end gap-3 bg-text px-4 py-7 text-bg sm:px-8">
+            <span className="font-mono text-[11px] font-semibold tracking-[.1em]">NO INSPECTIONS YET</span>
+            <h1 className="m-0 text-[52px] leading-[.88] tracking-[-.05em] text-bg sm:text-[72px]">Quality control</h1>
+          </div>
+        )}
+        <div className="bg-text px-4 py-6 text-bg sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="m-0">Shell height · last {heights.length} batches</h4>
-            <InternalOnly />
+            <h3 className="m-0 text-bg">Shell height · last {heights.length} batches</h3>
+            <span className="border border-neutral-600 px-2 py-[3px] font-mono text-[10px] font-semibold tracking-[.1em]">🔒︎ INTERNAL</span>
           </div>
           <div className="mb-4 mt-1 text-[12px] opacity-60">spec {CROWN_HEIGHT.spec} mm · oldest on the left</div>
-          <SpecChart
-            points={heights}
-            min={CROWN_HEIGHT.min!}
-            max={CROWN_HEIGHT.max!}
-            target={6}
-            unit="mm"
-            title="Shell height per batch against the CoA limits"
-          />
+          <HeightChart points={heights} />
           {trend && (
-            <div className="mt-2.5 text-[12px] font-extrabold text-accent-700">
-              ⚠ Trend: the last 7 batches keep rising. Check the tooling before it goes past the upper limit.
+            <div className="mt-2.5 text-[13px] font-extrabold text-accent">
+              ⚠ The last 7 batches keep rising. Check the tooling before it goes past the upper limit.
             </div>
           )}
         </div>
+      </div>
+
+      <div className="grid border-y-2 border-divider xl:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
+        <div className="border-divider px-4 py-6 sm:px-8 xl:border-r-2">
+          <div className="mb-3.5 flex items-baseline justify-between gap-2 border-b-2 border-text pb-2">
+            <h3 className="m-0">Defects · 7 days</h3>
+            <span className="text-[12px] opacity-70">
+              {rejected.toLocaleString("en-US")} of {formatQty(sampled)} sampled
+            </span>
+          </div>
+          {defects.length === 0 && <p className="m-0 text-[13px] opacity-60">No defects recorded this week.</p>}
+          {defects.map(([code, n], i) => (
+            <div key={code} className="mb-3 grid grid-cols-[1fr_50px] gap-x-2.5 gap-y-1 text-[13px]" title={`${label.get(code) ?? code}: ${n}`}>
+              <span>{label.get(code) ?? code}</span>
+              <b className="text-right">{n.toLocaleString("en-US")}</b>
+              <div className="col-span-2 h-2.5 bg-surface">
+                <div className={`h-full ${i === 0 ? "bg-accent" : "bg-text"}`} style={{ width: `${(n / topDefect) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+          <div className="mt-1.5 border-t border-divider pt-2.5">
+            <CustomerSees>Each customer sees only their own published batches</CustomerSees>
+          </div>
+        </div>
+        <BatchTable rows={rows} f={f} canEdit={canEdit} heldCount={held.length} unpublishedCount={all.filter((r) => !r.published).length} />
       </div>
 
       <div id="sorting" className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
@@ -266,83 +301,149 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
         )}
       </div>
 
-      <div className="px-4 pb-8 pt-6 sm:px-8">
-        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-          <h4 className="m-0">Batch inspections</h4>
-          <div className="seg">
-            {Object.entries(FILTERS).map(([k, v]) => (
-              <Link
-                key={k}
-                href={k === "all" ? "/ops/quality" : `/ops/quality?f=${k}`}
-                className={`seg-opt no-underline ${f === k ? "!bg-accent !text-bg" : "text-text"}`}
-              >
-                {v}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="min-w-[940px]">
-            <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
-              <span>Batch</span>
-              <span>Customer · brand</span>
-              <span>Order</span>
-              <span>Height</span>
-              <span>Leak</span>
-              <span>Reject</span>
-              <span>Result</span>
-              <span>Published</span>
-            </div>
-            {rows.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No inspections here.</p>}
-            {rows.map((r) => {
-              const held = r.result === "on_hold";
-              const pill = r.result ? RESULT_PILL[r.result] : RESULT_PILL.none;
-              const pct = Number(r.reject_pct);
-              return (
-                <div key={r.id} className={`${COLS} border-b border-divider py-2.5 text-[13px] ${held ? "bg-accent-100" : ""}`}>
-                  <Link href={`/ops/quality/${r.id}`} className="font-extrabold">
-                    {r.batch_no}
-                  </Link>
-                  <span className="truncate">
-                    {r.orders?.companies?.name ?? "-"} · {r.orders?.brands?.name ?? "-"}
-                  </span>
-                  <Link href={`/ops/orders/${r.order_id}`} className="text-text">
-                    {r.orders?.order_no ?? "-"}
-                  </Link>
-                  <span>{measureValue(r.measurements, CROWN_HEIGHT.key)?.toFixed(2) ?? "-"}</span>
-                  <span>{measureValue(r.measurements, LEAK_PRESSURE.key)?.toFixed(1) ?? "-"}</span>
-                  <span className={pct > REJECT_LIMIT_PCT ? "font-extrabold text-accent-700" : undefined}>{pct.toFixed(2)}%</span>
-                  <span>
-                    <Pill style={pill.style}>{pill.label}</Pill>
-                  </span>
-                  {canEdit ? (
-                    <form action={setInspectionPublished} className="flex items-center gap-2 text-[12px]">
-                      <input type="hidden" name="id" value={r.id} />
-                      <input type="hidden" name="published" value={String(!r.published)} />
-                      <button
-                        type="submit"
-                        role="switch"
-                        aria-checked={r.published}
-                        aria-label={`Publish batch ${r.batch_no} to the customer`}
-                        className={`relative h-5 w-9 shrink-0 cursor-pointer border-0 ${r.published ? "bg-accent" : "bg-neutral-300"}`}
-                      >
-                        <span className={`absolute top-[3px] size-3.5 bg-bg ${r.published ? "right-[3px]" : "left-[3px]"}`} />
-                      </button>
-                      {r.published ? "Published" : "Not published"}
-                    </form>
-                  ) : (
-                    <span className="text-[12px]">{r.published ? "Published" : "Not published"}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <p className="mb-0 mt-3 text-[12px] opacity-60">
-          Inspected {formatDate(today)} and earlier. Shell height in mm, leaking pressure in kg/cm²: internal only. Customers see the reject
-          rate, defects by type and the result of published batches.
-        </p>
-      </div>
     </>
+  );
+}
+
+/** Shell height per batch on the dark panel (design 2e): the CoA limits dashed, out-of-limit points red. */
+function HeightChart({ points }: { points: { label: string; value: number }[] }) {
+  const lo = CROWN_HEIGHT.min!;
+  const hi = CROWN_HEIGHT.max!;
+  const pad = (hi - lo) * 0.35;
+  const min = Math.min(lo - pad, ...points.map((p) => p.value));
+  const max = Math.max(hi + pad, ...points.map((p) => p.value));
+  const y = (v: number) => 100 - ((v - min) / (max - min)) * 100;
+  const x = (i: number) => (points.length > 1 ? (i / (points.length - 1)) * 300 : 150);
+  if (!points.length) return <p className="m-0 text-[13px] opacity-60">No shell heights recorded yet.</p>;
+  return (
+    <div className="relative h-[230px] border-b-2 border-l-2 border-neutral-600" role="img" aria-label="Shell height per batch against the CoA limits">
+      <div className="absolute inset-x-0 border-t-2 border-dashed border-accent" style={{ top: `${y(hi)}%` }} />
+      <span className="absolute right-1 text-[11px] text-accent" style={{ top: `calc(${y(hi)}% - 18px)` }}>
+        USL {hi.toFixed(2)}
+      </span>
+      <div className="absolute inset-x-0 border-t border-neutral-700" style={{ top: `${y((lo + hi) / 2)}%` }} />
+      <div className="absolute inset-x-0 border-t-2 border-dashed border-accent" style={{ top: `${y(lo)}%` }} />
+      <span className="absolute right-1 text-[11px] text-accent" style={{ top: `calc(${y(lo)}% - 18px)` }}>
+        LSL {lo.toFixed(2)}
+      </span>
+      <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="absolute inset-0 size-full">
+        <polyline
+          fill="none"
+          stroke="var(--color-bg)"
+          strokeWidth="2.5"
+          vectorEffect="non-scaling-stroke"
+          points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")}
+        />
+      </svg>
+      {points.map((p, i) => {
+        const out = p.value < lo || p.value > hi;
+        return (
+          <span
+            key={i}
+            title={`${p.label}: ${p.value.toFixed(2)} mm`}
+            className={`absolute size-2 -translate-x-1/2 -translate-y-1/2 ${out ? "bg-accent" : "bg-bg"}`}
+            style={{ left: `${(x(i) / 300) * 100}%`, top: `${y(p.value)}%` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** Batch inspections with the publish switch (design 2e). */
+function BatchTable({
+  rows,
+  f,
+  canEdit,
+  heldCount,
+  unpublishedCount,
+}: {
+  rows: Row[];
+  f: keyof typeof FILTERS;
+  canEdit: boolean;
+  heldCount: number;
+  unpublishedCount: number;
+}) {
+  const COLS = "grid grid-cols-[96px_minmax(0,1fr)_96px_64px_64px_104px_130px] items-center gap-2.5";
+  const count: Record<keyof typeof FILTERS, number | null> = { all: null, held: heldCount, unpublished: unpublishedCount };
+  return (
+    <div className="min-w-0 px-4 py-6 sm:px-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b-2 border-text pb-2">
+        <h3 className="m-0">Batch inspections</h3>
+        <div className="flex border border-divider text-[12px]">
+          {(Object.entries(FILTERS) as [keyof typeof FILTERS, string][]).map(([k, v]) => (
+            <Link
+              key={k}
+              href={k === "all" ? "/ops/quality" : `/ops/quality?f=${k}`}
+              className={`px-2.5 py-[5px] no-underline ${f === k ? "bg-text !text-bg" : "text-text hover:bg-text/[.07]"}`}
+            >
+              {v}
+              {count[k] ? ` ${count[k]}` : ""}
+            </Link>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[760px]">
+          <div className={`${COLS} th-row border-b border-divider py-2`}>
+            <span>Batch</span>
+            <span>Customer · brand</span>
+            <span>Order</span>
+            <span>Height</span>
+            <span>Reject</span>
+            <span>Result</span>
+            <span>Published ◉</span>
+          </div>
+          {rows.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No inspections here.</p>}
+          {rows.map((r) => {
+            const held = r.result === "on_hold";
+            const pill = r.result ? RESULT_PILL[r.result] : RESULT_PILL.none;
+            const pct = Number(r.reject_pct);
+            return (
+              <div
+                key={r.id}
+                className={`${COLS} border-b border-divider py-[11px] text-[13px] ${held ? "bg-accent-100 shadow-[inset_4px_0_0_var(--color-accent-800)]" : ""}`}
+              >
+                <Link href={`/ops/quality/${r.id}`} className="font-extrabold">
+                  {r.batch_no}
+                </Link>
+                <span className="truncate">
+                  {r.orders?.companies?.name ?? "-"} · {r.orders?.brands?.name ?? "-"}
+                </span>
+                <Link href={`/ops/orders/${r.order_id}`} className="text-text">
+                  {r.orders?.order_no ?? "-"}
+                </Link>
+                <span>{measureValue(r.measurements, CROWN_HEIGHT.key)?.toFixed(2) ?? "-"}</span>
+                <span className={held || pct > REJECT_LIMIT_PCT ? "font-extrabold text-accent-700" : undefined}>{pct.toFixed(2)}%</span>
+                <span>
+                  <Pill style={pill.style}>{pill.label}</Pill>
+                </span>
+                {canEdit ? (
+                  <form action={setInspectionPublished} className="flex items-center gap-2 text-[12px]">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input type="hidden" name="published" value={String(!r.published)} />
+                    <button
+                      type="submit"
+                      role="switch"
+                      aria-checked={r.published}
+                      aria-label={`Publish batch ${r.batch_no} to the customer`}
+                      className={`relative h-5 w-9 shrink-0 cursor-pointer border-0 ${r.published ? "bg-accent" : "bg-neutral-300"}`}
+                    >
+                      <span className={`absolute top-[3px] size-3.5 bg-bg ${r.published ? "right-[3px]" : "left-[3px]"}`} />
+                    </button>
+                    {r.published ? (held ? "Hold shown" : "Live") : "Draft"}
+                  </form>
+                ) : (
+                  <span className="text-[12px]">{r.published ? "Live" : "Draft"}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <p className="mb-0 mt-3 text-[12px] opacity-60">
+        Shell height in mm: internal only. Customers see the reject rate, defects by type and the result of published batches.
+      </p>
+    </div>
   );
 }

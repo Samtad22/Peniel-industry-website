@@ -1,6 +1,9 @@
-import Link from "next/link";
+import OpsCrumb from "./OpsCrumb";
 
-/** The page header bar used on every Peniel Ops screen. */
+/**
+ * Every Peniel Ops screen opens with the v2 top bar (mono breadcrumb on the
+ * left, the page's actions on the right) and a poster title set large.
+ */
 export default function OpsHeader({
   title,
   crumb,
@@ -8,27 +11,30 @@ export default function OpsHeader({
   actions,
 }: {
   title: string;
-  /** Breadcrumb above the title, e.g. { label: "Orders", href: "/ops/orders" } → "ORDERS / PN-26-0001". */
+  /** The item the page sits under and where it is, e.g. { label: "Orders", href: "/ops/orders", current: "PN-26-0001" }. */
   crumb?: { label: string; href: string; current?: string };
   sub?: React.ReactNode;
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b-2 border-divider px-4 py-5 sm:px-8">
-      {/* Title takes the row; on a phone the actions wrap underneath instead of squeezing it. */}
-      <div className="min-w-0 flex-[1_1_260px]">
-        {crumb && (
-          <h6 className="m-0 text-accent-700">
-            <Link href={crumb.href} className="text-inherit no-underline">
-              {crumb.label}
-            </Link>
-            {crumb.current && ` / ${crumb.current}`}
-          </h6>
-        )}
-        <h2 className={`break-words max-sm:text-[26px] ${crumb ? "mb-0 mt-1" : "m-0"}`}>{title}</h2>
-        {sub && <div className="text-[13px] opacity-70">{sub}</div>}
+    <>
+      <OpsTopBar current={crumb?.current}>{actions}</OpsTopBar>
+      <div className="border-b-2 border-divider px-4 pb-5 pt-6 sm:px-8 sm:pb-6 sm:pt-7">
+        <h1 className="m-0 break-words text-[36px] leading-[.95] tracking-[-.04em] sm:text-[56px] xl:text-[64px]">{title}</h1>
+        {sub && <div className="mt-3 max-w-[900px] text-[14px] opacity-75 sm:text-[15px]">{sub}</div>}
       </div>
-      {actions}
+    </>
+  );
+}
+
+/** Just the top bar: breadcrumb and actions (screens that set their own poster header). */
+export function OpsTopBar({ current, children, dark }: { current?: string; children?: React.ReactNode; dark?: boolean }) {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b-2 px-4 py-3 sm:px-8 ${dark ? "border-neutral-800 bg-text text-bg [&_a]:text-bg" : "border-divider"}`}
+    >
+      <OpsCrumb current={current} />
+      {children && <div className="ml-auto flex flex-wrap items-center gap-2.5">{children}</div>}
     </div>
   );
 }

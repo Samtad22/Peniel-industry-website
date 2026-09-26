@@ -4,6 +4,7 @@ import { BrandDialog, CompanyDialog, type BrandFields, type CompanyFields } from
 import CrownImport from "./CrownImport";
 import InviteDialog from "./InviteDialog";
 import UsersTable, { type UserRow } from "./UsersTable";
+import { OpsTopBar } from "@/components/ops/OpsHeader";
 
 export type CompanyListItem = { id: string; name: string; brands: number; users: number; openOrders: number };
 export type BrandCard = {
@@ -43,6 +44,8 @@ export default function CustomersView({
   meId: string;
 }) {
   return (
+    <>
+      <OpsTopBar />
     <div className="grid lg:grid-cols-[300px_minmax(0,1fr)]">
       <div className="border-b-2 border-divider lg:border-b-0 lg:border-r-2">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-divider px-6 py-5">
@@ -157,5 +160,6 @@ export default function CustomersView({
         </div>
       )}
     </div>
+    </>
   );
 }
