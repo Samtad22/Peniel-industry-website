@@ -12,7 +12,7 @@ export function CustomerPageHead({
 }) {
   return (
     <div className="flex flex-wrap items-end gap-4 border-b-2 border-divider px-4 py-7 sm:px-10">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-[1_1_260px]">
         <h6 className="mb-2 mt-0 text-accent">{section}</h6>
         <h1 className="m-0 text-[36px] sm:text-[48px]">{title}</h1>
       </div>

@@ -716,9 +716,9 @@ export default function NewOrderWizard({
           <div className="border border-divider bg-surface">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-divider px-6 py-5">
               <Crown colours={brand.colours} src={brand.crown} size={72} alt={`${brand.name} crown`} />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-[1_1_180px]">
                 <h6 className="m-0 text-accent-700">Review</h6>
-                <h2 className="mb-0 mt-1 text-[26px] sm:text-[32px]">
+                <h2 className="mb-0 mt-1 break-words text-[24px] sm:text-[32px]">
                   {qty.toLocaleString("en-US")} × {brand.name} crowns
                 </h2>
               </div>
