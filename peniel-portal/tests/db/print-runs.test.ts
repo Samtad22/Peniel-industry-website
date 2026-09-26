@@ -1,8 +1,10 @@
-// Printed sheets (coat & print line) are internal: production and admin
-// record runs, other staff read them, customers never see them.
+// Printed sheets are internal and their own process: one row per finished
+// stillage, printed with a brand's design, tied to no order or batch.
+// Production and admin record them, other staff read them, customers never
+// see them.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { as, createUser, errorCode, HAB, HAB_ORDER_HABESHA, pool } from "./helpers.ts";
+import { as, createUser, errorCode, HAB, HAB_BRAND_FETA, HAB_BRAND_HABESHA, HAB_ORDER_HABESHA, pool } from "./helpers.ts";
 
 let production: string;
 let sales: string;
@@ -10,23 +12,23 @@ let habesha: string;
 
 const run = (db: { query: typeof pool.query }, extra: Record<string, unknown> = {}) => {
   const r = {
-    order_id: HAB_ORDER_HABESHA,
+    brand_id: HAB_BRAND_HABESHA as string | null,
     run_date: "2026-09-26",
     shift: "A",
+    stillage_no: "ST-014",
     colours: ["PANTONE 485 C #DA291C", "PANTONE 116 C"],
-    sheets_printed: 12_000,
-    sheets_spoiled: 150,
-    crowns_per_sheet: 400,
-    coating: "Gold base coat",
+    sheets_printed: 1_410,
+    sheets_spoiled: 12,
+    varnish: "Gold varnish",
     lacquer: "Food-grade inside lacquer",
     oven_temp_c: 185,
     coil_lot: "TP-2291",
     ...extra,
   };
   return db.query(
-    `insert into public.print_runs (order_id, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coating, lacquer, oven_temp_c, coil_lot)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
-    [r.order_id, r.run_date, r.shift, r.colours, r.sheets_printed, r.sheets_spoiled, r.crowns_per_sheet, r.coating, r.lacquer, r.oven_temp_c, r.coil_lot],
+    `insert into public.print_runs (brand_id, run_date, shift, stillage_no, colours, sheets_printed, sheets_spoiled, varnish, lacquer, oven_temp_c, coil_lot)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id, order_id, crowns_per_sheet`,
+    [r.brand_id, r.run_date, r.shift, r.stillage_no, r.colours, r.sheets_printed, r.sheets_spoiled, r.varnish, r.lacquer, r.oven_temp_c, r.coil_lot],
   );
 };
 
@@ -38,15 +40,17 @@ before(async () => {
 
 after(() => pool.end());
 
-test("production records print runs; the audit log keeps them; other staff read but can't write", async () => {
+test("production records stillages per brand, with no order; 702 crowns per sheet; the audit log keeps them", async () => {
   await as(production, async (db) => {
-    await run(db);
-    await run(db, { shift: "B", sheets_printed: 10_000, sheets_spoiled: 50 });
+    const { rows: first } = await run(db);
+    assert.deepEqual(first[0].order_id, null);
+    assert.equal(first[0].crowns_per_sheet, 702);
+    await run(db, { shift: "B", stillage_no: " ", sheets_printed: 1_402, sheets_spoiled: 8 });
     const { rows } = await db.query(
-      "select sum(sheets_printed)::int as good, sum(sheets_spoiled)::int as spoiled, sum(sheets_printed * crowns_per_sheet)::bigint as crowns from public.print_runs where order_id = $1",
-      [HAB_ORDER_HABESHA],
+      "select count(*)::int as stillages, sum(sheets_printed)::int as good, sum(sheets_spoiled)::int as spoiled, count(stillage_no)::int as numbered from public.print_runs where brand_id = $1",
+      [HAB_BRAND_HABESHA],
     );
-    assert.deepEqual({ ...rows[0], crowns: Number(rows[0].crowns) }, { good: 22_000, spoiled: 200, crowns: 8_800_000 });
+    assert.deepEqual(rows[0], { stillages: 2, good: 2_812, spoiled: 20, numbered: 1 });
     await db.query("commit");
   });
   const log = await pool.query("select count(*)::int as n from public.audit_log where entity = 'print_runs' and actor = $1", [production]);
@@ -58,13 +62,24 @@ test("production records print runs; the audit log keeps them; other staff read 
   });
 });
 
-test("a run needs sheets, a known shift, and a sensible crowns-per-sheet and oven temperature", async () => {
+test("a run entered against an order (the screen before stillages) takes the order's brand", async () => {
+  await as(production, async (db) => {
+    const { rows } = await db.query(
+      `insert into public.print_runs (order_id, shift, sheets_printed, crowns_per_sheet) values ($1, 'A', 1400, 702) returning brand_id`,
+      [HAB_ORDER_HABESHA],
+    );
+    assert.equal(rows[0].brand_id, HAB_BRAND_HABESHA);
+  });
+});
+
+test("a stillage needs a brand, sheets, a known shift and a sensible oven temperature", async () => {
   for (const [extra, code] of [
+    [{ brand_id: null }, "23502"],
     [{ sheets_printed: 0, sheets_spoiled: 0 }, "23514"],
     [{ sheets_printed: -1 }, "23514"],
     [{ shift: "D" }, "23514"],
-    [{ crowns_per_sheet: 0 }, "23514"],
     [{ oven_temp_c: 900 }, "23514"],
+    [{ brand_id: HAB_BRAND_FETA, stillage_no: "x".repeat(41) }, "23514"],
   ] as const) {
     await as(production, async (db) => {
       assert.equal(await errorCode(run(db, extra)), code, JSON.stringify(extra));

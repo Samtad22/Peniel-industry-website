@@ -13,9 +13,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Production" };
 
-type RunRow = Pick<PrintRun, "run_date" | "sheets_printed" | "sheets_spoiled" | "crowns_per_sheet"> & {
+type RunRow = Pick<PrintRun, "run_date" | "sheets_printed" | "sheets_spoiled" | "crowns_per_sheet" | "stillage_no"> & {
   created_at: string;
-  orders: { order_no: string; brands: { name: string } | null } | null;
+  brands: { name: string } | null;
 };
 type HeldRow = { batch_no: string; inspected_at: string; orders: { order_no: string } | null };
 
@@ -40,7 +40,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
     loadProducibleOrders(supabase),
     supabase
       .from("print_runs")
-      .select("run_date, sheets_printed, sheets_spoiled, crowns_per_sheet, created_at, orders(order_no, brands(name))")
+      .select("run_date, sheets_printed, sheets_spoiled, crowns_per_sheet, stillage_no, created_at, brands(name)")
       .gte("run_date", addDays(today, -20))
       .order("created_at", { ascending: false })
       .returns<RunRow[]>(),
@@ -85,16 +85,18 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
     (() => {
       const perDay = days12.map((d) => printTotals(runs.filter((x) => x.run_date === d)).printed);
       const best = Math.max(1, ...perDay) * days;
-      const printing = [...new Set(runs.filter((x) => x.run_date >= from).map((x) => `${x.orders?.brands?.name ?? ""} ${x.orders?.order_no ?? ""}`.trim()))];
+      const printing = [...new Set(runs.filter((x) => x.run_date >= from).map((x) => x.brands?.name ?? "-"))];
       return {
         key: "print",
-        name: "Coat & Print",
-        status: sheets.printed ? "Running" : "No runs",
+        name: "Printing & coating",
+        status: sheets.printed ? "Running" : "No stillages",
         value: sheets.printed ? formatQty(sheets.printed) : "0",
         unit: range === "week" ? "sheets · 7 days" : "sheets today",
         pct: (100 * sheets.printed) / best,
         bars: perDay,
-        note: printing.length ? `${printing.join(" · ")} · ${formatSpoiledPct(sheets.printed, sheets.spoiled)} spoiled` : "No print runs logged",
+        note: printing.length
+          ? `${sheets.stillages} stillage${sheets.stillages === 1 ? "" : "s"} · ${printing.join(" · ")} · ${formatSpoiledPct(sheets.printed, sheets.spoiled)} spoiled`
+          : "No stillages logged",
         down: false,
       };
     })(),
@@ -109,7 +111,11 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       hot: false,
       text: `${e.line.split(" · ")[0]} · ${formatQty(e.produced)} crowns · ${e.order_no} (shift ${e.shift})`,
     })),
-    ...runs.slice(0, 6).map((x) => ({ at: x.created_at, hot: false, text: `Coat & print · ${x.sheets_printed.toLocaleString("en-US")} sheets · ${x.orders?.order_no ?? ""}` })),
+    ...runs.slice(0, 6).map((x) => ({
+      at: x.created_at,
+      hot: false,
+      text: `Printed sheets · ${x.stillage_no ? `stillage ${x.stillage_no} · ` : ""}${x.sheets_printed.toLocaleString("en-US")} sheets · ${x.brands?.name ?? ""}`,
+    })),
     ...(heldData ?? []).map((h) => ({ at: h.inspected_at, hot: true, text: `QC hold on batch ${h.batch_no} · ${h.orders?.order_no ?? ""}` })),
   ]
     .sort((a, b) => b.at.localeCompare(a.at))
@@ -171,7 +177,10 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
         <div className="border-l-2 border-neutral-800 px-6 py-6 max-xl:border-t-2">
           <h6 className="m-0 opacity-60">Sheets printed</h6>
           <div className="mt-2.5 text-[64px] font-extrabold leading-[.9] tracking-[-.05em] sm:text-[72px]">{sheets.printed ? formatQty(sheets.printed) : "0"}</div>
-          <div className="mt-2 text-[13px] opacity-75">{formatSpoiledPct(sheets.printed, sheets.spoiled)} spoiled · {sheets.crowns ? formatQty(sheets.crowns) : "0"} crowns</div>
+          <div className="mt-2 text-[13px] opacity-75">
+            {sheets.stillages} stillage{sheets.stillages === 1 ? "" : "s"} · {formatSpoiledPct(sheets.printed, sheets.spoiled)} spoiled
+            <span className="block text-[11px] opacity-70">about {formatQty(sheets.crowns)} crowns</span>
+          </div>
         </div>
         <Link
           href="#orders"

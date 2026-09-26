@@ -1,17 +1,26 @@
-// Printed sheets (coat & print line, internal only). Tinplate sheets are
-// coated, lacquered and printed before the presses stamp them into crowns.
+// Printed sheets (internal only), their own process: tinplate sheets go
+// through the two-unit roller printer, the UV dryer, the varnish oven and
+// lacquer coating, and come off on stillages. One row = one finished
+// stillage, printed with a brand's design; no order or batch number.
+// Sheets are the figure that counts; crowns (702 per sheet) are only a note.
 // Shared by the browser and the server; no imports.
+
+/** Sheets on a stillage to start from; staff type the real count (usually 1,400 to 1,420). */
+export const STILLAGE_SHEETS = 1_410;
+/** Crowns one printed sheet makes. */
+export const CROWNS_PER_SHEET = 702;
 
 export type PrintRun = {
   id: string;
-  order_id: string;
+  brand_id: string;
+  stillage_no: string | null;
   run_date: string;
   shift: string;
   colours: string[];
   sheets_printed: number;
   sheets_spoiled: number;
   crowns_per_sheet: number;
-  coating: string | null;
+  varnish: string | null;
   lacquer: string | null;
   oven_temp_c: number | null;
   coil_lot: string | null;
@@ -33,12 +42,12 @@ export function formatSpoiledPct(printed: number, spoiled: number): string {
 /** Crowns the good sheets will yield: 12,000 sheets × 400 per sheet = 4,800,000. */
 export const crownsFromSheets = (sheets: number, perSheet: number): number => Math.max(0, sheets) * Math.max(0, perSheet);
 
-/** Totals over runs (each run can have its own crowns per sheet). */
+/** Totals over stillages. */
 export function printTotals(runs: Pick<PrintRun, "sheets_printed" | "sheets_spoiled" | "crowns_per_sheet" | "run_date">[]) {
   const printed = runs.reduce((s, r) => s + Number(r.sheets_printed), 0);
   const spoiled = runs.reduce((s, r) => s + Number(r.sheets_spoiled), 0);
   return {
-    runs: runs.length,
+    stillages: runs.length,
     printed,
     spoiled,
     spoiledPct: spoiledPct(printed, spoiled),
