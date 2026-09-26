@@ -20,15 +20,14 @@ import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_PILL, type OrderStatu
 export type Preset = { id: string; text: string };
 
 /** CLAUDE.md rule 4: shown on every staff form that writes customer_reason. */
-export function CustomerWarning({ boxed }: { boxed?: boolean }) {
+export function CustomerWarning() {
+  // v2: an ink bar with a red "!" block (design 2d).
   return (
-    <div
-      className={clsx(
-        "text-[13px] font-extrabold text-accent-800",
-        boxed && "border-2 border-accent px-3 py-2.5",
-      )}
-    >
-      ⚠ Written for the customer: do not include line or machine names.
+    <div className="grid grid-cols-[40px_1fr] bg-text text-bg">
+      <span className="grid place-items-center bg-accent text-[20px] font-extrabold" aria-hidden="true">
+        !
+      </span>
+      <span className="px-3.5 py-3 text-[14px] font-extrabold">Written for the customer: do not include line or machine names.</span>
     </div>
   );
 }
@@ -76,15 +75,64 @@ export function ConfirmForm({
   orderId,
   defaultDue,
   minDate,
+  orderNo,
   children,
 }: {
   orderId: string;
   defaultDue: string;
   minDate: string;
+  /** v2 inbox (design 2c): order number and due date side by side, then one bar of Confirm / Ask / Reject. */
+  orderNo?: string;
   children?: React.ReactNode;
 }) {
   const [state, action, pending] = useActionState<OrderActionState, FormData>(confirmOrder, null);
   const formId = `confirm-${orderId}`;
+  if (orderNo) {
+    return (
+      <div className="flex flex-col gap-3.5">
+        <form id={formId} action={action} className="grid gap-3.5 sm:grid-cols-2">
+          <input type="hidden" name="order_id" value={orderId} />
+          <div className="field">
+            <span className="mb-[5px] flex justify-between gap-2 text-[12px] text-text/70">
+              Order number
+              <CustomerSees />
+            </span>
+            <div className="input flex min-h-11 items-center font-extrabold">{orderNo}</div>
+          </div>
+          <div className="field">
+            <label htmlFor={`due-${orderId}`} className="!flex justify-between gap-2">
+              Confirmed due date
+              <CustomerSees />
+            </label>
+            <input
+              id={`due-${orderId}`}
+              name="due_date"
+              type="date"
+              required
+              min={minDate}
+              defaultValue={defaultDue >= minDate ? defaultDue : ""}
+              className="input min-h-11 font-extrabold"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <FormMessage state={state} />
+          </div>
+        </form>
+        <div className="grid border-2 border-text sm:grid-cols-[1.4fr_1fr_1fr]">
+          <button
+            type="submit"
+            form={formId}
+            disabled={pending}
+            className="flex cursor-pointer items-center justify-between gap-3 border-0 bg-accent p-4 text-left text-[16px] font-extrabold text-bg hover:bg-accent-600 disabled:opacity-60"
+          >
+            {pending ? "Confirming…" : "Confirm order"}
+            <span aria-hidden="true">✓</span>
+          </button>
+          {children}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <form id={formId} action={action} className="flex flex-col gap-3">
@@ -116,17 +164,24 @@ export function ConfirmForm({
   );
 }
 
+/** A cell of the v2 inbox's Confirm / Ask / Reject bar. */
+const BAR_BUTTON =
+  "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap border-0 border-text bg-transparent px-3.5 py-4 text-left text-[15px] font-extrabold hover:bg-text/[.07] max-sm:border-t-2 sm:border-l-2";
+
 /** "Reject order" dialog (design 1d). */
 export function RejectDialog({
   orderId,
   title,
   summary,
   presets,
+  bar,
 }: {
   orderId: string;
   title: string;
   summary: string;
   presets: Preset[];
+  /** Part of the v2 confirm bar. */
+  bar?: boolean;
 }) {
   const [state, action, pending] = useActionState<OrderActionState, FormData>(rejectOrder, null);
   const [text, setText] = useState("");
@@ -134,7 +189,7 @@ export function RejectDialog({
     <Modal
       title={title}
       trigger={(open) => (
-        <button type="button" onClick={open} className="btn btn-secondary btn-split px-3.5 py-3 text-accent-700 hover:text-accent-700">
+        <button type="button" onClick={open} className={bar ? BAR_BUTTON + " text-accent-700" : "btn btn-secondary btn-split px-3.5 py-3 text-accent-700 hover:text-accent-700"}>
           Reject<span aria-hidden="true">×</span>
         </button>
       )}
@@ -195,14 +250,15 @@ export function RejectDialog({
 }
 
 /** "Request clarification": a question the customer answers on their order page. */
-export function AskDialog({ orderId, orderNo }: { orderId: string; orderNo: string }) {
+export function AskDialog({ orderId, orderNo, bar, draft }: { orderId: string; orderNo: string; bar?: boolean; draft?: string }) {
   const [state, action, pending] = useActionState<OrderActionState, FormData>(askCustomer, null);
   return (
     <Modal
       title={`Ask about ${orderNo}`}
       trigger={(open) => (
-        <button type="button" onClick={open} className="btn btn-secondary btn-split px-3.5 py-3 text-text">
-          Request clarification<span aria-hidden="true">?</span>
+        <button type="button" onClick={open} className={bar ? BAR_BUTTON + " text-text" : "btn btn-secondary btn-split px-3.5 py-3 text-text"}>
+          {bar ? "Ask to clarify" : "Request clarification"}
+          <span aria-hidden="true">?</span>
         </button>
       )}
     >
@@ -222,6 +278,7 @@ export function AskDialog({ orderId, orderNo }: { orderId: string; orderNo: stri
               name="body"
               required
               maxLength={4000}
+              defaultValue={draft}
               placeholder="e.g. Your PO says delivery on 15 Nov but the order says 20 Nov. Which date is right?"
               className="input"
             />
@@ -362,7 +419,7 @@ export function StatusControl({
           and add the crowns to stock.
         </p>
       )}
-      <div className="grid grid-cols-2 border border-divider sm:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 border border-divider sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
         {ORDER_STATUSES.map((s) => {
           const current = s === status;
           const chosen = s === target;
@@ -403,25 +460,29 @@ export function StatusControl({
             {dateChanged && <span>Due date changed as well</span>}
           </div>
           <div className="grid gap-3.5 p-4 sm:grid-cols-2">
-            {(target === "on_hold" || target === "rejected" || dateChanged) && presets.length > 0 ? (
-              <div className="field">
-                <label htmlFor={`sp-${orderId}`}>Reason preset</label>
-                <select
-                  id={`sp-${orderId}`}
-                  className="input"
-                  defaultValue=""
-                  onChange={(e) => e.target.value && setReason(e.target.value)}
-                >
-                  <option value="">Choose a preset, or write your own</option>
-                  {presets.map((p) => (
-                    <option key={p.id} value={p.text}>
-                      {p.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="max-sm:hidden" />
+            {(target === "on_hold" || target === "rejected" || dateChanged) && presets.length > 0 && (
+              <fieldset className="m-0 border-0 p-0 sm:col-span-2">
+                <legend className="mb-1.5 p-0 text-[12px] text-text/70">Reason presets</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => {
+                    const on = reason === p.text;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setReason(on ? "" : p.text)}
+                        className={clsx(
+                          "cursor-pointer border-2 border-text px-3 py-2 text-left text-[13px]",
+                          on ? "bg-text font-extrabold text-bg" : "bg-transparent text-text hover:bg-text/[.07]",
+                        )}
+                      >
+                        {p.text}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
             )}
             {target !== "rejected" && (
               <div className="field">
@@ -456,7 +517,7 @@ export function StatusControl({
               />
             </div>
             <div className="sm:col-span-2">
-              <CustomerWarning boxed />
+              <CustomerWarning />
             </div>
             {target === "ready_for_pickup" && (
               <fieldset className="m-0 flex flex-col gap-3 border border-divider p-3.5 sm:col-span-2">

@@ -140,6 +140,8 @@
   .th-row { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-700); }
 
   /* big KPI numbers */
+  /* Internal-only areas sit on a hatched ground (v2 visibility system). */
+  .internal-ground { background: repeating-linear-gradient(135deg, var(--color-neutral-200) 0 2px, var(--color-surface) 2px 8px); }
   .kpi { font-size: 44px; font-weight: 800; line-height: 1.1; }
 }
 
