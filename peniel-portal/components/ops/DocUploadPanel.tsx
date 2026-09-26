@@ -62,7 +62,7 @@ export default function DocUploadPanel({
 
   return (
     <div className="flex flex-col gap-3.5">
-      <h4 className="m-0">Upload document</h4>
+      <h2 className="m-0 border-b-2 border-text pb-2 text-[26px] sm:text-[30px]">Upload a document</h2>
       <FileDrop id="doc-file" file={file} onFile={setFile} />
       <div className="field">
         <label htmlFor="doc-company">Customer</label>

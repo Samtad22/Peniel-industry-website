@@ -94,15 +94,15 @@ export default function InspectionForm({
         </div>
 
         <div>
-          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-            <h5 className="m-0">
-              Measurements <span className="text-[12px] font-normal opacity-60">· Certificate of Analysis {COA_DOCUMENT}</span>
-            </h5>
+          <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-text pb-2">
+            <h2 className="m-0 text-[24px] sm:text-[28px]">
+              Measurements <span className="text-[12px] font-normal tracking-normal opacity-60">· Certificate of Analysis {COA_DOCUMENT}</span>
+            </h2>
             <InternalOnly>Spec values internal · customers see only the result</InternalOnly>
           </div>
           <div className="overflow-x-auto">
           <div className="min-w-[560px]">
-          <div className="th-row grid grid-cols-[minmax(0,1fr)_56px_150px_120px_90px] gap-3 border-b-2 border-divider py-1.5">
+          <div className="th-row grid grid-cols-[minmax(0,1fr)_56px_150px_120px_90px] gap-3 border-b border-divider py-1.5">
             <span>Parameter</span>
             <span>Sample</span>
             <span>Result</span>
@@ -141,13 +141,13 @@ export default function InspectionForm({
         </div>
 
         <div>
-          <h5 className="mb-1.5 mt-0">
-            Visual checks · defects found{" "}
+          <h2 className="mb-2.5 mt-0 border-b-2 border-text pb-2 text-[24px] sm:text-[28px]">
+            Visual checks{" "}
             <span className="text-[12px] font-normal opacity-60">
               (standard 0% · sample {VISUAL_SAMPLE}
               {Object.keys(DEFECT_SAMPLE).length ? `, corrosion ${DEFECT_SAMPLE.corrosion}` : ""})
             </span>
-          </h5>
+          </h2>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {defectTypes.map((d) => (
               <label key={d.code} className="grid grid-cols-[minmax(0,1fr)_90px] items-center gap-2 bg-surface px-2.5 py-2 text-[13px]">
@@ -208,8 +208,8 @@ export default function InspectionForm({
           ))}
           <span className="flex items-center gap-1 text-[11px] opacity-70">Internal: customers see only the release decision and defect counts.</span>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="m-0">Release decision</h4>
+        <div className="flex items-baseline justify-between gap-2 border-b-2 border-text pb-2">
+          <h2 className="m-0 text-[24px] sm:text-[28px]">Release decision</h2>
           <CustomerSees />
         </div>
         <div className="grid grid-cols-3 border-2 border-text">

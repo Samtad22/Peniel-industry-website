@@ -3,6 +3,7 @@ import Link from "next/link";
 import { lockArtwork, lockSubmission } from "@/app/ops/artwork/actions";
 import { DispatchDialog, ReviewSubmissionForm, NO_DELIVERY } from "@/components/ops/ArtworkForms";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { SectionHead } from "@/components/ops/OpsKit";
 import SendProofPanel from "@/components/ops/SendProofPanel";
 import Crown, { crownSrc } from "@/components/ui/Crown";
 import { Pill } from "@/components/ui/StatusBadge";
@@ -128,12 +129,15 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
   const latestPerBrand = (brandId: string) => allProofs.find((p) => p.brand_id === brandId);
   const COLS = "grid grid-cols-[44px_minmax(0,1fr)_96px_60px_minmax(0,1.3fr)_170px] items-center gap-2.5";
   // New customer artwork first, then the latest answered ones.
+  const toReview = (submissions ?? []).filter((x) => x.status === "submitted").length;
+  const sentOut = allProofs.filter((p) => p.status === "sent").length;
   const fromCustomers = [...(submissions ?? [])].sort((a, b) => Number(b.status === "submitted") - Number(a.status === "submitted")).slice(0, 12);
 
   return (
     <>
       <OpsHeader
         title="Artwork"
+        sub={`${toReview} from customers to review · ${sentOut} ${sentOut === 1 ? "proof" : "proofs"} with customers · ${allProofs.filter((p) => p.status === "changes_requested").length} changes requested`}
         actions={
           <form className="flex items-end gap-2">
             <label htmlFor="aw-c" className="sr-only">
@@ -188,17 +192,20 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
       <div className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 border-divider px-4 py-6 sm:px-8 xl:border-r-2">
           <div className="mb-8">
-            <h4 className="mb-2.5 mt-0">Artwork from customers</h4>
+            <SectionHead title="Artwork from customers" aside={toReview ? `${toReview} to review` : "nothing waiting"} />
             {fromCustomers.length === 0 ? (
-              <p className="m-0 border-t-2 border-divider py-3 text-[13px] opacity-60">
+              <p className="m-0 py-3 text-[13px] opacity-60">
                 Nothing yet. Customers can send artwork from their Artwork page; it appears here for review.
               </p>
             ) : (
-              <div className="border-t-2 border-divider">
+              <div>
                 {fromCustomers.map((sub) => {
                   const pill = submissionPill(sub.status, "staff");
                   return (
-                    <div key={sub.id} className="grid gap-3 border-b border-divider py-3 text-[13px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                    <div
+                      key={sub.id}
+                      className={`grid gap-3 border-b border-divider py-3 text-[13px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] ${sub.status === "submitted" ? "bg-accent-100 px-3 shadow-[inset_5px_0_0_var(--color-accent)]" : ""}`}
+                    >
                       <div className="flex min-w-0 flex-col gap-1">
                         <span className="flex flex-wrap items-center gap-2">
                           <Pill style={pill.style}>{pill.label}</Pill>
@@ -237,9 +244,8 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
             )}
           </div>
 
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-            <h4 className="m-0">Proof queue · all customers</h4>
-            <div className="seg">
+          <SectionHead title="Proof queue" aside="all customers">
+            <div className="flex border border-divider text-[12px]">
               {(
                 [
                   ["all", "All"],
@@ -250,16 +256,16 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                 <Link
                   key={k}
                   href={`/ops/artwork?c=${companyId}${k === "all" ? "" : `&f=${k}`}`}
-                  className={`seg-opt no-underline ${f === k ? "!bg-accent !text-bg" : "text-text"}`}
+                  className={`px-2.5 py-[5px] no-underline ${f === k ? "bg-text !text-bg" : "text-text hover:bg-text/[.07]"}`}
                 >
                   {v}
                 </Link>
               ))}
             </div>
-          </div>
+          </SectionHead>
           <div className="overflow-x-auto">
             <div className="min-w-[720px]">
-              <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
+              <div className={`${COLS} th-row border-b border-divider py-2`}>
                 <span>Proof</span>
                 <span>Brand · customer</span>
                 <span>Order</span>

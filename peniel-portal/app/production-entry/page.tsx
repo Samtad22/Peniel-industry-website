@@ -29,19 +29,24 @@ export default async function ProductionEntryPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex flex-wrap items-center gap-4 bg-text px-5 py-2.5 text-bg">
-        <Image src="/img/logo-icon.png" alt="" width={28} height={28} className="bg-bg" />
-        <b className="flex-1">Peniel Ops · Production entry</b>
+      <header className="flex flex-wrap items-center gap-4 border-b-2 border-text bg-surface px-5 py-3">
+        <Image src="/img/logo-icon.png" alt="" width={36} height={36} />
+        <span className="flex-1 leading-[.92]">
+          <b className="block text-[20px] tracking-[-.03em]">PENIEL</b>
+          <b className="block text-[20px] tracking-[-.03em] text-accent">OPS</b>
+        </span>
         <span className="text-[13px] max-sm:hidden">
           {me.full_name} · {ROLE_LABELS[me.role]}
         </span>
-        <Link href="/ops/production" className="flex min-h-11 items-center text-[13px] text-bg hover:text-bg">
-          Dashboard →
+        <Link href="/ops/production" className="flex min-h-11 items-center text-[13px] font-extrabold text-text hover:text-text">
+          Control room →
         </Link>
-        <SignOutButton className="text-[13px] text-bg/80" />
+        <SignOutButton className="text-[13px] text-accent-700" />
       </header>
       <div className="grid flex-1 grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_340px]">
         <div className="border-divider p-4 sm:p-6 md:border-r-2">
+          <span className="font-mono text-[11px] font-semibold tracking-[.1em]">OPS / 04 · PRODUCTION / DAILY ENTRY</span>
+          <h1 className="mb-5 mt-2 text-[40px] leading-[.95] tracking-[-.04em] sm:text-[56px]">Daily entry</h1>
           {lines.length === 0 ? (
             <p className="m-0 text-[15px]">No production lines are set up. An admin needs to add them first.</p>
           ) : (
@@ -58,8 +63,8 @@ export default async function ProductionEntryPage() {
           )}
         </div>
         <aside className="bg-surface px-5 py-6">
-          <h5 className="mb-2 mt-0">Today&apos;s entries</h5>
-          <div className="border-t-2 border-divider">
+          <h2 className="mb-0 mt-0 border-b-2 border-text pb-2 text-[26px]">Today&apos;s entries</h2>
+          <div>
             {entries.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">Nothing entered today yet.</p>}
             {entries.map((e) => (
               <div key={e.id} className="flex min-h-12 flex-col gap-0.5 border-b border-divider py-2.5 text-[13px]">

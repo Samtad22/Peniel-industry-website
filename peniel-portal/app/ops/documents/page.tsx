@@ -3,11 +3,12 @@ import Link from "next/link";
 import { setDocumentVisibility } from "@/app/ops/documents/actions";
 import DocUploadPanel from "@/components/ops/DocUploadPanel";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { KpiStrip } from "@/components/ops/OpsKit";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { DOC_TYPES, docTypeLabel } from "@/lib/documents";
 import { fileExt, formatBytes } from "@/lib/files";
-import { formatDate } from "@/lib/format";
+import { addisDateISO, formatDate } from "@/lib/format";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -68,11 +69,23 @@ export default async function DocumentsPage({
     return s ? `/ops/documents?${s}` : "/ops/documents";
   };
   const vis = sp.vis === "customer" || sp.vis === "internal" ? sp.vis : "all";
+  const all = docs ?? [];
+  const weekAgo = addisDateISO(new Date(), -6);
   const COLS = "grid grid-cols-[minmax(0,1.4fr)_150px_minmax(0,1fr)_100px_100px_150px] items-center gap-3";
 
   return (
     <>
-      <OpsHeader title="Documents" />
+      <OpsHeader
+        title="Documents"
+        sub="Customer-visible files carry the red eye tag; internal ones sit on the hatched ground."
+      />
+      <KpiStrip
+        items={[
+          { label: "Shared with customers", value: all.filter((d) => d.visibility === "customer").length, sub: "in this list", href: visLink("customer") },
+          { label: "Internal", value: all.filter((d) => d.visibility === "internal").length, sub: "never shown to customers", href: visLink("internal") },
+          { label: "Added this week", value: all.filter((d) => d.created_at.slice(0, 10) >= weekAgo).length, sub: "last 7 days" },
+        ]}
+      />
       <div className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 border-divider px-4 py-5 sm:px-8 xl:border-r-2">
           <form className="mb-4 flex flex-wrap items-end gap-3">
@@ -102,7 +115,7 @@ export default async function DocumentsPage({
             <button type="submit" className="btn btn-secondary text-text">
               Apply
             </button>
-            <div className="seg ml-auto">
+            <div className="ml-auto flex border border-divider text-[12px]">
               {(
                 [
                   ["all", "All"],
@@ -110,7 +123,7 @@ export default async function DocumentsPage({
                   ["internal", "Internal"],
                 ] as const
               ).map(([k, v]) => (
-                <Link key={k} href={visLink(k)} className={`seg-opt no-underline ${vis === k ? "!bg-accent !text-bg" : "text-text"}`}>
+                <Link key={k} href={visLink(k)} className={`px-2.5 py-[7px] no-underline ${vis === k ? "bg-text !text-bg" : "text-text hover:bg-text/[.07]"}`}>
                   {v}
                 </Link>
               ))}
@@ -118,7 +131,7 @@ export default async function DocumentsPage({
           </form>
           <div className="overflow-x-auto">
             <div className="min-w-[820px]">
-              <div className={`${COLS} th-row border-b-2 border-divider py-2`}>
+              <div className={`${COLS} th-row border-b-2 border-text py-2`}>
                 <span>File</span>
                 <span>Type</span>
                 <span>Customer · brand</span>
@@ -126,9 +139,9 @@ export default async function DocumentsPage({
                 <span>Date</span>
                 <span>Visibility</span>
               </div>
-              {(docs ?? []).length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No documents match.</p>}
-              {(docs ?? []).map((d) => (
-                <div key={d.id} className={`${COLS} border-b border-divider py-2.5 text-[13px]`}>
+              {all.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No documents match.</p>}
+              {all.map((d) => (
+                <div key={d.id} className={`${COLS} border-b border-divider px-2 py-2.5 text-[13px] ${d.visibility === "internal" ? "internal-ground" : ""}`}>
                   <a href={`/files/documents/${d.id}`} className="flex min-w-0 items-center gap-2 text-text no-underline hover:underline">
                     <span className="w-9 shrink-0 bg-surface py-0.5 text-center font-mono text-[10px] font-semibold">{fileExt(d.file_name)}</span>
                     <span className="min-w-0">

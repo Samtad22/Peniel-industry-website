@@ -86,6 +86,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const shown = all.filter((t) => (f === "mine" ? t.assigned_to === me.user_id : f === "unassigned" ? !t.assigned_to : true));
   const selected = all.find((t) => t.id === sp.t) ?? shown[0] ?? null;
   const thread = selected ? (byThread.get(selected.id) ?? []) : [];
+  const totalUnread = (msgs ?? []).filter((m) => !m.read_by_staff && m.profiles?.role === "customer_user").length;
 
   // Opening a conversation marks the customer's messages in it as read.
   if (selected && thread.some((m) => !m.read_by_staff)) {
@@ -116,20 +117,23 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
       <OpsTopBar />
     <div className="grid grid-cols-[minmax(0,1fr)] lg:min-h-screen lg:grid-cols-[360px_minmax(0,1fr)]">
       <div className="border-divider lg:border-r-2">
-        <div className="flex flex-col gap-2.5 border-b-2 border-divider px-4 py-5 sm:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="m-0">Messages</h3>
+        <div className="flex flex-col gap-3 border-b-2 border-text px-4 pb-[18px] pt-[22px] sm:px-6">
+          <div>
+            <h1 className="m-0 text-[44px] leading-[.95] tracking-[-.04em]">Messages</h1>
+            <div className="mt-1.5 text-[13px] opacity-70">{totalUnread ? `${totalUnread} unread from customers` : "All read"}</div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex border border-divider text-[12px]">
+              {Object.entries(FILTERS).map(([k, v]) => (
+                <Link key={k} href={link({ f: k })} className={`px-2.5 py-[6px] no-underline ${f === k ? "bg-text !text-bg" : "text-text hover:bg-text/[.07]"}`}>
+                  {v}
+                </Link>
+              ))}
+            </div>
             <NewThreadDialog
               companies={companies ?? []}
               orders={(orders ?? []).map((o) => ({ id: o.id, company_id: o.company_id, label: `${o.order_no} · ${o.brands?.name ?? ""}` }))}
             />
-          </div>
-          <div className="seg self-start">
-            {Object.entries(FILTERS).map(([k, v]) => (
-              <Link key={k} href={link({ f: k })} className={`seg-opt no-underline ${f === k ? "!bg-accent !text-bg" : "text-text"}`}>
-                {v}
-              </Link>
-            ))}
           </div>
         </div>
         {shown.length === 0 && <p className="m-0 px-6 py-4 text-[14px] opacity-70">No conversations here.</p>}
@@ -144,8 +148,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
               href={link({ t: t.id })}
               scroll={false}
               aria-current={on ? "true" : undefined}
-              className={`flex flex-col gap-1 border-b border-divider px-4 py-3 text-[13px] text-text no-underline hover:text-text sm:px-6 ${
-                on ? "bg-neutral-200 shadow-[inset_4px_0_0_var(--color-accent)]" : "hover:bg-text/5"
+              className={`flex flex-col gap-1 border-b-2 border-divider px-4 py-3.5 text-[13px] no-underline sm:px-6 ${
+                on ? "bg-text text-bg hover:text-bg" : "text-text hover:bg-text/5 hover:text-text"
               } ${unread ? "font-extrabold" : ""}`}
             >
               <span className="flex justify-between gap-2">
@@ -170,10 +174,10 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         <div className="flex min-w-0 flex-col">
           <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-4 sm:px-8">
             <div className="min-w-0 flex-[1_1_260px]">
-              <h4 className="m-0">
-                {selected.companies?.name ?? "-"}
-                {selected.orders?.order_no && ` · ${selected.orders.order_no}`}
-              </h4>
+              {selected.orders?.order_no && (
+                <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-accent-700">{selected.orders.order_no}</span>
+              )}
+              <h2 className="mb-0.5 mt-1 text-[28px] leading-[1.05] tracking-[-.03em] sm:text-[36px]">{selected.companies?.name ?? "-"}</h2>
               <div className="text-[13px] opacity-70">
                 {selected.subject}
                 {customers.length > 0 && ` · with ${customers.join(", ")}`}
@@ -225,7 +229,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
                     key={m.id}
                     className={`max-w-[640px] px-3.5 py-2.5 text-[14px] ${
                       m.internal
-                        ? "self-end border border-dashed border-neutral-600 bg-neutral-200"
+                        ? "internal-ground self-end border-2 border-neutral-400"
                         : fromCustomer
                           ? "self-start bg-surface"
                           : "self-end bg-text text-bg"
