@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import PasswordInput from "@/components/ui/PasswordInput";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { signIn, type AuthState } from "./actions";
 
@@ -22,14 +23,7 @@ export default function LoginForm({ next, notice }: { next?: string; notice: Aut
           </Link>
         }
       >
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="input min-h-11"
-        />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required className="input min-h-11" />
       </Field>
       <FormMessage state={state} />
       <Button type="submit" disabled={pending} icon="→" className="w-full px-4 py-3.5 text-[15px]">

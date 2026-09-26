@@ -81,7 +81,7 @@ export default function CustomersView({
       {selected ? (
         <div className="min-w-0">
           <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-5 sm:px-8">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-[1_1_260px]">
               <h6 className="m-0 text-accent-700">
                 Customer since {selected.since} · ID {selected.code}
               </h6>

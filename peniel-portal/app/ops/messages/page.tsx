@@ -166,7 +166,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
       {selected ? (
         <div className="flex min-w-0 flex-col">
           <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-4 sm:px-8">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-[1_1_260px]">
               <h4 className="m-0">
                 {selected.companies?.name ?? "-"}
                 {selected.orders?.order_no && ` · ${selected.orders.order_no}`}

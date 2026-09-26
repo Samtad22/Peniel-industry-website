@@ -32,7 +32,7 @@ export function ProofDelivery({ p }: { p: Pick<CustomerProof, "physical_delivery
   const url = trackingUrl(p.courier ?? null, p.tracking_number ?? null);
   return (
     <div className="flex flex-col gap-0.5 bg-surface px-2.5 py-2 text-[13px]">
-      <span>📦 {line}</span>
+      <span className="[overflow-wrap:anywhere]">📦 {line}</span>
       {url && (
         <a href={url} target="_blank" rel="noreferrer" className="font-semibold">
           Track on DHL ↗
