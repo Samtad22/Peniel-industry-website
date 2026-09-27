@@ -21,6 +21,9 @@ const empty: EodInput = {
   stockCollected: [],
   pickupsRequested: 0,
   lowMaterials: [],
+  maintenance: [],
+  machinesDown: [],
+  servicesOverdue: [],
 };
 
 test("a quiet day says nothing was logged and what to check", () => {
@@ -88,4 +91,25 @@ test("a full day: totals, per shift and order, sheets, quality, orders and the g
   assert.ok(email[0].startsWith("Crowns produced: 2.0M (0.20% camera rejects)"));
   assert.ok(email[1].startsWith("CHECK BEFORE CLOSING THE DAY\n• No production logged for shift C."));
   assert.ok(email[2].startsWith("PRODUCTION\n• 2,000,000 crowns produced"));
+});
+
+test("maintenance: jobs and downtime on the day, machines down, open jobs and overdue services to check", () => {
+  const r = buildEodReport({
+    ...empty,
+    maintenance: [
+      { machine: "Liner 1B", kind: "Breakdown", description: "Compound nozzle blocked", minutes: 95, open: false, stopped: true },
+      { machine: "Press 2", kind: "Repair", description: "Main shaft bearing", minutes: 600, open: true, stopped: true },
+      { machine: "Printing machine", kind: "Cleaning", description: "Rollers cleaned", minutes: 0, open: false, stopped: false },
+    ],
+    machinesDown: [{ name: "Press 2", since: "2026-09-12T06:00:00Z", note: "Under repair" }],
+    servicesOverdue: [{ name: "Coating oven (LPG)", days: 3 }],
+  });
+  const maint = r.sections.find((s) => s.title === "Maintenance")!.lines;
+  assert.equal(maint[0], "3 jobs, 11 h 35 min of downtime.");
+  assert.ok(maint.includes("Liner 1B · Breakdown: Compound nozzle blocked (1 h 35 min stopped)."));
+  assert.ok(maint.includes("Press 2 · Repair: Main shaft bearing (10 h stopped, still going on)."));
+  assert.ok(maint.includes("Printing machine · Cleaning: Rollers cleaned."));
+  assert.ok(maint.includes("Down: Press 2 since 12 Sep 2026 (Under repair)."));
+  assert.ok(r.checks.includes("1 maintenance job still open: Press 2. Finish it if done."));
+  assert.ok(r.checks.includes("Coating oven (LPG): planned service overdue by 3 days."));
 });
