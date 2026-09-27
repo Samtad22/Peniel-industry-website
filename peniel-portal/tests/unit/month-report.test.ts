@@ -58,5 +58,10 @@ test("a month in one page", () => {
   assert.ok(maint.includes("Press 2: 10.0 h down."));
   assert.equal(mats[0], "1 material used or received.");
   assert.equal(mats[1], "Lacquer: 140.5 L used, 400 L received, 780 L on hand now.");
-  assert.ok(monthEmailLines(r)[1].startsWith("PRODUCTION\n• 1,500,000"));
+  assert.equal(
+    r.summary,
+    "The presses made 1.5M crowns on 2 working days (about 750K a day), with 0.20% camera rejects. 2 stillages were printed (2,810 good sheets). Quality inspected 2 batches: 1 released, 1 on hold. 1 new order came in for 5.0M crowns, and 2 orders were completed. Machines were stopped for 11.5 h in total (1 breakdown).",
+  );
+  assert.ok(monthEmailLines(r)[0].startsWith("SUMMARY\nThe presses made 1.5M"));
+  assert.ok(monthEmailLines(r)[2].startsWith("PRODUCTION\n• 1,500,000"));
 });

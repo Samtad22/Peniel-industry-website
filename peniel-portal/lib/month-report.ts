@@ -24,6 +24,8 @@ export type MonthInput = {
 
 export type MonthReport = {
   heading: string;
+  /** A few sentences on the month, from the same figures. */
+  summary: string;
   kpis: { label: string; value: string; sub?: string }[];
   sections: { title: string; lines: string[] }[];
 };
@@ -126,8 +128,27 @@ export function buildMonthReport(d: MonthInput): MonthReport {
       ]
     : ["No movements."];
 
+  // ---- In a few sentences ----
+  const said: string[] = [];
+  said.push(
+    produced
+      ? `The presses made ${formatQty(produced)} crowns on ${plural(days, "working day")} (about ${formatQty(produced / Math.max(1, days))} a day), with ${pct(rejects, produced)} camera rejects.`
+      : "No production was logged.",
+  );
+  if (printed.length) said.push(`${plural(printed.length, "stillage")} ${printed.length === 1 ? "was" : "were"} printed (${n(good)} good sheets).`);
+  said.push(
+    d.inspections.length
+      ? `Quality inspected ${plural(d.inspections.length, "batch", "batches")}: ${n(released)} released${held ? `, ${n(held)} on hold` : ""}.`
+      : "No batches were inspected.",
+  );
+  said.push(
+    `${d.newOrders.length ? `${plural(d.newOrders.length, "new order")} came in for ${formatQty(orderQty)} crowns` : "No new orders came in"}, and ${plural(d.completedOrders, "order")} ${d.completedOrders === 1 ? "was" : "were"} completed.`,
+  );
+  said.push(downtime ? `Machines were stopped for ${hours(downtime)} in total (${plural(breakdowns, "breakdown")}).` : "No machine downtime was logged.");
+
   return {
     heading: `Monthly summary · ${monthName(d.month)}`,
+    summary: said.join(" "),
     kpis: [
       { label: "Crowns produced", value: formatQty(produced), sub: `${pct(rejects, produced)} camera rejects` },
       { label: "Good sheets printed", value: n(good), sub: plural(printed.length, "stillage") },
@@ -148,6 +169,7 @@ export function buildMonthReport(d: MonthInput): MonthReport {
 /** The summary as email paragraphs. */
 export function monthEmailLines(r: MonthReport): string[] {
   return [
+    `SUMMARY\n${r.summary}`,
     r.kpis.map((k) => `${k.label}: ${k.value}${k.sub ? ` (${k.sub})` : ""}`).join("\n"),
     ...r.sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `• ${l}`).join("\n")}`),
   ];

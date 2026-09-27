@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/format";
 
 type Report = {
   heading: string;
+  summary?: string;
   kpis: { label: string; value: string; sub?: string }[];
   sections: { title: string; lines: string[] }[];
   checks?: string[];
@@ -69,6 +70,13 @@ export default function ReportDocument({
           </div>
           <div className="text-right text-[11px] text-neutral-700 print:text-[9px]">Prepared {formatDateTime(new Date())} (Addis Ababa)</div>
         </div>
+
+        {report.summary && (
+          <section className="mt-4 break-inside-avoid print:mt-3">
+            <h2 className="m-0 mb-1 font-mono text-[10px] font-bold uppercase tracking-[.14em] text-accent print:text-[8px]">Summary</h2>
+            <p className="m-0 text-[14px] leading-[1.55] print:text-[11px]">{report.summary}</p>
+          </section>
+        )}
 
         {/* Headline numbers */}
         <table className="my-4 w-full border-collapse break-inside-avoid print:my-3">

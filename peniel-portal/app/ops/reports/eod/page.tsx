@@ -51,6 +51,7 @@ export default async function EodReportPage({ searchParams }: { searchParams: Pr
       />
       <KpiStrip items={r.kpis} />
       <div className="flex flex-col gap-8 px-4 py-6 sm:px-8">
+        <p className="m-0 max-w-[900px] text-[15px] leading-[1.55]">{r.summary}</p>
         <InternalPanel label="CHECK BEFORE CLOSING THE DAY">
           {r.checks.length === 0 ? (
             <p className="m-0 text-[14px] font-extrabold">Everything looks logged.</p>
