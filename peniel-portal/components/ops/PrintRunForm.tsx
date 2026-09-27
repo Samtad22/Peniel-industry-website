@@ -44,6 +44,16 @@ export default function PrintRunForm({
   const [printed, setPrinted] = useState(String(fixed?.sheets ?? STILLAGE_SHEETS));
   const [spoiled, setSpoiled] = useState("");
   const [stillage, setStillage] = useState(fixed?.stillageNo ?? nextNo);
+  // Cancel: start the form again (nothing is saved), or close the dialog.
+  const [formKey, setFormKey] = useState(0);
+  const cancel = () => {
+    if (fixed) return onDone?.();
+    setPrinted(String(STILLAGE_SHEETS));
+    setSpoiled("");
+    setStillage(nextNo);
+    setBrandId(brands[0]?.id ?? "");
+    setFormKey((k) => k + 1);
+  };
   const [state, action, pending] = useActionState<PrintRunState, FormData>(async (prev, fd) => {
     const res = await savePrintRun(prev, fd);
     // Saved: keep the brand and shift; suggest the next stillage number.
@@ -65,7 +75,7 @@ export default function PrintRunForm({
   const big = "input !min-h-[56px] text-[22px] font-extrabold";
 
   return (
-    <form action={action} className="flex flex-col gap-[18px]">
+    <form key={formKey} action={action} className="flex flex-col gap-[18px]">
       {fixed && <input type="hidden" name="id" value={fixed.id} />}
       <div className="flex justify-end">
         <InternalOnly>Internal only · customers never see printed sheets</InternalOnly>
@@ -169,9 +179,14 @@ export default function PrintRunForm({
       </Field>
 
       <FormMessage state={state} />
-      <Button type="submit" disabled={pending || !brandId || !stillage.trim() || p + sp === 0} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
-        {pending ? "Saving…" : fixed ? "Save: printed" : "Save printed stillage"}
-      </Button>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+        <Button type="button" variant="secondary" onClick={cancel} disabled={pending} icon="✕" className="min-h-[60px] px-5 py-4 text-[17px] text-text">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || !brandId || !stillage.trim() || p + sp === 0} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
+          {pending ? "Saving…" : fixed ? "Save: printed" : "Save printed stillage"}
+        </Button>
+      </div>
     </form>
   );
 }

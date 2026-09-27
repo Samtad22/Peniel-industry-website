@@ -78,7 +78,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     return s ? `/documents?${s}` : "/documents";
   };
   const uploadOrders = (orders ?? [])
-    .filter((o) => o.status !== "rejected")
+    .filter((o) => o.status !== "rejected" && o.status !== "cancelled")
     .map((o) => ({ id: o.id, label: `${o.order_no} · ${o.po_number} · ${o.brand_name}` }));
 
   if (all.length === 0) {

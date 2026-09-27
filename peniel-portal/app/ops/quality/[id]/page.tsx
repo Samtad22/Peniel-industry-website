@@ -165,6 +165,7 @@ export default async function InspectionPage({
         defectTypes={defectTypes ?? []}
         presets={presets.hold}
         canEdit={me.role === "admin" || me.role === "quality"}
+        canDelete={me.role === "admin" || (me.role === "quality" && !insp?.published)}
       />
       {insp && (
         <SortingPanel

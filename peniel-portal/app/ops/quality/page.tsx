@@ -38,9 +38,9 @@ const SORTING_STATUSES = ["scheduled", "in_production", "quality_check", "on_hol
 const FILTERS = { all: "All", held: "Held", unpublished: "Unpublished" } as const;
 
 /** Quality control overview (design 1i). */
-export default async function QualityPage({ searchParams }: { searchParams: Promise<{ f?: string; saved?: string }> }) {
+export default async function QualityPage({ searchParams }: { searchParams: Promise<{ f?: string; saved?: string; deleted?: string }> }) {
   const me = await requireStaff(opsRolesFor("quality"));
-  const { f: rawF, saved } = await searchParams;
+  const { f: rawF, saved, deleted } = await searchParams;
   const f = rawF === "held" || rawF === "unpublished" ? rawF : "all";
   const canEdit = me.role === "admin" || me.role === "quality";
   const today = addisDateISO(new Date());
@@ -137,6 +137,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
         )}
       </OpsTopBar>
       {saved && <p className="m-0 bg-neutral-200 px-4 py-2.5 text-[13px] sm:px-8">Batch {saved} saved.</p>}
+      {deleted && <p className="m-0 bg-neutral-200 px-4 py-2.5 text-[13px] sm:px-8">Inspection of batch {deleted} deleted.</p>}
 
       <div className="grid xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {focus ? (

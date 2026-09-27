@@ -151,7 +151,7 @@ export async function setOrderStatus(_prev: OrderActionState, fd: FormData): Pro
   const status = str(fd, "status") as OrderStatus;
   const reason = str(fd, "customer_reason");
   const newDue = str(fd, "due_date");
-  if (!ORDER_STATUSES.includes(status) || status === "submitted") return { error: "Choose a status." };
+  if (!ORDER_STATUSES.includes(status) || status === "submitted" || status === "cancelled") return { error: "Choose a status." };
   if (reason.length > MAX_TEXT) return { error: "Keep the customer message under 1,000 characters." };
   if (newDue && !DATE.test(newDue)) return { error: "Check the new due date." };
 

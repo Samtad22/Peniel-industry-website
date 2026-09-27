@@ -65,6 +65,14 @@ export default function EntryForm({
   const [produced, setProduced] = useState("");
   const [rejects, setRejects] = useState("");
   const [orderId, setOrderId] = useState(orders[0]?.id ?? "");
+  // Cancel: start the form again (nothing is saved).
+  const [formKey, setFormKey] = useState(0);
+  const cancel = () => {
+    setProduced("");
+    setRejects("");
+    setOrderId(orders[0]?.id ?? "");
+    setFormKey((k) => k + 1);
+  };
   const [state, action, pending] = useActionState<ProductionState, FormData>(async (prev, fd) => {
     const res = await saveEntry(prev, fd);
     if (res?.ok) {
@@ -81,7 +89,7 @@ export default function EntryForm({
   const seg = "seg-opt min-h-[52px] flex-1 justify-center text-[15px]";
 
   return (
-    <form action={action} className="flex flex-col gap-[18px]">
+    <form key={formKey} action={action} className="flex flex-col gap-[18px]">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="field">
           <label htmlFor="entry-date">Date</label>
@@ -167,9 +175,14 @@ export default function EntryForm({
       </div>
 
       <FormMessage state={state} />
-      <Button type="submit" disabled={pending || !p || r > p || !orderId} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
-        {pending ? "Saving…" : "Save entry"}
-      </Button>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)] gap-3">
+        <Button type="button" variant="secondary" onClick={cancel} disabled={pending} icon="✕" className="min-h-[60px] px-5 py-4 text-[17px] text-text">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={pending || !p || r > p || !orderId} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
+          {pending ? "Saving…" : "Save entry"}
+        </Button>
+      </div>
       <p className="m-0 text-[12px] opacity-70">
         Lines stay internal. The customer portal adds up entries by order and day, and only after Production publishes
         them.

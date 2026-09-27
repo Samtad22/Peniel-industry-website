@@ -36,7 +36,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const today = addisDateISO(new Date());
   const in7 = addisDateISO(new Date(), 6);
   const count = (pred: (r: (typeof rows)[number]) => boolean) => rows.filter(pred).length;
-  const late = (r: (typeof rows)[number]) => !!r.due_date && r.due_date < today && !["dispatched", "delivered", "rejected"].includes(r.status);
+  const late = (r: (typeof rows)[number]) => !!r.due_date && r.due_date < today && !["dispatched", "delivered", "rejected", "cancelled"].includes(r.status);
   const query = new URLSearchParams(
     Object.entries({ q: f.q, customer: f.customer, brand: f.brand, status: f.status, due: f.due }).filter(([, v]) => v),
   ).toString();

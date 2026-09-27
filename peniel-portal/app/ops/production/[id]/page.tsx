@@ -1,3 +1,4 @@
+import ConfirmForm from "@/components/ui/ConfirmForm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -189,12 +190,14 @@ export default async function OrderProductionPage({ params }: { params: Promise<
                       <span className={e.published ? "opacity-70" : "font-extrabold text-accent-700"}>{e.published ? "✓" : "Pending"}</span>
                     )}
                     {canPublish && !e.published && (
-                      <form action={deleteEntry}>
-                        <input type="hidden" name="id" value={e.id} />
-                        <button type="submit" className="cursor-pointer border-0 bg-transparent p-0 text-[12px] underline" title="Delete this entry">
-                          Delete
-                        </button>
-                      </form>
+                      <ConfirmForm
+                        action={deleteEntry}
+                        fields={{ id: e.id }}
+                        message={`Delete this entry (${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.`}
+                        label="Delete"
+                        title="Delete this entry"
+                        className="cursor-pointer border-0 bg-transparent p-0 text-[12px] underline"
+                      />
                     )}
                   </span>
                 </div>

@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import clsx from "clsx";
-import { saveInspection, type QcState } from "@/app/ops/quality/actions";
+import Link from "next/link";
+import { deleteInspection, saveInspection, type QcState } from "@/app/ops/quality/actions";
 import { CustomerWarning, type Preset } from "@/components/ops/OrderForms";
 import { Pill } from "@/components/ui/StatusBadge";
 import { Button, FormMessage } from "@/components/ui/form";
@@ -35,12 +36,15 @@ export default function InspectionForm({
   defectTypes,
   presets,
   canEdit,
+  canDelete = false,
 }: {
   initial: InspectionInitial;
   orders: { id: string; label: string }[];
   defectTypes: { code: string; customer_label: string }[];
   presets: Preset[];
   canEdit: boolean;
+  /** Quality can delete an unpublished inspection; admin any. */
+  canDelete?: boolean;
 }) {
   const [state, action, pending] = useActionState<QcState, FormData>(saveInspection, null);
   const [sample, setSample] = useState(initial.sample_size);
@@ -284,9 +288,31 @@ export default function InspectionForm({
         </label>
         <FormMessage state={state} />
         {canEdit && (
-          <Button type="submit" disabled={pending} icon={result === "on_hold" ? "❚❚" : result === "released" ? "✓" : "→"} className="px-4 py-3.5">
-            {pending ? "Saving…" : result === "on_hold" ? "Save & hold batch" : result === "released" ? "Save & release batch" : "Save inspection"}
-          </Button>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+            <Link href="/ops/quality" className="btn btn-secondary btn-split px-4 py-3.5 text-text no-underline" title="Leave without saving">
+              Cancel<span aria-hidden="true">✕</span>
+            </Link>
+            <Button type="submit" disabled={pending} icon={result === "on_hold" ? "❚❚" : result === "released" ? "✓" : "→"} className="px-4 py-3.5">
+              {pending ? "Saving…" : result === "on_hold" ? "Save & hold batch" : result === "released" ? "Save & release batch" : "Save inspection"}
+            </Button>
+          </div>
+        )}
+        {canDelete && initial.id && (
+          <button
+            type="submit"
+            formAction={deleteInspection}
+            formNoValidate
+            disabled={pending}
+            onClick={(e) => {
+              const msg = initial.published
+                ? "Delete this inspection? It is published: the customer will no longer see this batch, its defects or its certificate."
+                : "Delete this inspection? Use this when it was entered by mistake.";
+              if (!confirm(msg)) e.preventDefault();
+            }}
+            className="cursor-pointer self-start border-0 bg-transparent p-0 text-[13px] text-accent-800 underline underline-offset-2"
+          >
+            Delete this inspection (entered by mistake)
+          </button>
         )}
       </fieldset>
     </form>

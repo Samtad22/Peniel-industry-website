@@ -84,6 +84,22 @@ export async function saveInspection(_prev: QcState, fd: FormData): Promise<QcSt
   redirect(`/ops/quality?saved=${encodeURIComponent(s("batch_no"))}`);
 }
 
+/**
+ * Delete an inspection entered by mistake (its defects, signatures and the
+ * certificate go with it). Quality: unpublished ones; admin: any.
+ */
+export async function deleteInspection(fd: FormData): Promise<void> {
+  const me = await requireStaff([...WRITERS]);
+  const id = String(fd.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  const supabase = await createClient();
+  let q = supabase.from("qc_inspections").delete().eq("id", id);
+  if (me.role !== "admin") q = q.eq("published", false);
+  const { data } = await q.select("batch_no").maybeSingle<{ batch_no: string }>();
+  refresh();
+  redirect(data ? `/ops/quality?deleted=${encodeURIComponent(data.batch_no)}` : "/ops/quality");
+}
+
 export async function setInspectionPublished(fd: FormData): Promise<void> {
   await requireStaff([...WRITERS]);
   const id = String(fd.get("id") ?? "");

@@ -1,3 +1,4 @@
+import ConfirmForm from "@/components/ui/ConfirmForm";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -83,12 +84,13 @@ export default async function ProductionEntryPage() {
                     {e.published ? "Published" : "Not published"}
                   </span>
                   {!e.published && (
-                    <form action={deleteEntry}>
-                      <input type="hidden" name="id" value={e.id} />
-                      <button type="submit" className="min-h-9 cursor-pointer border-0 bg-transparent text-[12px] underline">
-                        Remove
-                      </button>
-                    </form>
+                    <ConfirmForm
+                      action={deleteEntry}
+                      fields={{ id: e.id }}
+                      message={`Remove this entry (${e.order_no}, ${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.`}
+                      label="Remove"
+                      className="min-h-9 cursor-pointer border-0 bg-transparent text-[12px] underline"
+                    />
                   )}
                 </span>
               </div>
