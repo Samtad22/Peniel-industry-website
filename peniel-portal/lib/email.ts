@@ -2,6 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderEmail, type EmailContent } from "@/lib/email-template";
 import { siteUrl } from "@/lib/supabase/env";
+import { emailGroupOf } from "@/lib/settings";
+import { getSettings } from "@/lib/settings-server";
 
 export type { EmailContent };
 
@@ -27,11 +29,14 @@ export async function sendEmails(
   if (to.length === 0) return;
   const { html, text } = renderEmail(content, siteUrl());
   const log = createAdminClient();
+  // A group of emails an admin turned off (Ops → Settings) is logged as skipped.
+  const group = emailGroupOf(meta.kind);
+  const turnedOff = group ? (await getSettings()).emails_off.includes(group) : false;
 
   for (const recipient of to) {
     let status: "sent" | "failed" | "skipped" = "skipped";
-    let error: string | null = emailConfigured() ? null : "Email is not set up (RESEND_API_KEY / EMAIL_FROM)";
-    if (emailConfigured()) {
+    let error: string | null = turnedOff ? "Turned off in Settings" : emailConfigured() ? null : "Email is not set up (RESEND_API_KEY / EMAIL_FROM)";
+    if (emailConfigured() && !turnedOff) {
       try {
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",

@@ -4,7 +4,6 @@ import Bars from "@/components/ui/Bars";
 import StatusBadge, { Pill } from "@/components/ui/StatusBadge";
 import { formatDate, formatDateTime, formatDayMonth, formatQty } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
-import { REJECT_LIMIT_PCT } from "@/lib/production-math";
 import BookPickupDialog from "@/components/customer/BookPickupDialog";
 import { PICKUP_PILL, STOCK_PILL, type PickupStatus } from "@/lib/inventory";
 import { RESULT_PILL } from "@/lib/qc";
@@ -59,6 +58,8 @@ export type ProductionData = {
   stock: StockRow[];
   bookings: BookingRow[];
   pickupMin: string;
+  /** Camera reject limit in % (Settings). */
+  rejectLimit: number;
 };
 
 export type BookingRow = {
@@ -100,7 +101,7 @@ function Tabs({ tab, lastUpdated }: { tab: ProductionTab; lastUpdated: string | 
   );
 }
 
-function Output({ rows }: { rows: OutputRow[] }) {
+function Output({ rows, rejectLimit: REJECT_LIMIT_PCT }: { rows: OutputRow[]; rejectLimit: number }) {
   if (rows.length === 0) {
     return <p className="m-0 px-4 py-10 text-[15px] sm:px-10">No active orders right now. Delivered orders are under Orders.</p>;
   }
@@ -184,7 +185,7 @@ function Output({ rows }: { rows: OutputRow[] }) {
   );
 }
 
-function Quality({ q }: { q: ProductionData["quality"] }) {
+function Quality({ q, rejectLimit: REJECT_LIMIT_PCT }: { q: ProductionData["quality"]; rejectLimit: number }) {
   const recent = [...q.batches].slice(0, 14).reverse();
   const topDefect = Math.max(1, ...q.defects.map((d) => d.count));
   const totalDefects = q.defects.reduce((s, d) => s + d.count, 0);
@@ -419,8 +420,8 @@ export default function ProductionView({ d }: { d: ProductionData }) {
   return (
     <>
       <CustomerPageHead section="Production" title={TITLES[d.tab]} aside={<Tabs tab={d.tab} lastUpdated={d.lastUpdated} />} />
-      {d.tab === "output" && <Output rows={d.output} />}
-      {d.tab === "quality" && <Quality q={d.quality} />}
+      {d.tab === "output" && <Output rows={d.output} rejectLimit={d.rejectLimit} />}
+      {d.tab === "quality" && <Quality q={d.quality} rejectLimit={d.rejectLimit} />}
       {d.tab === "stock" && <Stock rows={d.stock} bookings={d.bookings} pickupMin={d.pickupMin} />}
     </>
   );

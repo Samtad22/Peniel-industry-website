@@ -1,3 +1,5 @@
+import { PlantSettingsProvider } from "@/components/PlantSettings";
+import { getSettings } from "@/lib/settings-server";
 import ConfirmForm from "@/components/ui/ConfirmForm";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -28,7 +30,9 @@ export default async function ProductionEntryPage() {
     loadEntries(supabase, { from: today, to: today }),
   ]);
 
+  const settings = await getSettings();
   return (
+    <PlantSettingsProvider value={settings.plant}>
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center gap-4 border-b-2 border-text bg-surface px-5 py-3">
         <Image src="/img/logo-icon.png" alt="" width={36} height={36} />
@@ -99,5 +103,6 @@ export default async function ProductionEntryPage() {
         </aside>
       </div>
     </div>
+    </PlantSettingsProvider>
   );
 }

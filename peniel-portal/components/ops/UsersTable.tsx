@@ -2,7 +2,8 @@ import { setUserActive } from "@/app/ops/actions";
 import { UserStatusBadge } from "@/components/ui/StatusBadge";
 import { formatDateTime } from "@/lib/format";
 import type { UserStatus } from "@/lib/order-status";
-import { ROLE_LABELS, type Role } from "@/lib/roles";
+import { ROLE_LABELS, STAFF_ROLES, type Role, type StaffRole } from "@/lib/roles";
+import { RoleSelect } from "./SettingsForms";
 
 export type UserRow = {
   user_id: string;
@@ -21,17 +22,20 @@ export function userStatus(u: UserRow): UserStatus {
 // Laid out by the width of its own column (container query), not the screen:
 // it sits full-width on Customers but in a half-width panel on Settings.
 const COLS =
-  "grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 @3xl:grid-cols-[minmax(0,0.9fr)_minmax(180px,1.5fr)_150px_130px_100px_110px]";
+  "grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 @3xl:grid-cols-[minmax(0,0.9fr)_minmax(180px,1.5fr)_190px_130px_100px_110px]";
 
 /** Users table (design 1o / 1s). Actions appear for admins only. */
 export default function UsersTable({
   users,
   canManage,
   meId,
+  editRoles,
 }: {
   users: UserRow[];
   canManage: boolean;
   meId: string;
+  /** Admin changes staff roles here (Settings). */
+  editRoles?: boolean;
 }) {
   return (
     <div className="@container">
@@ -51,7 +55,7 @@ export default function UsersTable({
             <b className={status === "deactivated" ? "opacity-50" : undefined}>{u.full_name}</b>
             <span className="truncate @max-3xl:col-start-1 @max-3xl:row-start-2">{u.email}</span>
             <span className="@max-3xl:col-start-1 @max-3xl:row-start-3 @max-3xl:text-[12px] @max-3xl:opacity-70">
-              {ROLE_LABELS[u.role]}
+              {editRoles && canManage && u.user_id !== meId && STAFF_ROLES.includes(u.role as StaffRole) ? <RoleSelect userId={u.user_id} role={u.role as StaffRole} /> : ROLE_LABELS[u.role]}
               <span className="@3xl:hidden"> · last login {u.last_login_at ? formatDateTime(u.last_login_at) : "never"}</span>
             </span>
             <span className="@max-3xl:hidden">{u.last_login_at ? formatDateTime(u.last_login_at) : "-"}</span>

@@ -1,12 +1,13 @@
 "use client";
 
+import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useState } from "react";
 import clsx from "clsx";
 import { saveEntry, type ProductionState } from "@/app/ops/production/actions";
 import { Button, FormMessage } from "@/components/ui/form";
 import { InternalOnly, CustomerSees } from "@/components/ui/Visibility";
 import { formatQty } from "@/lib/format";
-import { rejectPct, REJECT_LIMIT_PCT, SHIFTS } from "@/lib/production-math";
+import { rejectPct, SHIFTS } from "@/lib/production-math";
 
 export type EntryOrder = { id: string; label: string; quantity: number; good: number };
 
@@ -62,6 +63,7 @@ export default function EntryForm({
   lines: { id: string; name: string; status?: string }[];
   orders: EntryOrder[];
 }) {
+  const { reject_limit_pct: REJECT_LIMIT_PCT } = usePlant();
   const [produced, setProduced] = useState("");
   const [rejects, setRejects] = useState("");
   const [orderId, setOrderId] = useState(orders[0]?.id ?? "");

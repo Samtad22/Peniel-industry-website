@@ -1,12 +1,13 @@
 "use client";
 
+import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useState } from "react";
 import { sendToPress, startBaseCoat, undoToPress, type PrintRunState } from "@/app/ops/production/sheets/actions";
 import PrintRunForm, { type PrintBrand } from "@/components/ops/PrintRunForm";
 import Modal from "@/components/ui/Modal";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
-import { BASE_COAT_LABEL, OVEN_MINUTES, STILLAGE_SHEETS, type BaseCoat } from "@/lib/print-runs";
+import { BASE_COAT_LABEL, type BaseCoat } from "@/lib/print-runs";
 import { SHIFTS } from "@/lib/production-math";
 
 /** `datetime-local` value plus minutes. */
@@ -34,6 +35,7 @@ export function BaseCoatDialog({ brands, nextNo, nowLocal, lastTemp }: { brands:
 }
 
 function BaseCoatForm({ brands, nextNo, nowLocal, lastTemp, close }: { brands: PrintBrand[]; nextNo: string; nowLocal: string; lastTemp: number | null; close: () => void }) {
+  const { oven_minutes: OVEN_MINUTES, stillage_sheets: STILLAGE_SHEETS } = usePlant();
   const [state, action, pending] = useActionState<PrintRunState, FormData>(startBaseCoat, null);
   // Brands that need a base coat first.
   const sorted = [...brands].sort((a, b) => Number(Boolean(b.baseCoat)) - Number(Boolean(a.baseCoat)));

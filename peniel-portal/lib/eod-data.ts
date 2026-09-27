@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EodInput } from "@/lib/eod-report";
 import { addDays } from "@/lib/production-math";
+import { getSettings } from "@/lib/settings-server";
 import type { OrderStatus } from "@/lib/order-status";
 import { downtimeMinutes, MAINTENANCE_KINDS, nextServiceDue, type Machine, type MaintenanceLog } from "@/lib/maintenance";
 
@@ -160,8 +161,11 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
   };
 }
 
-/** Everyone who gets the evening email: active admins. */
+/** Who gets the end-of-day and monthly reports: the staff chosen in Settings, or all active admins. */
 export async function eodRecipients(db: SupabaseClient): Promise<string[]> {
-  const { data } = await db.from("profiles").select("email").eq("role", "admin").eq("active", true).returns<{ email: string | null }[]>();
+  const chosen = (await getSettings()).report_recipients;
+  let q = db.from("profiles").select("email").eq("active", true).neq("role", "customer_user");
+  q = chosen.length ? q.in("user_id", chosen) : q.eq("role", "admin");
+  const { data } = await q.returns<{ email: string | null }[]>();
   return (data ?? []).map((p) => p.email ?? "").filter(Boolean);
 }

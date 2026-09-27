@@ -1,11 +1,12 @@
 "use client";
 
+import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useEffect, useState } from "react";
 import { deletePass, finishPass, startPass, type PrintRunState } from "@/app/ops/production/sheets/actions";
 import Modal from "@/components/ui/Modal";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
-import { minutesBetween, OVEN_MINUTES, OVEN_STAGE_LABEL, type OvenStage } from "@/lib/print-runs";
+import { minutesBetween, OVEN_STAGE_LABEL, type OvenStage } from "@/lib/print-runs";
 
 const STAGE = OVEN_STAGE_LABEL;
 
@@ -63,6 +64,7 @@ function IntoOvenForm({
   lastTemp: number | null;
   close: () => void;
 }) {
+  const { oven_minutes: OVEN_MINUTES } = usePlant();
   const [state, action, pending] = useActionState<PrintRunState, FormData>(startPass, null);
   const [startedAt, setStartedAt] = useState(nowLocal);
   const [alreadyOut, setAlreadyOut] = useState(false);
@@ -190,6 +192,7 @@ function OutForm({ passId, startedAt, nowLocal, close }: { passId: string; start
 
 /** Minutes in the oven so far against the usual 30, ticking. Red once past it. */
 export function OvenTimer({ startedAt, now }: { startedAt: string; now: string }) {
+  const { oven_minutes: OVEN_MINUTES } = usePlant();
   const [at, setAt] = useState(now);
   useEffect(() => {
     const t = window.setInterval(() => setAt(new Date().toISOString()), 30_000);

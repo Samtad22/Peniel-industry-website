@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import CrownGauge from "@/components/ops/CrownGauge";
@@ -7,7 +8,7 @@ import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/format";
 import { formatSpoiledPct, printTotals, type PrintRun } from "@/lib/print-runs";
 import { loadEntries, loadLines, loadProducibleOrders } from "@/lib/production";
-import { addDays, lastDays, rejectPct, REJECT_LIMIT_PCT } from "@/lib/production-math";
+import { addDays, lastDays, rejectPct } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,6 +28,7 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-d
  * coat & print line's runs. Everything here is internal.
  */
 export default async function ProductionPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+  const REJECT_LIMIT_PCT = (await getSettings()).plant.reject_limit_pct;
   const me = await requireStaff(opsRolesFor("production"));
   const { range: r } = await searchParams;
   const range = r === "week" ? "week" : "today";

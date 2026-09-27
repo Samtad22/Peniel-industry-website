@@ -5,7 +5,8 @@ import { ForgetSavedSignature, RemoveSignatureButton, SignDialog } from "@/compo
 import PrintButton from "@/components/ui/PrintButton";
 import { getProfile, homeFor } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
-import { checkMeasure, COA_FORM, DEFECT_SAMPLE, MEASURES, measureValue } from "@/lib/qc";
+import { checkMeasure, DEFECT_SAMPLE, MEASURES, measureValue } from "@/lib/qc";
+import { getSettings } from "@/lib/settings-server";
 import { isStaffRole } from "@/lib/roles";
 import { signing, type Signatures } from "@/lib/signatures";
 import { createClient } from "@/lib/supabase/server";
@@ -62,6 +63,8 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const { data } = await supabase.rpc("certificate_of_analysis", { p_inspection_id: id });
   const c = data as Certificate | null;
   if (!c) notFound();
+  // What the form prints (company, document no., revision, phone): Settings.
+  const { coa } = await getSettings();
 
   // The quality manager or admin signs here (the database checks every rule again).
   const staff = isStaffRole(profile.role);
@@ -113,17 +116,17 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
               </td>
               <td className={`${cell} border-2`}>
                 <span className="text-[11px] text-accent-800">Company Name:</span>
-                <div className="text-[16px] font-extrabold text-accent-800">{COA_FORM.company}</div>
+                <div className="text-[16px] font-extrabold text-accent-800">{coa.company}</div>
               </td>
               <td className={`${cell} w-[22%] border-2`} colSpan={2}>
                 <span className="text-[11px] text-accent-800">Document No.:</span>
-                <div className="text-[15px] text-accent-800">{COA_FORM.documentNo}</div>
+                <div className="text-[15px] text-accent-800">{coa.documentNo}</div>
               </td>
             </tr>
             <tr>
               <td className={`${cell} border-2 text-center text-[17px] font-extrabold text-accent-800`}>Certificate Of Analysis</td>
               <td className={`${cell} border-2 text-[12px] text-accent-800`}>
-                Revision No: <b>{COA_FORM.revision}</b>
+                Revision No: <b>{coa.revision}</b>
               </td>
               <td className={`${cell} border-2 text-[12px] text-accent-800`}>Page 1 of 1</td>
             </tr>
@@ -134,7 +137,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
           {field("Crown Type", [c.crown_size, c.brand, c.finish].filter(Boolean).join(" · "))}
           {field("Analysis Registration Number", `COA-${c.batch_no}`)}
           {field("Batch No.", c.batch_no)}
-          {field("Liner Type ID", c.liner === "PVC" ? "PVC" : COA_FORM.linerTypeId)}
+          {field("Liner Type ID", c.liner === "PVC" ? "PVC" : coa.linerTypeId)}
           {field("Mfg. Date", formatDate(c.inspected_at))}
           <div>Raw materials are <u>Food Grade</u>.</div>
           {field("Best Before date", "")}
@@ -226,7 +229,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
           </div>
         )}
         <div className="flex flex-wrap justify-between gap-2 border-t border-divider pt-3 text-[12px] opacity-70">
-          <span>Tel: {COA_FORM.tel}</span>
+          <span>Tel: {coa.tel}</span>
           <span>
             Issued through the Peniel Portal{c.published_at ? ` on ${formatDate(c.published_at)}` : ""} · {c.company}
           </span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useState } from "react";
 import clsx from "clsx";
 import Link from "next/link";
@@ -9,7 +10,7 @@ import { Pill } from "@/components/ui/StatusBadge";
 import { Button, FormMessage } from "@/components/ui/form";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { formatDate } from "@/lib/format";
-import { rejectPct, REJECT_LIMIT_PCT } from "@/lib/production-math";
+import { rejectPct } from "@/lib/production-math";
 import { checkMeasure, coaFindings, COA_DOCUMENT, DEFECT_SAMPLE, MEASURES, RESULT_PILL, VISUAL_SAMPLE } from "@/lib/qc";
 
 export type InspectionInitial = {
@@ -46,6 +47,7 @@ export default function InspectionForm({
   /** Only admin deletes inspections. */
   canDelete?: boolean;
 }) {
+  const { reject_limit_pct: REJECT_LIMIT_PCT } = usePlant();
   const [state, action, pending] = useActionState<QcState, FormData>(saveInspection, null);
   const [sample, setSample] = useState(initial.sample_size);
   const [measures, setMeasures] = useState(initial.measurements);

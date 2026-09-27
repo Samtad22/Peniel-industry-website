@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { setInspectionPublished } from "@/app/ops/quality/actions";
@@ -7,7 +8,7 @@ import { Pill } from "@/components/ui/StatusBadge";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth, formatQty } from "@/lib/format";
-import { addDays, REJECT_LIMIT_PCT } from "@/lib/production-math";
+import { addDays } from "@/lib/production-math";
 import { CROWN_HEIGHT, measureValue, RESULT_PILL, risingTrend } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
 import { formatCartons, formatWastePct, orderSorting, type SortingRecord } from "@/lib/sorting";
@@ -39,6 +40,7 @@ const FILTERS = { all: "All", held: "Held", unpublished: "Unpublished" } as cons
 
 /** Quality control overview (design 1i). */
 export default async function QualityPage({ searchParams }: { searchParams: Promise<{ f?: string; saved?: string; deleted?: string }> }) {
+  const REJECT_LIMIT_PCT = (await getSettings()).plant.reject_limit_pct;
   const me = await requireStaff(opsRolesFor("quality"));
   const { f: rawF, saved, deleted } = await searchParams;
   const f = rawF === "held" || rawF === "unpublished" ? rawF : "all";
@@ -218,7 +220,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
             <CustomerSees>Each customer sees only their own published batches</CustomerSees>
           </div>
         </div>
-        <BatchTable rows={rows} f={f} canEdit={canEdit} heldCount={held.length} unpublishedCount={all.filter((r) => !r.published).length} />
+        <BatchTable rows={rows} f={f} canEdit={canEdit} heldCount={held.length} unpublishedCount={all.filter((r) => !r.published).length} rejectLimit={REJECT_LIMIT_PCT} />
       </div>
 
       <div id="sorting" className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
@@ -358,12 +360,14 @@ function BatchTable({
   canEdit,
   heldCount,
   unpublishedCount,
+  rejectLimit: REJECT_LIMIT_PCT,
 }: {
   rows: Row[];
   f: keyof typeof FILTERS;
   canEdit: boolean;
   heldCount: number;
   unpublishedCount: number;
+  rejectLimit: number;
 }) {
   const COLS = "grid grid-cols-[96px_minmax(0,1fr)_96px_64px_64px_104px_130px] items-center gap-2.5";
   const count: Record<keyof typeof FILTERS, number | null> = { all: null, held: heldCount, unpublished: unpublishedCount };

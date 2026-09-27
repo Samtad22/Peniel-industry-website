@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import { BaseCoatDialog, PrintItDialog, ToPressDialog, UndoToPressButton } from "@/components/ops/BaseCoat";
 import OpsHeader from "@/components/ops/OpsHeader";
@@ -16,7 +17,6 @@ import {
   goodSheets,
   minutesBetween,
   nextStillageNo,
-  OVEN_MINUTES,
   STILLAGE_STATUS_LABEL,
   stillageStatus,
   type OvenStage,
@@ -57,6 +57,7 @@ const STATUS_STYLE: Record<StillageStatus, string> = {
  * through the oven again. Internal only: customers never see it.
  */
 export default async function PrintedSheetsPage() {
+  const OVEN_MINUTES = (await getSettings()).plant.oven_minutes;
   const me = await requireStaff(opsRolesFor("sheets"));
   const canEnter = me.role === "admin" || me.role === "production";
   // Only admin deletes entries (the database enforces the same).
