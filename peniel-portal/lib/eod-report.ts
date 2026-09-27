@@ -37,6 +37,12 @@ export type EodInput = {
   stockCollected: number[];
   pickupsRequested: number;
   lowMaterials: { name: string; on_hand: number; unit: string; reorder_level: number }[];
+  /** Maintenance jobs that ran on the day; minutes = downtime within the day. */
+  maintenance: { machine: string; kind: string; description: string; minutes: number; open: boolean; stopped: boolean }[];
+  /** Machines down now. */
+  machinesDown: { name: string; since: string; note: string | null }[];
+  /** Planned services past their date. */
+  servicesOverdue: { name: string; days: number }[];
 };
 
 export type EodSection = { title: string; lines: string[] };
@@ -54,6 +60,7 @@ const n = (v: number) => Math.round(v).toLocaleString("en-US");
 const sum = (xs: number[]) => xs.reduce((a, b) => a + (Number(b) || 0), 0);
 const pct = (part: number, whole: number) => (whole > 0 ? `${((100 * part) / whole).toFixed(2)}%` : "-");
 const plural = (count: number, one: string, many = `${one}s`) => `${n(count)} ${count === 1 ? one : many}`;
+const duration = (minutes: number) => (minutes < 60 ? `${Math.round(minutes)} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${Math.round(minutes % 60)} min` : ""}`);
 
 /** Group rows by a key, keeping first-seen order. */
 function groupBy<T>(rows: T[], key: (r: T) => string): [string, T[]][] {
@@ -137,6 +144,18 @@ export function buildEodReport(d: EodInput): EodReport {
   if (d.pickupsRequested) warehouse.push(`${plural(d.pickupsRequested, "pickup request")} waiting for a time.`);
   for (const m of d.lowMaterials) warehouse.push(`Low: ${m.name}, ${n(m.on_hand)} ${m.unit} left (reorder at ${n(m.reorder_level)}).`);
 
+  // ---- Maintenance ----
+  const maint: string[] = [];
+  const downtime = sum(d.maintenance.map((m) => m.minutes));
+  if (d.maintenance.length === 0) maint.push("No maintenance logged.");
+  else {
+    maint.push(`${plural(d.maintenance.length, "job")}, ${duration(downtime)} of downtime.`);
+    for (const m of d.maintenance) {
+      maint.push(`${m.machine} · ${m.kind}: ${m.description}${m.stopped ? ` (${duration(m.minutes)} stopped${m.open ? ", still going on" : ""})` : m.open ? " (still going on)" : ""}.`);
+    }
+  }
+  for (const m of d.machinesDown) maint.push(`Down: ${m.name} since ${formatDate(m.since)}${m.note ? ` (${m.note})` : ""}.`);
+
   // ---- Before the day is closed ----
   const checks: string[] = [];
   const missingShifts = SHIFTS.filter((s) => !d.production.some((p) => p.shift === s));
@@ -154,6 +173,9 @@ export function buildEodReport(d: EodInput): EodReport {
     checks.push(`${plural(d.unsignedCertificates.length, "certificate")} waiting for a signature: ${d.unsignedCertificates.map((c) => `batch ${c.batch_no} (${c.order_no})`).join(", ")}.`);
   }
   if (d.inboxWaiting) checks.push(`${plural(d.inboxWaiting, "order")} waiting in the inbox.`);
+  const openJobs = d.maintenance.filter((m) => m.open);
+  if (openJobs.length) checks.push(`${plural(openJobs.length, "maintenance job")} still open: ${openJobs.map((m) => m.machine).join(", ")}. Finish ${openJobs.length === 1 ? "it" : "them"} if done.`);
+  for (const sv of d.servicesOverdue) checks.push(`${sv.name}: planned service overdue by ${plural(sv.days, "day")}.`);
 
   const kpis = [
     { label: "Crowns produced", value: formatQty(produced), sub: `${pct(rejects, produced)} camera rejects` },
@@ -173,6 +195,7 @@ export function buildEodReport(d: EodInput): EodReport {
       { title: "Quality", lines: quality },
       { title: "Orders", lines: orders },
       { title: "Warehouse and materials", lines: warehouse },
+      { title: "Maintenance", lines: maint },
     ],
   };
 }

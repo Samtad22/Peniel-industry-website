@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EodInput } from "@/lib/eod-report";
 import { addDays } from "@/lib/production-math";
 import type { OrderStatus } from "@/lib/order-status";
+import { downtimeMinutes, MAINTENANCE_KINDS, nextServiceDue, type Machine, type MaintenanceLog } from "@/lib/maintenance";
 
 // Loads one day's records for the end-of-day report (lib/eod-report.ts). Runs
 // with an admin's own client (the report page) or the service role (the
@@ -17,7 +18,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
   const to = `${addDays(date, 1)}T00:00:00+03:00`;
   const week = addDays(date, 7);
 
-  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials] = await Promise.all([
+  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials, machinesRes, maintRes] = await Promise.all([
     db
       .from("production_entries")
       .select("shift, produced_qty, reject_qty, published, orders(order_no, companies(name), brands(name))")
@@ -77,7 +78,26 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     db.from("finished_stock").select("quantity").gte("collected_at", from).lt("collected_at", to).returns<{ quantity: number }[]>(),
     db.from("pickup_bookings").select("id", { count: "exact", head: true }).eq("status", "requested"),
     db.from("raw_materials").select("name, on_hand, unit, reorder_level").returns<{ name: string; on_hand: number; unit: string; reorder_level: number | null }[]>(),
+    db
+      .from("machines")
+      .select("id, code, name, category, parent_id, sort_order, status, status_note, status_since, service_every_days")
+      .eq("active", true)
+      .returns<Machine[]>(),
+    // Jobs of the last year (for planned services) that started before the day ended.
+    db
+      .from("maintenance_logs")
+      .select("id, machine_id, kind, started_at, finished_at, stopped_machine, description, parts, done_by, notes")
+      .lt("started_at", to)
+      .gte("started_at", `${addDays(date, -365)}T00:00:00+03:00`)
+      .returns<MaintenanceLog[]>(),
   ]);
+  const machines = machinesRes.data ?? [];
+  const maintLogs = maintRes.data ?? [];
+  const nameOf = new Map(machines.map((m) => [m.id, m.name]));
+  const end = new Date(Math.min(now.getTime(), Date.parse(to))).toISOString();
+  // Jobs that ran on the day: started that day, or still open / finished that day.
+  const dayFrom = Date.parse(from);
+  const onDay = maintLogs.filter((l) => !l.finished_at || Date.parse(l.finished_at) >= dayFrom || Date.parse(l.started_at) >= dayFrom);
 
   return {
     date,
@@ -111,6 +131,21 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     lowMaterials: (materials.data ?? [])
       .filter((m) => m.reorder_level != null && Number(m.on_hand) <= Number(m.reorder_level))
       .map((m) => ({ name: m.name, on_hand: Number(m.on_hand), unit: m.unit, reorder_level: Number(m.reorder_level) })),
+    maintenance: onDay
+      .sort((a, b) => a.started_at.localeCompare(b.started_at))
+      .map((l) => ({
+        machine: nameOf.get(l.machine_id) ?? "Machine",
+        kind: MAINTENANCE_KINDS[l.kind]?.label ?? l.kind,
+        description: l.description,
+        minutes: downtimeMinutes([l], new Date(from).toISOString(), end),
+        open: !l.finished_at,
+        stopped: l.stopped_machine,
+      })),
+    machinesDown: machines.filter((m) => m.status === "down").map((m) => ({ name: m.name, since: m.status_since, note: m.status_note })),
+    servicesOverdue: machines
+      .map((m) => ({ name: m.name, due: nextServiceDue(m, maintLogs.filter((l) => l.machine_id === m.id), date) }))
+      .filter((x) => x.due && x.due.days < 0)
+      .map((x) => ({ name: x.name, days: -x.due!.days })),
   };
 }
 
