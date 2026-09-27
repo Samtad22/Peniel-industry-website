@@ -63,6 +63,7 @@ Customer writes are limited to: create order (status `submitted`), upload attach
 ## 4. Notifications (email)
 - To customer: order confirmed, proof awaiting approval, physical proof on its way (with DHL tracking), artwork reviewed, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message, Certificate of Analysis ready (once per signed certificate, when it is released, published and signed).
 - To staff: new order submitted, artwork received from a customer, proof approved / changes requested, pickup requested, new customer message.
+- To admins, every evening at about 20:00 Addis time: the end-of-day report (`lib/eod-report.ts`, no AI or paid service): the day's production by shift and order, printed sheets and oven passes, inspections and sorting, new orders, status changes and orders due within 7 days, finished stock, low raw materials, and a "check before closing the day" list of what looks missing (shifts with no production, unpublished entries, stillages still in the oven, unsigned certificates, orders waiting in the inbox). Sent by Vercel Cron (`vercel.json`, `/api/cron/eod`, needs the `CRON_SECRET` environment variable); also on `/ops/reports/eod` (admin only) to view any day, print or save as PDF, or email again.
 
 ## 5. Build phases
 
