@@ -8,8 +8,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SignState = { error?: string; ok?: string } | null;
 
-/** Quality and admin sign certificates (RLS and the database trigger enforce the same). */
-const SIGNERS = ["admin", "quality"] as const;
+/** The quality manager (role quality) signs; admin can remove a signature (RLS enforces the same). */
+const SIGNERS = ["quality"] as const;
+const REMOVERS = ["admin", "quality"] as const;
 const UUID = /^[0-9a-f-]{36}$/i;
 const LINES = SIGNATURE_LINES;
 type Line = SignatureLine;
@@ -19,7 +20,7 @@ function refresh(id: string) {
   revalidatePath("/ops/quality", "layout");
 }
 
-/** Sign one line of a batch's Certificate of Analysis, as yourself: drawn now, or your saved signature. */
+/** Sign a batch's Certificate of Analysis ("Prepared by"), as yourself: drawn now, or your saved signature. */
 export async function signCertificate(_prev: SignState, fd: FormData): Promise<SignState> {
   const me = await requireStaff([...SIGNERS]);
   const id = String(fd.get("inspection_id") ?? "");
@@ -51,14 +52,15 @@ export async function signCertificate(_prev: SignState, fd: FormData): Promise<S
     return { error: "Couldn't sign the certificate. Please try again." };
   }
 
-  if (line === "approved") notifyCertificateReady(id);
+  // Released and published already: the customer hears it's ready.
+  notifyCertificateReady(id);
   refresh(id);
-  return { ok: line === "approved" ? "Approved and signed." : "Signed. Next: “Approved by”, by a different person." };
+  return { ok: "Signed. The customer can open the certificate once the batch is released and published." };
 }
 
-/** Take a signature off (your own; admin can remove any). "Approved by" comes off before "Prepared by". */
+/** Take the signature off (your own; admin can remove any). */
 export async function removeSignature(fd: FormData): Promise<void> {
-  await requireStaff([...SIGNERS]);
+  await requireStaff([...REMOVERS]);
   const id = String(fd.get("inspection_id") ?? "");
   const line = String(fd.get("line") ?? "");
   if (!UUID.test(id) || !(line in LINES)) return;

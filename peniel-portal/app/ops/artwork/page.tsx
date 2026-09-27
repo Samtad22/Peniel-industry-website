@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { lockArtwork, lockSubmission } from "@/app/ops/artwork/actions";
+import { DeleteLibraryFile, LibraryUploadDialog } from "@/components/ops/ArtworkLibrary";
 import { DispatchDialog, ReviewSubmissionForm, NO_DELIVERY } from "@/components/ops/ArtworkForms";
 import OpsHeader from "@/components/ops/OpsHeader";
-import { SectionHead } from "@/components/ops/OpsKit";
+import { InternalPanel, SectionHead } from "@/components/ops/OpsKit";
 import SendProofPanel from "@/components/ops/SendProofPanel";
 import Crown, { crownSrc } from "@/components/ui/Crown";
 import { Pill } from "@/components/ui/StatusBadge";
+import { LIBRARY_LABELS, type LibraryFile, type LibraryKind } from "@/lib/artwork-library";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDate, formatDayMonth } from "@/lib/format";
 import { OPEN_STATUSES } from "@/lib/order-status";
-import { fileExt } from "@/lib/files";
+import { fileExt, formatBytes } from "@/lib/files";
 import { proofPill, submissionPill, trackingUrl, type PhysicalDelivery, type ProofStatus, type SubmissionStatus } from "@/lib/proofs";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -68,7 +70,7 @@ type Submission = {
   submitter: { full_name: string } | null;
 };
 
-/** Staff artwork: approved versions per brand, artwork from customers, the proof queue, sending proofs (design 1m). */
+/** Staff artwork: approved versions per brand, the artwork files library, artwork from customers, the proof queue, sending proofs (design 1m). */
 export default async function ArtworkPage({ searchParams }: { searchParams: Promise<{ c?: string; f?: string }> }) {
   const me = await requireStaff(opsRolesFor("artwork"));
   const sp = await searchParams;
@@ -117,6 +119,54 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
     (companies ?? [])[0]?.id ??
     "";
   const mine = (brands ?? []).filter((b) => b.company_id === companyId);
+  // The artwork library of this customer's brands. RLS hides print layouts from everyone but admin.
+  const isAdmin = me.role === "admin";
+  const { data: libraryData } = mine.length
+    ? await supabase
+        .from("brand_artwork_files")
+        .select("id, brand_id, kind, title, file_name, size_bytes, ups, notes, created_at")
+        .in("brand_id", mine.map((b) => b.id))
+        .order("created_at", { ascending: false })
+        .returns<LibraryFile[]>()
+    : { data: [] as LibraryFile[] };
+  const library = libraryData ?? [];
+  const brandPicks = mine.map((b) => ({ id: b.id, name: b.name }));
+  const libraryList = (kind: LibraryKind, canAdd: boolean) => (
+    <div className="flex flex-col">
+      {mine.map((b) => {
+        const files = library.filter((x) => x.brand_id === b.id && x.kind === kind);
+        return (
+          <div key={b.id} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b border-divider py-2.5 text-[13px] max-sm:grid-cols-1 max-sm:gap-1">
+            <span className="flex items-baseline justify-between gap-2">
+              <b className="text-[14px]">{b.name}</b>
+              {canAdd && <LibraryUploadDialog kind={kind} companyId={companyId} brands={brandPicks} brandId={b.id} />}
+            </span>
+            {files.length === 0 ? (
+              <span className="opacity-50">No files yet</span>
+            ) : (
+              <ul className="m-0 flex min-w-0 list-none flex-col gap-1.5 p-0">
+                {files.map((f) => (
+                  <li key={f.id} className="flex min-w-0 items-start gap-2">
+                    <span className="mt-px shrink-0 bg-surface px-1.5 py-0.5 font-mono text-[10px]">{fileExt(f.file_name)}</span>
+                    <span className="min-w-0 flex-1">
+                      <a href={`/files/library/${f.id}`} className="block truncate font-semibold">
+                        {f.title ?? f.file_name} ↓
+                      </a>
+                      <span className="opacity-60">
+                        {[f.size_bytes ? formatBytes(f.size_bytes) : null, f.ups ? `${f.ups} up` : null, formatDate(f.created_at)].filter(Boolean).join(" · ")}
+                        {f.notes ? ` · ${f.notes}` : ""}
+                      </span>
+                    </span>
+                    {canAdd && <DeleteLibraryFile id={f.id} name={f.title ?? f.file_name} />}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
   const allProofs = proofs ?? [];
   const f = sp.f === "waiting" || sp.f === "changes" ? sp.f : "all";
   const queue = allProofs.filter((p) => (f === "waiting" ? p.status === "sent" : f === "changes" ? p.status === "changes_requested" : true));
@@ -188,6 +238,36 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
           })}
         </div>
       </div>
+
+      {mine.length > 0 && (
+        <section className="border-b-2 border-divider px-4 py-6 sm:px-8" aria-label="Artwork files">
+          <SectionHead title="Artwork files" aside={`${library.length} ${library.length === 1 ? "file" : "files"} on record`} />
+          <div className={`grid gap-6 pt-4 ${isAdmin ? "lg:grid-cols-2" : ""}`}>
+            <div className="flex min-w-0 flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <b className="text-[16px]">{LIBRARY_LABELS.design.title}</b>
+                  <span className="block text-[12px] opacity-70">{LIBRARY_LABELS.design.sub}</span>
+                </span>
+                {canEdit && <LibraryUploadDialog kind="design" companyId={companyId} brands={brandPicks} />}
+              </div>
+              {libraryList("design", canEdit)}
+            </div>
+            {isAdmin && (
+              <InternalPanel label="ADMIN ONLY · PRINT LAYOUTS FOR THE CTP MACHINE" className="min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <b className="text-[16px]">{LIBRARY_LABELS.print_layout.title}</b>
+                    <span className="block text-[12px] opacity-70">{LIBRARY_LABELS.print_layout.sub}</span>
+                  </span>
+                  <LibraryUploadDialog kind="print_layout" companyId={companyId} brands={brandPicks} />
+                </div>
+                {libraryList("print_layout", true)}
+              </InternalPanel>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 border-divider px-4 py-6 sm:px-8 xl:border-r-2">

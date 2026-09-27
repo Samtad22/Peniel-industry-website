@@ -36,7 +36,7 @@ export type BatchRow = {
   reject_pct: number;
   result: "released" | "on_hold" | null;
   customer_reason: string | null;
-  /** Released and signed on both lines: the Certificate of Analysis opens. */
+  /** Released and signed by the quality manager: the Certificate of Analysis opens. */
   certificate_ready?: boolean;
 };
 

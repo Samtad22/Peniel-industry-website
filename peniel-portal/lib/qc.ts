@@ -27,7 +27,7 @@ export const COA_FORM = {
   documentNo: "PIC-OF-053",
   revision: "006",
   company: "Peniel Industry Crown Cork Factory",
-  tel: "0114190871 / 0912785616",
+  tel: "+251 11 668 9255 / +251 957 238 924",
   linerTypeId: "Contoform 0369",
 };
 

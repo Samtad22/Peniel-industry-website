@@ -5,13 +5,11 @@ import assert from "node:assert/strict";
 import { as, createUser, DSH, errorCode, HAB, HAB_ORDER_HABESHA, pool } from "./helpers.ts";
 
 let quality: string;
-let manager: string;
 let habesha: string;
 let dashen: string;
 
 before(async () => {
   quality = await createUser({ email: "quality@coa.test", role: "quality" });
-  manager = await createUser({ email: "manager@coa.test", role: "admin" });
   habesha = await createUser({ email: "buyer@coa-habesha.test", role: "customer_user", companyId: HAB });
   dashen = await createUser({ email: "buyer@coa-dashen.test", role: "customer_user", companyId: DSH });
 });
@@ -91,16 +89,13 @@ test("certificate: the customer gets their released, published batch with CoA re
   const released = await save("B-COA-REL", "released", true);
   const held = await save("B-COA-HELD", "on_hold", true);
   const unpublished = await save("B-COA-DRAFT", "released", false);
-  // Signed on both lines (see coa-signatures.test.ts), so the customer can open it.
+  // Signed by the quality manager (see coa-signatures.test.ts), so the customer can open it.
   const sign = (user: string, id: string, line: string) =>
     as(user, async (db) => {
       await db.query("insert into public.coa_signatures (inspection_id, line, image) values ($1, $2, 'data:image/png;base64,iVBORw0KGgo=')", [id, line]);
       await db.query("commit");
     });
-  for (const id of [released, unpublished]) {
-    await sign(quality, id, "prepared");
-    await sign(manager, id, "approved");
-  }
+  for (const id of [released, unpublished]) await sign(quality, id, "prepared");
 
   await as(habesha, async (db) => {
     const { rows } = await db.query("select public.certificate_of_analysis($1) as c", [released]);

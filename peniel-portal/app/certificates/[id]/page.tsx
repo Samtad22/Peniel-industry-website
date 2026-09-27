@@ -7,7 +7,7 @@ import { getProfile, homeFor } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { checkMeasure, COA_FORM, DEFECT_SAMPLE, MEASURES, measureValue } from "@/lib/qc";
 import { isStaffRole } from "@/lib/roles";
-import { signing, type SignatureLine, type Signatures } from "@/lib/signatures";
+import { signing, type Signatures } from "@/lib/signatures";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Certificate of Analysis" };
@@ -17,7 +17,7 @@ type Certificate = {
   final: boolean;
   /** Released and published. */
   released: boolean;
-  /** Signed on both lines for these results. */
+  /** Signed ("Prepared by", the quality manager) for these results. */
   signed: boolean;
   /** Issued before certificates were signed in the portal: open to the customer unsigned. */
   legacy: boolean;
@@ -39,7 +39,6 @@ type Certificate = {
   results: Record<string, unknown>;
   checks: { code: string; label: string; count: number }[];
   prepared_by: string | null;
-  approved_by: string | null;
   signatures: Signatures;
 };
 
@@ -49,9 +48,9 @@ const pct = (count: number, sample: number) => (sample > 0 ? `${fmt(Math.round((
 /**
  * Certificate of Analysis for one batch, laid out like the Quality team's
  * form PIC-OF-053 rev. 006. Customers can open it for their own released,
- * published batches, signed on both lines (enforced by
+ * published batches, signed by the quality manager (enforced by
  * certificate_of_analysis in the database); staff see any batch, marked as a
- * draft until it is final, and quality or admin sign it here.
+ * draft until it is final, and the quality manager signs it here.
  */
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,10 +63,11 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const c = data as Certificate | null;
   if (!c) notFound();
 
-  // Quality and admin sign here (the database checks every rule again).
+  // The quality manager signs here (the database checks every rule again).
   const staff = isStaffRole(profile.role);
-  const signer = profile.role === "admin" || profile.role === "quality";
-  const can = signing(c.signatures ?? {}, c.result === "released", { userId: profile.user_id, role: profile.role });
+  const signer = profile.role === "quality";
+  const sig = c.signatures?.prepared;
+  const can = signing(c.signatures ?? {}, { userId: profile.user_id, role: profile.role });
   let saved: string | null = null;
   if (signer) {
     const { data: mine } = await supabase.from("staff_signatures").select("image").eq("user_id", profile.user_id).maybeSingle<{ image: string }>();
@@ -96,7 +96,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         {!c.final && (
           <div className="border-2 border-accent-800 px-3 py-2 text-center font-extrabold text-accent-800">
             {c.released
-              ? "DRAFT: waiting for signatures. The customer sees this certificate once it's signed on both lines."
+              ? "DRAFT: waiting for the quality manager's signature. The customer sees this certificate once it's signed."
               : c.signed
                 ? "DRAFT: signed, but not released and published, so the customer can't see this certificate yet."
                 : "DRAFT: not released, published and signed, so the customer can't see this certificate."}
@@ -199,32 +199,26 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         </div>
 
         <div className="grid gap-x-10 gap-y-6 pt-4 sm:grid-cols-2 print:grid-cols-2 print:gap-y-2 print:pt-2">
-          {(["prepared", "approved"] as SignatureLine[]).map((line) => {
-            const sig = c.signatures?.[line];
-            const name = line === "prepared" ? c.prepared_by : c.approved_by;
-            return (
-              <div key={line} className="flex flex-col gap-2 print:gap-1">
-                {field(line === "prepared" ? "Prepared By" : "Approved By", name ?? "")}
-                {field(
-                  "Signature",
-                  sig ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- a data URL drawn in the portal
-                    <img src={sig.image} alt={`Signature of ${sig.name}`} className="-mt-3 -mb-1 block h-[56px] w-auto max-w-full print:h-[44px]" />
-                  ) : (
-                    ""
-                  ),
-                )}
-                {field("Date", sig ? formatDate(sig.signed_at) : "")}
-                {staff && (
-                  <div className="flex min-h-11 flex-wrap items-center gap-3 print:hidden">
-                    {can[line].canSign && <SignDialog inspectionId={c.id} line={line} saved={saved} />}
-                    {can[line].blocked && <span className="text-[12px] opacity-70">{can[line].blocked}</span>}
-                    {can[line].canRemove && <RemoveSignatureButton inspectionId={c.id} line={line} />}
-                  </div>
-                )}
+          <div className="flex flex-col gap-2 print:gap-1">
+            {field("Prepared By", c.prepared_by ?? "")}
+            {field(
+              "Signature",
+              sig ? (
+                // eslint-disable-next-line @next/next/no-img-element -- a data URL drawn in the portal
+                <img src={sig.image} alt={`Signature of ${sig.name}`} className="-mt-3 -mb-1 block h-[56px] w-auto max-w-full print:h-[44px]" />
+              ) : (
+                ""
+              ),
+            )}
+            {field("Date", sig ? formatDate(sig.signed_at) : "")}
+            {staff && (can.canSign || can.canRemove || !sig) && (
+              <div className="flex min-h-11 flex-wrap items-center gap-3 print:hidden">
+                {can.canSign && <SignDialog inspectionId={c.id} line="prepared" saved={saved} />}
+                {!sig && !can.canSign && <span className="text-[12px] opacity-70">To be signed by the quality manager.</span>}
+                {can.canRemove && <RemoveSignatureButton inspectionId={c.id} line="prepared" />}
               </div>
-            );
-          })}
+            )}
+          </div>
         </div>
         {signer && saved && (
           <div className="text-right print:hidden">

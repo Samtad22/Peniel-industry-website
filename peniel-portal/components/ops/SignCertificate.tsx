@@ -69,8 +69,8 @@ function SignForm({ inspectionId, line, saved, close }: { inspectionId: string; 
       )}
 
       <p className="m-0 text-[12px] opacity-70">
-        You sign as yourself, with today&apos;s date. The signature appears on the certificate the customer sees
-        {line === "approved" ? ", and the customer is emailed that it's ready once the batch is published." : "."}
+        You sign as yourself, with today&apos;s date. The signature appears on the certificate the customer sees, and the
+        customer is emailed that it&apos;s ready once the batch is released and published.
       </p>
       <FormMessage state={state} />
       <div className="dialog-actions">

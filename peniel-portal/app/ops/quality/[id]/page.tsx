@@ -87,7 +87,7 @@ export default async function InspectionPage({
   ]);
   if (!isNew && !insp) notFound();
   // Sorting of this batch's camera rejects (by order and batch number, with or without this inspection).
-  // Certificate signatures that still match the results (changing them voids the signatures).
+  // The certificate's signature, if it still matches the results (changing them voids it).
   const { data: coa } = insp
     ? await supabase.rpc("certificate_of_analysis", { p_inspection_id: insp.id })
     : { data: null };
@@ -153,8 +153,7 @@ export default async function InspectionPage({
                 Certificate of Analysis ↗
               </a>
               <span className="font-mono text-[11px] tracking-[.08em] uppercase opacity-70">
-                {signedLines === 2 ? "Signed" : `Signatures ${signedLines} of 2`}
-                {signedLines > 0 ? " · changing the results clears them" : ""}
+                {signedLines > 0 ? "Signed · changing the results clears the signature" : "Not signed yet"}
               </span>
             </div>
           ) : undefined
