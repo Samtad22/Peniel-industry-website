@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { startBaseCoat, type PrintRunState } from "@/app/ops/production/sheets/actions";
+import { sendToPress, startBaseCoat, undoToPress, type PrintRunState } from "@/app/ops/production/sheets/actions";
 import PrintRunForm, { type PrintBrand } from "@/components/ops/PrintRunForm";
 import Modal from "@/components/ui/Modal";
 import { Button, Field, FormMessage } from "@/components/ui/form";
@@ -185,5 +185,74 @@ export function PrintItDialog({
     >
       {(close) => <PrintRunForm today={today} brands={brands} nextNo={stillage.stillageNo} fixed={stillage} onDone={close} />}
     </Modal>
+  );
+}
+
+/** "To the press": a finished stillage leaves the printed-sheet stock for a press. */
+export function ToPressDialog({ id, stillageNo, presses, nowLocal, primary }: { id: string; stillageNo: string; presses: { id: string; name: string }[]; nowLocal: string; primary?: boolean }) {
+  return (
+    <Modal
+      title={`Stillage ${stillageNo} to the press`}
+      trigger={(open) => (
+        <Button type="button" variant={primary ? "primary" : "secondary"} onClick={open} icon="→" className={`w-full whitespace-nowrap ${primary ? "" : "text-text"}`}>
+          To the press
+        </Button>
+      )}
+    >
+      {(close) => <ToPressForm id={id} presses={presses} nowLocal={nowLocal} close={close} />}
+    </Modal>
+  );
+}
+
+function ToPressForm({ id, presses, nowLocal, close }: { id: string; presses: { id: string; name: string }[]; nowLocal: string; close: () => void }) {
+  const [state, action, pending] = useActionState<PrintRunState, FormData>(sendToPress, null);
+  return (
+    <form action={action} className="flex flex-col gap-3.5">
+      <input type="hidden" name="id" value={id} />
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <Field label="Press" htmlFor="tp-press">
+          <select id="tp-press" name="press_id" required defaultValue={presses[0]?.id ?? ""} className="input min-h-11">
+            {presses.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="When" htmlFor="tp-at">
+          <input id="tp-at" name="at" type="datetime-local" required max={nowLocal} defaultValue={nowLocal} className="input min-h-11" />
+        </Field>
+      </div>
+      <p className="m-0 text-[12px] opacity-70">The whole stillage leaves the printed-sheet stock.</p>
+      <FormMessage state={state} />
+      <div className="dialog-actions">
+        <Button type="button" variant="secondary" onClick={close}>
+          {state?.ok ? "Done" : "Cancel"}
+        </Button>
+        {!state?.ok && (
+          <Button type="submit" disabled={pending || presses.length === 0} icon="→" className="w-[170px]">
+            {pending ? "Saving…" : "To the press"}
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/** Undo "to the press" (sent by mistake). */
+export function UndoToPressButton({ id, label }: { id: string; label: string }) {
+  return (
+    <form
+      action={undoToPress}
+      onSubmit={(e) => {
+        if (!confirm(`Put stillage ${label} back in stock?`)) e.preventDefault();
+      }}
+      className="inline"
+    >
+      <input type="hidden" name="id" value={id} />
+      <button type="submit" className="cursor-pointer border-0 bg-transparent p-0 text-[11px] text-accent-800 underline underline-offset-2">
+        undo
+      </button>
+    </form>
   );
 }

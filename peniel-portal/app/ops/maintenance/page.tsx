@@ -5,7 +5,7 @@ import OpsHeader from "@/components/ops/OpsHeader";
 import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
 import { Pill } from "@/components/ui/StatusBadge";
 import { requireStaff } from "@/lib/auth";
-import { addisDateISO, formatDate, formatDateTime } from "@/lib/format";
+import { addisDateISO, formatDate, formatDateTime, formatQty } from "@/lib/format";
 import { addisLocalNow } from "@/lib/inventory";
 import {
   downtimeMinutes,
@@ -41,7 +41,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   const weekStart = `${addDays(today, -6)}T00:00:00+03:00`;
   const supabase = await createClient();
 
-  const [{ data: machineData }, { data: logData }, { data: openData }] = await Promise.all([
+  const [{ data: machineData }, { data: logData }, { data: openData }, { data: outputData }] = await Promise.all([
     supabase
       .from("machines")
       .select("id, code, name, category, parent_id, sort_order, status, status_note, status_since, service_every_days")
@@ -61,6 +61,12 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
       .is("finished_at", null)
       .order("started_at")
       .returns<MaintenanceLog[]>(),
+    // Crowns per liner over the last 7 days (production entries are booked per liner).
+    supabase
+      .from("production_entries")
+      .select("entry_date, produced_qty, production_lines(machine_id)")
+      .gte("entry_date", addDays(today, -6))
+      .returns<{ entry_date: string; produced_qty: number; production_lines: { machine_id: string | null } | null }[]>(),
   ]);
   const machines = machineData ?? [];
   const byId = new Map(machines.map((m) => [m.id, m]));
@@ -79,6 +85,15 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   const section = MACHINE_SECTIONS.find((s) => s.category === sp.s)?.category as MachineCategory | undefined;
   const recent = logs.filter((l) => !section || byId.get(l.machine_id)?.category === section).slice(0, 40);
   const presses = machines.filter((m) => m.category === "press" && !m.parent_id);
+  // Output per liner (a press: its liners), and a rough rate to put downtime in crowns:
+  // crowns per hour over the days it produced, around the clock.
+  const outputOf = (id: string) => {
+    const ids = new Set([id, ...machines.filter((c) => c.parent_id === id).map((c) => c.id)]);
+    const rows = (outputData ?? []).filter((e) => e.production_lines?.machine_id && ids.has(e.production_lines.machine_id));
+    const crowns = rows.reduce((s, e) => s + Number(e.produced_qty), 0);
+    const days = new Set(rows.map((e) => e.entry_date)).size;
+    return { crowns, perHour: days ? crowns / (days * 24) : 0 };
+  };
 
   return (
     <>
@@ -170,6 +185,15 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
                       {!m.status_note && !openJob && !last && <span className="opacity-50">No jobs logged yet</span>}
                     </div>
                     <div className="flex min-w-0 flex-col gap-0.5">
+                      {s.category === "press" && m.status !== "on_order" && (() => {
+                        const o = outputOf(m.id);
+                        return (
+                          <span className={o.crowns ? "font-semibold" : "opacity-60"}>
+                            Output 7 days: {formatQty(o.crowns)} crowns
+                            {week > 0 && o.perHour > 0 && <span className="font-normal text-accent-800"> · ≈ {formatQty((week / 60) * o.perHour)} lost to downtime</span>}
+                          </span>
+                        );
+                      })()}
                       <span className={week ? "" : "opacity-60"}>Downtime 7 days: {formatDuration(week)}</span>
                       {due && (
                         <span className={due.days < 0 ? "font-extrabold text-accent-800" : due.days <= 3 ? "font-extrabold" : "opacity-70"}>

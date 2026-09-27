@@ -53,7 +53,7 @@ export const OPS_NAV: { area: OpsArea; href: string; label: string; short: strin
   { area: "artwork", href: "/ops/artwork", label: "Artwork", short: "Artwork", no: "07", group: "records", roles: ["admin", "sales", "quality"] },
   { area: "documents", href: "/ops/documents", label: "Documents", short: "Docs", no: "08", group: "records", roles: ["admin", "sales", "quality", "warehouse"] },
   { area: "customers", href: "/ops/customers", label: "Customers", short: "Customers", no: "09", group: "records", roles: ["admin", "sales"] },
-  { area: "reports", href: "/ops/reports/eod", label: "End of day report", short: "EOD", no: "13", group: "records", roles: ["admin"] },
+  { area: "reports", href: "/ops/reports", label: "Reports", short: "Reports", no: "13", group: "records", roles: ["admin"] },
   { area: "settings", href: "/ops/settings", label: "Settings", short: "Settings", no: "12", group: "records", roles: ["admin"] },
 ];
 

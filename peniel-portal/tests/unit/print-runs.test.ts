@@ -41,6 +41,8 @@ test("a stillage moves printed → varnish oven → varnished → lacquer oven �
   assert.equal(stillageStatus([{ stage: "base_coat", finished_at: "x" }], false), "base_coated");
   assert.equal(stillageStatus([{ stage: "base_coat", finished_at: "x" }], true), "printed");
   assert.equal(stillageStatus([{ stage: "base_coat", finished_at: "x" }, { stage: "varnish", finished_at: null }], true), "varnish_oven");
+  // Finished stillages sent to a press leave the printed-sheet stock.
+  assert.equal(stillageStatus([{ stage: "varnish", finished_at: "x" }, { stage: "lacquer", finished_at: "y" }], true, "2026-09-27T10:00:00Z"), "at_press");
   // The base coat's spoilage came before the printed count.
   assert.equal(goodSheets(1_400, [{ stage: "base_coat", sheets_spoiled: 4 }, { stage: "varnish", sheets_spoiled: 2 }]), 1_398);
   assert.equal(minutesBetween("2026-09-27T08:00:00Z", "2026-09-27T08:31:20Z"), 31);

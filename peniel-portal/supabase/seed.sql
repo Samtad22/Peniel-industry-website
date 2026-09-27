@@ -43,9 +43,11 @@ insert into public.hold_reason_presets (text, sort_order) values
   ('Batch under re-inspection by our quality team.', 4),
   ('Production rescheduled. See the revised due date.', 5);
 
-insert into public.production_lines (id, name) values
-  ('b0000000-0000-4000-8000-000000000001', 'Line 1 · Press A'),
-  ('b0000000-0000-4000-8000-000000000002', 'Line 2 · Press B');
+-- The setup lines: kept for the seed's past entries, hidden from new ones
+-- (entries are per liner now; migration 20261016000001 makes those lines).
+insert into public.production_lines (id, name, active) values
+  ('b0000000-0000-4000-8000-000000000001', 'Line 1 · Press A', false),
+  ('b0000000-0000-4000-8000-000000000002', 'Line 2 · Press B', false);
 
 insert into public.raw_materials (name, unit, on_hand, reorder_level) values
   ('Tinplate sheet 0.23 mm',   'sheets', 180000, 50000),

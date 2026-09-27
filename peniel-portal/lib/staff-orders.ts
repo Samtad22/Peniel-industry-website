@@ -62,7 +62,11 @@ type OrderRow = Omit<
 };
 
 /** Short line label for tables: "Line 1 · Press A" → "L1". */
-export const shortLine = (name: string) => name.split(/\s+[—·:-]\s+/)[0].replace(/^Line\s*/i, "L");
+export const shortLine = (name: string) => {
+  const parts = name.split(/\s+[—·:-]\s+/);
+  // "Press 1 · Liner 1A" → "Liner 1A"; "Line 2 · Press B" → "L2".
+  return parts.length > 1 && /^Press\b/i.test(parts[0]) ? parts[1] : parts[0].replace(/^Line\s*/i, "L");
+};
 
 /**
  * Everything the staff order page (design 1f) and the inbox (1c) show. Read

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BaseCoatDialog, PrintItDialog } from "@/components/ops/BaseCoat";
+import { BaseCoatDialog, PrintItDialog, ToPressDialog, UndoToPressButton } from "@/components/ops/BaseCoat";
 import OpsHeader from "@/components/ops/OpsHeader";
 import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
 import { DeletePassButton, IntoOvenDialog, OutOfOvenDialog, OvenTimer } from "@/components/ops/OvenPass";
@@ -24,6 +24,7 @@ import {
   type StillagePass,
   type StillageStatus,
 } from "@/lib/print-runs";
+import { loadProducibleOrders } from "@/lib/production";
 import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -45,6 +46,7 @@ const STATUS_STYLE: Record<StillageStatus, string> = {
   varnished: "border border-accent-700 text-accent-700",
   lacquer_oven: "bg-accent text-bg",
   finished: "bg-text text-bg",
+  at_press: "border border-divider opacity-70",
 };
 
 /**
@@ -62,17 +64,23 @@ export default async function PrintedSheetsPage() {
   const nowLocal = addisLocalNow();
   const supabase = await createClient();
 
-  const [{ data: runData }, { data: brandData }] = await Promise.all([
+  const [{ data: runData }, { data: brandData }, { data: pressData }, openOrders] = await Promise.all([
     supabase
       .from("print_runs")
-      .select("id, brand_id, stillage_no, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coil_lot, notes, printed, base_sheets, created_at, brands(name, companies(name))")
-      .gte("run_date", addDays(today, -60))
+      .select("id, brand_id, stillage_no, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coil_lot, notes, printed, base_sheets, to_press_at, press_id, created_at, brands(name, companies(name))")
+      // The last 60 days, and anything older still in stock (not yet sent to a press).
+      .or(`run_date.gte.${addDays(today, -60)},to_press_at.is.null`)
       .order("run_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(1000)
       .returns<RunRow[]>(),
     supabase.from("brands").select("id, name, colours, base_coat, companies(name)").eq("active", true).order("name").returns<BrandRow[]>(),
+    // The presses a stillage can go to (installed ones).
+    supabase.from("machines").select("id, name, status").eq("category", "press").is("parent_id", null).neq("status", "on_order").order("sort_order").returns<{ id: string; name: string; status: string }[]>(),
+    loadProducibleOrders(supabase),
   ]);
+  const presses = (pressData ?? []).sort((a, b) => Number(b.status === "running") - Number(a.status === "running"));
+  const pressName = new Map((pressData ?? []).map((p) => [p.id, p.name]));
   const runs = runData ?? [];
   const { data: passData } = runs.length
     ? await supabase
@@ -92,7 +100,7 @@ export default async function PrintedSheetsPage() {
     const printed = r.printed !== false;
     // Before printing, the sheets are the ones base-coated (less what the base coat spoiled).
     const good = printed ? goodSheets(Number(r.sheets_printed), mine) : Math.max(0, Number(r.base_sheets ?? 0) - Number(base?.sheets_spoiled ?? 0));
-    return { r, base, varnish, lacquer, printed, status: stillageStatus(mine, printed), good, label: r.stillage_no ?? `#${r.id.slice(0, 4)}` };
+    return { r, base, varnish, lacquer, printed, status: stillageStatus(mine, printed, r.to_press_at ?? null), good, label: r.stillage_no ?? `#${r.id.slice(0, 4)}` };
   });
   const at = (s: StillageStatus) => stillages.filter((x) => x.status === s);
   const inOven = stillages.filter((x) => x.status === "base_oven" || x.status === "varnish_oven" || x.status === "lacquer_oven");
@@ -114,19 +122,34 @@ export default async function PrintedSheetsPage() {
     return t == null ? null : Number(t);
   };
 
-  const finished = at("finished");
-  const byBrand = [...new Set(finished.map((x) => x.r.brand_id))]
+  // Printed-sheet stock: finished stillages not yet sent to a press, per brand,
+  // against what open orders of that brand still need.
+  const inStock = at("finished").reverse();
+  const needFor = (brand: { name: string; companies: { name: string } | null } | null) =>
+    openOrders
+      .filter((o) => o.brand === brand?.name && o.company === (brand?.companies?.name ?? "-"))
+      .reduce((t, o) => t + Math.max(0, o.quantity - o.good), 0);
+  const byBrand = [...new Set([...inStock.map((x) => x.r.brand_id)])]
     .map((id) => {
-      const mine = finished.filter((x) => x.r.brand_id === id);
-      return { id, brand: mine[0].r.brands, colours: mine[0].r.colours, stillages: mine.length, good: sum(mine, (x) => x.good), last: mine[0].r.run_date };
+      const mine = inStock.filter((x) => x.r.brand_id === id);
+      const good = sum(mine, (x) => x.good);
+      const crowns = crownsFromSheets(good, CROWNS_PER_SHEET);
+      const need = needFor(mine[0].r.brands);
+      return { id, brand: mine[0].r.brands, colours: mine[0].r.colours, stillages: mine.length, good, crowns, need, oldest: mine[0].lacquer?.finished_at ?? mine[0].r.run_date };
     })
     .sort((a, b) => b.good - a.good);
+  // Brands with open orders but no printed sheets in stock at all.
+  const shortBrands = [...new Map(openOrders.map((o) => [`${o.brand}|${o.company}`, o])).values()]
+    .filter((o) => !byBrand.some((b) => b.brand?.name === o.brand && (b.brand?.companies?.name ?? "-") === o.company))
+    .map((o) => ({ brand: o.brand, company: o.company, need: openOrders.filter((x) => x.brand === o.brand && x.company === o.company).reduce((t, x) => t + Math.max(0, x.quantity - x.good), 0) }))
+    .filter((o) => o.need > 0);
+  const sentToday = stillages.filter((x) => x.r.to_press_at && addisDateISO(new Date(x.r.to_press_at)) === today);
 
   const passLine = (p: StillagePass | null) =>
     p
       ? `${hhmm(p.started_at)}–${p.finished_at ? `${hhmm(p.finished_at)} (${minutesBetween(p.started_at, p.finished_at)} min)` : "in the oven"}${p.oven_temp_c != null ? ` · ${Number(p.oven_temp_c)} °C` : ""}${p.material ? ` · ${p.material}` : ""}`
       : "-";
-  const BRAND_COLS = "grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)_80px_110px_80px] items-center gap-3";
+  const BRAND_COLS = "grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)_80px_110px_140px_90px] items-center gap-3";
   const ROWS = "grid grid-cols-[90px_minmax(0,1fr)_96px_minmax(0,1fr)_100px_minmax(0,1.3fr)_minmax(0,1.3fr)_190px] items-center gap-3";
 
   return (
@@ -255,6 +278,83 @@ export default async function PrintedSheetsPage() {
         </section>
       </div>
 
+      <section className="border-b-2 border-divider px-4 pb-6 pt-6 sm:px-8">
+        <SectionHead
+          title="Printed-sheet stock"
+          aside={`${inStock.length} finished stillage${inStock.length === 1 ? "" : "s"} · ${sum(inStock, (x) => x.good).toLocaleString("en-US")} sheets · ${sentToday.length} sent to the press today`}
+        />
+        <div className="overflow-x-auto">
+          <div className="min-w-[760px]">
+            <div className={`${BRAND_COLS} th-row border-b border-divider py-2`}>
+              <span>Brand</span>
+              <span>Colours</span>
+              <span className="text-right">Stillages</span>
+              <span className="text-right">Good sheets</span>
+              <span className="text-right">Open orders need</span>
+              <span>Oldest</span>
+            </div>
+            {byBrand.length === 0 && shortBrands.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No finished stillages in stock.</p>}
+            {byBrand.map((b) => {
+              const short = b.need > b.crowns;
+              return (
+                <div key={b.id} className={`${BRAND_COLS} border-b border-divider py-2.5 text-[13px] ${short ? "bg-accent-100" : ""}`}>
+                  <span className="min-w-0">
+                    <b className="block truncate">{b.brand?.name ?? "-"}</b>
+                    <span className="block truncate text-[12px] opacity-65">{shortCompany(b.brand?.companies?.name)}</span>
+                  </span>
+                  <span className="min-w-0 text-[12px]">
+                    <InkSwatches colours={b.colours} compact />
+                  </span>
+                  <b className="text-right tabular-nums">{b.stillages}</b>
+                  <span className="text-right">
+                    <b className="tabular-nums">{b.good.toLocaleString("en-US")}</b>
+                    <span className="block text-[11px] opacity-60">≈ {formatQty(b.crowns)} crowns</span>
+                  </span>
+                  <span className={`text-right ${short ? "font-extrabold text-accent-800" : ""}`}>
+                    {b.need ? `${formatQty(b.need)} crowns` : "-"}
+                    {short && <span className="block text-[11px]">print ≈ {formatQty(Math.ceil((b.need - b.crowns) / CROWNS_PER_SHEET))} more sheets</span>}
+                  </span>
+                  <span>{formatDate(b.oldest)}</span>
+                </div>
+              );
+            })}
+            {shortBrands.map((b) => (
+              <div key={`${b.brand}|${b.company}`} className={`${BRAND_COLS} border-b border-divider bg-accent-100 py-2.5 text-[13px]`}>
+                <span className="min-w-0">
+                  <b className="block truncate">{b.brand}</b>
+                  <span className="block truncate text-[12px] opacity-65">{shortCompany(b.company)}</span>
+                </span>
+                <span />
+                <b className="text-right tabular-nums">0</b>
+                <span className="text-right opacity-60">none in stock</span>
+                <span className="text-right font-extrabold text-accent-800">
+                  {formatQty(b.need)} crowns
+                  <span className="block text-[11px]">print ≈ {formatQty(Math.ceil(b.need / CROWNS_PER_SHEET))} sheets</span>
+                </span>
+                <span />
+              </div>
+            ))}
+          </div>
+        </div>
+        {inStock.length > 0 && canEnter && (
+          <div className="mt-5">
+            <h3 className="m-0 mb-1 text-[16px]">In stock, oldest first</h3>
+            {inStock.slice(0, 15).map((x, i) => (
+              <div key={x.r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-divider py-2.5 sm:grid-cols-[minmax(0,1fr)_190px]">
+                <span className="min-w-0">
+                  <b className="font-mono text-[15px]">{x.label}</b>
+                  <span className="block truncate text-[13px] opacity-75">
+                    {x.r.brands?.name ?? "-"} · {x.good.toLocaleString("en-US")} sheets · finished {x.lacquer?.finished_at ? `${formatDayMonth(x.lacquer.finished_at)} ${hhmm(x.lacquer.finished_at)}` : "-"}
+                  </span>
+                </span>
+                <ToPressDialog id={x.r.id} stillageNo={x.label} presses={presses} nowLocal={nowLocal} primary={i === 0} />
+              </div>
+            ))}
+            {inStock.length > 15 && <p className="m-0 pt-2 text-[12px] opacity-60">+ {inStock.length - 15} more.</p>}
+          </div>
+        )}
+      </section>
+
       <section className="px-4 pb-6 pt-6 sm:px-8">
         <SectionHead title="Stillages" aside={`${runs.length} in the last 60 days`} />
         <div className="overflow-x-auto">
@@ -305,42 +405,12 @@ export default async function PrintedSheetsPage() {
                   )}
                 </span>
                 <span className="flex items-center justify-between gap-2">
-                  <span className={`px-[7px] py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em] ${STATUS_STYLE[x.status]}`}>{STILLAGE_STATUS_LABEL[x.status]}</span>
+                  <span className={`px-[7px] py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em] ${STATUS_STYLE[x.status]}`} title={x.r.to_press_at ? `${pressName.get(x.r.press_id ?? "") ?? "Press"} · ${formatDayMonth(x.r.to_press_at)} ${hhmm(x.r.to_press_at)}` : undefined}>
+                    {x.status === "at_press" && x.r.press_id ? `To ${pressName.get(x.r.press_id) ?? "the press"}` : STILLAGE_STATUS_LABEL[x.status]}
+                  </span>
+                  {canEnter && x.status === "at_press" && <UndoToPressButton id={x.r.id} label={x.label} />}
                   {canEnter && !x.varnish && <DeletePrintRunButton id={x.r.id} />}
                 </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 pb-8 pt-4 sm:px-8">
-        <SectionHead title="Finished, by brand" aside="lacquered · last 60 days" />
-        <div className="overflow-x-auto">
-          <div className="min-w-[560px]">
-            <div className={`${BRAND_COLS} th-row border-b border-divider py-2`}>
-              <span>Brand</span>
-              <span>Colours</span>
-              <span className="text-right">Stillages</span>
-              <span className="text-right">Good sheets</span>
-              <span>Last</span>
-            </div>
-            {byBrand.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No finished stillages yet.</p>}
-            {byBrand.map((b) => (
-              <div key={b.id} className={`${BRAND_COLS} border-b border-divider py-2.5 text-[13px]`}>
-                <span className="min-w-0">
-                  <b className="block truncate">{b.brand?.name ?? "-"}</b>
-                  <span className="block truncate text-[12px] opacity-65">{shortCompany(b.brand?.companies?.name)}</span>
-                </span>
-                <span className="min-w-0 text-[12px]">
-                  <InkSwatches colours={b.colours} compact />
-                </span>
-                <b className="text-right tabular-nums">{b.stillages}</b>
-                <span className="text-right">
-                  <b className="tabular-nums">{b.good.toLocaleString("en-US")}</b>
-                  <span className="block text-[11px] opacity-60">≈ {formatQty(crownsFromSheets(b.good, CROWNS_PER_SHEET))} crowns</span>
-                </span>
-                <span>{formatDate(b.last)}</span>
               </div>
             ))}
           </div>
@@ -350,6 +420,8 @@ export default async function PrintedSheetsPage() {
           through the process in the last 60 days.
         </p>
       </section>
+
+
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { addisLocalToIso } from "@/lib/inventory";
+import { parseRate, USE_BASIS } from "@/lib/materials";
 import { createClient } from "@/lib/supabase/server";
 
 export type InvState = { error?: string; ok?: string } | null;
@@ -128,4 +129,31 @@ export async function recordCollection(_prev: InvState, fd: FormData): Promise<I
   refresh();
   revalidatePath("/ops/orders", "layout");
   return { ok: "Collection recorded. Fully collected orders are now Delivered." };
+}
+
+/** Add a raw material, or change its name, unit, reorder level and automatic usage (admin, warehouse). */
+export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvState> {
+  await requireStaff(["admin", "warehouse"]);
+  const id = s(fd, "id");
+  const name = s(fd, "name").slice(0, 80);
+  const unit = s(fd, "unit").slice(0, 20);
+  const reorderRaw = s(fd, "reorder_level").replace(/[,\s]/g, "");
+  const reorder = reorderRaw ? Number(reorderRaw) : null;
+  const basis = s(fd, "use_basis");
+  const rate = parseRate(s(fd, "use_rate"));
+  if (!name) return { error: "Enter the material's name." };
+  if (!unit) return { error: "Enter the unit (e.g. kg, L, sheets)." };
+  if (reorder != null && !(reorder >= 0)) return { error: "Reorder level: enter a number, or leave it empty." };
+  if (basis && !(basis in USE_BASIS)) return { error: "Choose what it's used per." };
+  if (Number.isNaN(rate)) return { error: "Usage: enter a number (e.g. 0.5), or leave it empty." };
+  if (basis && rate == null) return { error: "Enter how much is used, or choose “not tracked”." };
+  const row = { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null };
+  const supabase = await createClient();
+  const { error } = UUID.test(id) ? await supabase.from("raw_materials").update(row).eq("id", id) : await supabase.from("raw_materials").insert(row);
+  if (error) {
+    if (error.code === "23505") return { error: `${name} already exists.` };
+    return { error: /row-level|permission/i.test(error.message) ? "Your role can't change raw materials." : "Couldn't save. Please try again." };
+  }
+  refresh();
+  return { ok: UUID.test(id) ? "Saved. Usage from now on follows the new rate." : `${name} added.` };
 }

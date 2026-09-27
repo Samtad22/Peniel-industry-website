@@ -59,7 +59,7 @@ export default function EntryForm({
   orders,
 }: {
   today: string;
-  lines: { id: string; name: string }[];
+  lines: { id: string; name: string; status?: string }[];
   orders: EntryOrder[];
 }) {
   const [produced, setProduced] = useState("");
@@ -110,6 +110,7 @@ export default function EntryForm({
             <label key={l.id} className={seg}>
               <input type="radio" name="line_id" value={l.id} defaultChecked={i === 0} required />
               {l.name}
+              {l.status && l.status !== "running" && <span className="text-[11px] font-normal opacity-70">({l.status})</span>}
             </label>
           ))}
         </div>

@@ -6,6 +6,7 @@ import {
   receiveStock,
   recordCollection,
   recordMaterial,
+  saveMaterial,
   setStockStatus,
   type InvState,
 } from "@/app/ops/inventory/actions";
@@ -14,6 +15,7 @@ import Modal from "@/components/ui/Modal";
 import { Button, FormMessage } from "@/components/ui/form";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import type { StockStatus } from "@/lib/inventory";
+import { USE_BASIS, type UseBasis } from "@/lib/materials";
 
 type Opt = { id: string; name: string };
 
@@ -232,6 +234,89 @@ export function CollectionForm({ id, suggestedNote }: { id: string; suggestedNot
       <p className="m-0 text-[12px] opacity-70">
         Marks these batches as collected. An order that was Ready for pickup with nothing left in stock becomes Delivered.
       </p>
+    </form>
+  );
+}
+
+export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null };
+
+/** Add a raw material, or edit it: name, unit, reorder level, and how much is used automatically. */
+export function MaterialSettingsDialog({ material }: { material?: MaterialFields }) {
+  return (
+    <Modal
+      title={material ? material.name : "Add a raw material"}
+      trigger={(open) =>
+        material ? (
+          <button type="button" onClick={open} className="cursor-pointer border-0 bg-transparent p-0 text-[12px] underline underline-offset-2 opacity-80">
+            Settings
+          </button>
+        ) : (
+          <Button type="button" variant="secondary" onClick={open} icon="+" className="whitespace-nowrap text-text">
+            Add a material
+          </Button>
+        )
+      }
+    >
+      {(close) => <MaterialSettingsForm material={material} close={close} />}
+    </Modal>
+  );
+}
+
+function MaterialSettingsForm({ material, close }: { material?: MaterialFields; close: () => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(saveMaterial, null);
+  const [basis, setBasis] = useState(material?.use_basis ?? "");
+  const [unit, setUnit] = useState(material?.unit ?? "");
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      {material && <input type="hidden" name="id" value={material.id} />}
+      <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
+        <div className="field">
+          <label htmlFor="ms-name">Name</label>
+          <input id="ms-name" name="name" required maxLength={80} defaultValue={material?.name} placeholder="e.g. LPG" className="input" />
+        </div>
+        <div className="field">
+          <label htmlFor="ms-unit">Unit</label>
+          <input id="ms-unit" name="unit" required maxLength={20} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="kg" className="input" />
+        </div>
+      </div>
+      <div className="field">
+        <label htmlFor="ms-reorder">Reorder level (optional)</label>
+        <input id="ms-reorder" name="reorder_level" inputMode="decimal" defaultValue={material?.reorder_level ?? ""} className="input" />
+      </div>
+      <div className="field">
+        <label htmlFor="ms-basis">Used automatically</label>
+        <select id="ms-basis" name="use_basis" value={basis} onChange={(e) => setBasis(e.target.value)} className="input">
+          <option value="">Not tracked (record it in / out by hand)</option>
+          {(Object.keys(USE_BASIS) as UseBasis[]).map((b) => (
+            <option key={b} value={b}>
+              {USE_BASIS[b].label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {basis && (
+        <div className="field">
+          <label htmlFor="ms-rate">
+            {unit || "Units"} used per {USE_BASIS[basis as UseBasis].per}
+          </label>
+          <input id="ms-rate" name="use_rate" inputMode="decimal" required defaultValue={material?.use_rate ?? ""} placeholder="e.g. 0.5" className="input" />
+        </div>
+      )}
+      <p className="m-0 text-[12px] opacity-70">
+        With a rate, logging sheets, oven passes and production takes the material off the stock by itself, from now on. Stock can then go below zero if deliveries
+        aren&apos;t recorded: that means a count is due.
+      </p>
+      <FormMessage state={state} />
+      <div className="dialog-actions">
+        <Button type="button" variant="secondary" onClick={close}>
+          {state?.ok ? "Done" : "Cancel"}
+        </Button>
+        {!state?.ok && (
+          <Button type="submit" disabled={pending} icon="✓" className="w-[150px]">
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

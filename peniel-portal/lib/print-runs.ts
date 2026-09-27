@@ -30,6 +30,9 @@ export type PrintRun = {
   printed?: boolean;
   /** Sheets that went into the base coat. */
   base_sheets?: number | null;
+  /** When the finished stillage went to a press (null = in printed-sheet stock). */
+  to_press_at?: string | null;
+  press_id?: string | null;
 };
 
 /** Spoiled sheets as a share of all sheets through the line: 150 of 12,150 → 1.23. Null when nothing ran. */
@@ -93,7 +96,7 @@ export type StillagePass = {
   notes: string | null;
 };
 
-export type StillageStatus = "base_oven" | "base_coated" | "printed" | "varnish_oven" | "varnished" | "lacquer_oven" | "finished";
+export type StillageStatus = "base_oven" | "base_coated" | "printed" | "varnish_oven" | "varnished" | "lacquer_oven" | "finished" | "at_press";
 
 export const STILLAGE_STATUS_LABEL: Record<StillageStatus, string> = {
   base_oven: "In the oven · base coat",
@@ -102,14 +105,16 @@ export const STILLAGE_STATUS_LABEL: Record<StillageStatus, string> = {
   varnish_oven: "In the oven · varnish",
   varnished: "Waiting for lacquer",
   lacquer_oven: "In the oven · lacquer",
-  finished: "Finished",
+  finished: "Finished · in stock",
+  at_press: "Sent to the press",
 };
 
 /**
  * Where a stillage is: (base coat in the oven → waiting for printing →)
  * printed → varnish in the oven → varnished → lacquer in the oven → finished.
  */
-export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at">[], printed = true): StillageStatus {
+export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at">[], printed = true, toPress: string | null = null): StillageStatus {
+  if (toPress) return "at_press";
   if (!printed) {
     const base = passes.find((p) => p.stage === "base_coat");
     return base && !base.finished_at ? "base_oven" : "base_coated";

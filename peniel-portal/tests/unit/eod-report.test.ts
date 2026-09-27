@@ -8,6 +8,8 @@ const empty: EodInput = {
   production: [],
   printRuns: [],
   passesOut: [],
+  toPress: 0,
+  sheetStock: 0,
   inOven: [],
   inspections: [],
   unsignedCertificates: [],
