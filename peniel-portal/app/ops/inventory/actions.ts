@@ -90,6 +90,33 @@ export async function recordMaterial(_prev: InvState, fd: FormData): Promise<Inv
   return { ok: "Recorded." };
 }
 
+/** Set a material's stock on hand after a count (admin only). The difference is recorded as a movement, so the history stays complete. */
+export async function setMaterialStock(_prev: InvState, fd: FormData): Promise<InvState> {
+  const me = await requireStaff(["admin"]);
+  const id = s(fd, "material_id");
+  const raw = s(fd, "on_hand").replace(/[,\s]/g, "");
+  const target = Number(raw);
+  const note = s(fd, "note").slice(0, 120);
+  if (!UUID.test(id)) return { error: "Choose the material." };
+  if (!raw || !Number.isFinite(target) || target < 0 || target > 1_000_000_000) return { error: "Enter the stock counted: a number, 0 or more." };
+  const supabase = await createClient();
+  const { data: m } = await supabase.from("raw_materials").select("on_hand, unit").eq("id", id).maybeSingle<{ on_hand: number; unit: string }>();
+  if (!m) return { error: "Not found." };
+  const delta = Math.round((target - Number(m.on_hand)) * 1000) / 1000;
+  if (delta === 0) return { ok: "No change: that's the stock on hand already." };
+  const was = Number(m.on_hand).toLocaleString("en-US", { maximumFractionDigits: 3 });
+  const now = target.toLocaleString("en-US", { maximumFractionDigits: 3 });
+  const { error } = await supabase.from("raw_material_movements").insert({
+    material_id: id,
+    quantity: delta,
+    reason: `Stock count: set to ${now} ${m.unit} (was ${was})${note ? `. ${note}` : ""}`.slice(0, 200),
+    created_by: me.user_id,
+  });
+  if (error) return { error: "Couldn't save the count. Please try again." };
+  refresh();
+  return { ok: `Stock set to ${now} ${m.unit}.` };
+}
+
 export async function approvePickup(fd: FormData): Promise<void> {
   await requireStaff(["admin", "warehouse", "sales"]);
   const id = s(fd, "id");

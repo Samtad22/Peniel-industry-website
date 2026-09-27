@@ -7,6 +7,7 @@ import {
   recordCollection,
   recordMaterial,
   saveMaterial,
+  setMaterialStock,
   setStockStatus,
   type InvState,
 } from "@/app/ops/inventory/actions";
@@ -234,6 +235,54 @@ export function CollectionForm({ id, suggestedNote }: { id: string; suggestedNot
       <p className="m-0 text-[12px] opacity-70">
         Marks these batches as collected. An order that was Ready for pickup with nothing left in stock becomes Delivered.
       </p>
+    </form>
+  );
+}
+
+/** Admin: set the stock on hand after a count. */
+export function StockCountDialog({ id, name, unit, onHand }: { id: string; name: string; unit: string; onHand: number }) {
+  return (
+    <Modal
+      title={`Stock count · ${name}`}
+      trigger={(open) => (
+        <button type="button" onClick={open} className="cursor-pointer border-0 bg-transparent p-0 text-[12px] underline underline-offset-2 opacity-80">
+          Edit stock
+        </button>
+      )}
+    >
+      {(close) => <StockCountForm id={id} unit={unit} onHand={onHand} close={close} />}
+    </Modal>
+  );
+}
+
+function StockCountForm({ id, unit, onHand, close }: { id: string; unit: string; onHand: number; close: () => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(setMaterialStock, null);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="material_id" value={id} />
+      <p className="m-0 text-[13px]">
+        Now on record: <b>{onHand.toLocaleString("en-US", { maximumFractionDigits: 3 })} {unit}</b>
+      </p>
+      <div className="field">
+        <label htmlFor="sc-qty">Stock counted ({unit})</label>
+        <input id="sc-qty" name="on_hand" inputMode="decimal" required defaultValue={onHand < 0 ? 0 : onHand} className="input" />
+      </div>
+      <div className="field">
+        <label htmlFor="sc-note">Note (optional)</label>
+        <input id="sc-note" name="note" maxLength={120} placeholder="e.g. Monthly count" className="input" />
+      </div>
+      <p className="m-0 text-[12px] opacity-70">The difference is recorded as a stock-count movement, so the history and reports stay complete. Admin only.</p>
+      <FormMessage state={state} />
+      <div className="dialog-actions">
+        <Button type="button" variant="secondary" onClick={close}>
+          {state?.ok ? "Done" : "Cancel"}
+        </Button>
+        {!state?.ok && (
+          <Button type="submit" disabled={pending} icon="✓" className="w-[150px]">
+            {pending ? "Saving…" : "Save count"}
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

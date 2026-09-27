@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
-import { MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockStatusDialog } from "@/components/ops/InventoryForms";
+import { MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockCountDialog, StockStatusDialog } from "@/components/ops/InventoryForms";
 import { Pill } from "@/components/ui/StatusBadge";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -164,7 +164,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       </>
                     )}
                     <span className={`absolute left-2.5 top-2.5 bg-surface px-1.5 py-1 text-[28px] font-extrabold leading-none tracking-[-.04em] sm:text-[36px] ${low ? "text-accent-800" : "text-text"}`}>
-                      {formatQty(onHand)}
+                      {/* Exact below 100,000 so a count can be checked against it. */}
+                      {Math.abs(onHand) < 100_000 ? onHand.toLocaleString("en-US", { maximumFractionDigits: 1 }) : formatQty(onHand)}
                       <span className="ml-1 text-[13px] font-normal">{m.unit}</span>
                     </span>
                   </div>
@@ -185,11 +186,14 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                         "Not tracked automatically"
                       )}
                     </span>
-                    {canSetMaterials && (
-                      <MaterialSettingsDialog
-                        material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: true }}
-                      />
-                    )}
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {me.role === "admin" && <StockCountDialog id={m.id} name={m.name} unit={m.unit} onHand={onHand} />}
+                      {canSetMaterials && (
+                        <MaterialSettingsDialog
+                          material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: true }}
+                        />
+                      )}
+                    </span>
                   </div>
                 </div>
               );
