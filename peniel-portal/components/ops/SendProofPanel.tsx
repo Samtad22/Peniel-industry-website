@@ -78,7 +78,7 @@ export default function SendProofPanel({
 
   return (
     <div className="flex flex-col gap-3.5">
-      <h3 className="m-0">Send a proof</h3>
+      <h2 className="m-0 border-b-2 border-text pb-2 text-[26px] sm:text-[30px]">Send a proof</h2>
       <div className="grid grid-cols-2 gap-3">
         <div className="field">
           <label htmlFor="sp-brand">Brand</label>

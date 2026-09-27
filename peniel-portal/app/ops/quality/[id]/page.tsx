@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import InspectionForm, { type InspectionInitial } from "@/components/ops/InspectionForm";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { SectionHead } from "@/components/ops/OpsKit";
 import { DeleteSortingButton, SortingDialog } from "@/components/ops/SortingForms";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -138,11 +139,8 @@ export default async function InspectionPage({
     <>
       <OpsHeader
         crumb={{ label: "Quality control", href: "/ops/quality", current: isNew ? "Log inspection" : "Inspection" }}
-        title={
-          insp
-            ? `Batch ${insp.batch_no} · ${insp.orders?.brands?.name ?? ""} · ${insp.orders?.order_no ?? ""}`
-            : `New inspection · ${formatDate(new Date())}`
-        }
+        title={insp ? `Batch ${insp.batch_no}` : "New inspection"}
+        sub={insp ? `${insp.orders?.brands?.name ?? ""} · ${insp.orders?.order_no ?? ""} · ${insp.orders?.companies?.name ?? ""}` : formatDate(new Date())}
         actions={
           insp ? (
             <a href={`/certificates/${insp.id}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-text">
@@ -186,14 +184,11 @@ function SortingPanel({
   const COLS = "grid grid-cols-[110px_80px_80px_80px_80px_minmax(0,1fr)_60px] items-center gap-2.5";
   return (
     <section id="sorting" className="border-t-2 border-divider px-4 pb-8 pt-6 sm:px-8">
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h4 className="m-0">Sorting</h4>
-          <InternalOnly>Internal only · customers see only the reject rate after sorting</InternalOnly>
-        </div>
+      <SectionHead title="Sorting">
+        <InternalOnly>Internal only · customers see only the reject rate after sorting</InternalOnly>
         {canEdit && <SortingDialog orders={[]} fixed={batch} today={addisDateISO(new Date())} variant="secondary" />}
-      </div>
-      <div className="mb-3 text-[13px]">
+      </SectionHead>
+      <div className="mb-3 mt-2.5 text-[13px]">
         {t.reports
           ? `${t.reports} report${t.reports === 1 ? "" : "s"}: ${cartonsLine(t.sorted)} sorted, ${cartonsLine(t.passed)} passed, ${cartonsLine(t.waste)} waste (${formatWastePct(t.passed, t.waste)}).`
           : "No camera rejects of this batch sorted yet."}

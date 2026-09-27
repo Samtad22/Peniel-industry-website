@@ -4,6 +4,8 @@ import { formatDateTime } from "@/lib/format";
 import { ORDER_STATUSES, statusText, type OrderStatus } from "@/lib/order-status";
 import InviteDialog from "./InviteDialog";
 import OpsHeader from "./OpsHeader";
+import { SectionHead } from "./OpsKit";
+import { CustomerWarning } from "./OrderForms";
 import UsersTable, { type UserRow } from "./UsersTable";
 
 // Statuses that email the customer (docs/PORTAL_SPEC.md §4; lib/notify.ts).
@@ -22,9 +24,8 @@ const EVENTS: [string, string][] = [
 function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="border-b-2 border-l-2 border-divider px-4 py-6 sm:px-8">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h4 className="m-0">{title}</h4>
-        {aside}
+      <div className="mb-3">
+        <SectionHead title={title}>{aside}</SectionHead>
       </div>
       {children}
     </section>
@@ -45,7 +46,7 @@ export default function SettingsView({
 }) {
   return (
     <>
-      <OpsHeader title="Settings" />
+      <OpsHeader title="Settings" sub="Staff, the order statuses customers see, the reasons staff pick from, and notification emails." />
       <div className="overflow-hidden">
         <div className="-ml-0.5 grid xl:grid-cols-2">
           <Section title="Staff users & roles" aside={<InviteDialog mode="staff" triggerLabel="+ Add staff" />}>
@@ -53,7 +54,7 @@ export default function SettingsView({
           </Section>
 
           <Section title="Order status list" aside={<CustomerSees>Customer sees these labels</CustomerSees>}>
-            <div className="th-row grid grid-cols-[216px_minmax(0,1fr)_110px] gap-2.5 border-b-2 border-divider py-1.5">
+            <div className="th-row grid grid-cols-[216px_minmax(0,1fr)_110px] gap-2.5 border-b border-divider py-1.5">
               <span>Status</span>
               <span>Customer label</span>
               <span>Email customer</span>
@@ -74,8 +75,8 @@ export default function SettingsView({
           </Section>
 
           <Section title="Delay & hold reason presets">
-            <div className="mb-2 text-[12px] font-extrabold text-accent-800">
-              ⚠ Written for the customer: do not include line or machine names.
+            <div className="mb-3">
+              <CustomerWarning />
             </div>
             {presets.length === 0 && <p className="m-0 text-[13px] opacity-60">No presets yet.</p>}
             {presets.map((p, i) => (
@@ -84,7 +85,7 @@ export default function SettingsView({
                 <span>{p.text}</span>
               </div>
             ))}
-            <p className="mb-0 mt-2 text-[12px] opacity-70">Staff pick these when they put an order on hold (Phase 2).</p>
+            <p className="mb-0 mt-2 text-[12px] opacity-70">Staff pick these when they put an order on hold or change its date.</p>
           </Section>
 
           <Section
@@ -100,7 +101,7 @@ export default function SettingsView({
                 Emails are recorded below as “skipped” until RESEND_API_KEY and EMAIL_FROM are added in Vercel (see docs/LAUNCH.md).
               </p>
             )}
-            <div className="border-t-2 border-divider text-[13px]">
+            <div className="text-[13px]">
               {EVENTS.map(([who, what]) => (
                 <div key={what} className="grid grid-cols-[130px_minmax(0,1fr)] gap-3 border-b border-divider py-2">
                   <b>{who}</b>
@@ -108,8 +109,8 @@ export default function SettingsView({
                 </div>
               ))}
             </div>
-            <h6 className="mb-1 mt-4">Latest emails</h6>
-            <div className="border-t-2 border-divider text-[12px]">
+            <h6 className="mb-1 mt-5 border-b-2 border-text pb-1.5">Latest emails</h6>
+            <div className="text-[12px]">
               {email.log.length === 0 && <p className="m-0 py-2 opacity-60">None yet.</p>}
               {email.log.map((l) => (
                 <div key={l.id} className="grid grid-cols-[minmax(0,1fr)_70px] gap-2 border-b border-divider py-1.5">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { KpiStrip } from "@/components/ops/OpsKit";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDayMonth, formatQty } from "@/lib/format";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Orders" };
 const ROW =
   "grid grid-cols-[96px_minmax(0,1.3fr)_90px_116px_minmax(0,1fr)_70px_70px_190px_70px] items-center gap-3";
 
-/** All orders — design 1e. */
+/** All orders (design 1e, in the v2 look). */
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireStaff(opsRolesFor("orders"));
   const sp = await searchParams;
@@ -32,6 +33,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   ]);
 
   const total = rows.reduce((s, r) => s + r.quantity, 0);
+  const today = addisDateISO(new Date());
+  const in7 = addisDateISO(new Date(), 6);
+  const count = (pred: (r: (typeof rows)[number]) => boolean) => rows.filter(pred).length;
+  const late = (r: (typeof rows)[number]) => !!r.due_date && r.due_date < today && !["dispatched", "delivered", "rejected"].includes(r.status);
   const query = new URLSearchParams(
     Object.entries({ q: f.q, customer: f.customer, brand: f.brand, status: f.status, due: f.due }).filter(([, v]) => v),
   ).toString();
@@ -41,13 +46,22 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     <>
       <OpsHeader
         title="Orders"
+        sub={`${rows.length} order${rows.length === 1 ? "" : "s"} · ${formatQty(total)} crowns${f.status === "open" ? " still to deliver" : ""}`}
         actions={
           <a href={`/ops/orders/export?${query}`} className="btn btn-secondary text-text">
             Export ↓
           </a>
         }
       />
-      <form className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-3.5 sm:px-8">
+      <KpiStrip
+        items={[
+          { label: "In production", value: count((r) => r.status === "in_production"), sub: "on the lines", href: "/ops/orders?status=in_production" },
+          { label: "Due in 7 days", value: count((r) => !!r.due_date && r.due_date >= today && r.due_date <= in7), sub: "in this list", href: "/ops/orders?due=7" },
+          { label: "Late", value: count(late), sub: "past the due date", warn: count(late) > 0, href: "/ops/orders" },
+          { label: "On hold", value: count((r) => r.status === "on_hold"), sub: "with a reason", href: "/ops/orders?status=on_hold" },
+        ]}
+      />
+      <form className="flex flex-wrap items-end gap-3 border-b-2 border-divider bg-surface px-4 py-3.5 sm:px-8">
         <div className="field w-full sm:w-[240px]">
           <label htmlFor="f-q">Search</label>
           <input id="f-q" name="q" type="search" defaultValue={f.q} placeholder="Order, PO, customer" className="input" />
@@ -113,7 +127,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         {rows.length > 0 && (
           <div className="overflow-x-auto">
             <div className="min-w-[1080px]">
-              <div className={`${ROW} th-row border-b-2 border-divider pb-2 pt-2.5`}>
+              <div className={`${ROW} th-row border-b-2 border-text pb-2 pt-4`}>
                 <span>Order</span>
                 <span>Customer</span>
                 <span>Brand</span>
@@ -128,15 +142,17 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <Link
                   key={o.id}
                   href={`/ops/orders/${o.id}`}
-                  className={`${ROW} border-b border-divider py-2.5 text-[13px] text-text no-underline hover:bg-text/5 hover:text-text`}
+                  className={`${ROW} border-b border-divider py-3 text-[13px] text-text no-underline hover:bg-text/5 hover:text-text ${o.status === "on_hold" ? "bg-accent-100 shadow-[inset_4px_0_0_var(--color-accent-800)]" : ""}`}
                 >
-                  <b>{o.order_no}</b>
+                  <b className="text-[14px]">{o.order_no}</b>
                   <span className="truncate">{o.company}</span>
                   <span className="truncate">{o.brand}</span>
                   <span className="truncate">{o.po_number}</span>
                   <span className="truncate">{o.product}</span>
                   <span className="text-right tabular-nums">{formatQty(o.quantity)}</span>
-                  <span>{o.due_date ? formatDayMonth(o.due_date) : "-"}</span>
+                  <span className={late(o) ? "font-extrabold text-accent-700" : undefined} title={late(o) ? "Past the due date" : undefined}>
+                    {o.due_date ? formatDayMonth(o.due_date) : "-"}
+                  </span>
                   <span>
                     <StatusBadge status={o.status} />
                   </span>

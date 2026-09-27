@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { approvePickup } from "@/app/ops/inventory/actions";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
 import { CollectionForm, ProposeTimeForm } from "@/components/ops/InventoryForms";
 import { Pill } from "@/components/ui/StatusBadge";
 import { requireStaff } from "@/lib/auth";
@@ -56,20 +57,31 @@ export default async function PickupsPage({ searchParams }: { searchParams: Prom
 
   const items = (x: Booking) => x.pickup_booking_items.map((i) => i.finished_stock).filter((s): s is NonNullable<typeof s> => Boolean(s));
   const total = (x: Booking) => items(x).reduce((s, i) => s + Number(i.quantity), 0);
+  const requested = open.filter((x) => x.status === "requested").length;
 
   return (
     <>
       <OpsHeader
         crumb={{ label: "Inventory", href: "/ops/inventory", current: "Pickups" }}
-        title="Pickup bookings"
+        title="Pickups"
+        sub="Customers book pickups for their finished crowns. Approve or propose a time, then record the collection."
+      />
+      <KpiStrip
+        items={[
+          { label: "Waiting for you", value: requested, sub: requested ? "requested, not answered" : "all answered", hot: requested > 0 },
+          { label: "Confirmed", value: open.filter((x) => x.status === "confirmed").length, sub: "trucks expected" },
+          { label: "Crowns to load", value: formatQty(open.reduce((t, x) => t + total(x), 0)), sub: `${open.length} open booking${open.length === 1 ? "" : "s"}` },
+          { label: "Collected", value: done.length, sub: "recently" },
+        ]}
       />
       <div className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="min-w-0 border-divider px-4 py-5 sm:px-8 xl:border-r-2">
+        <div className="min-w-0 border-divider px-4 py-6 sm:px-8 xl:border-r-2">
+          <SectionHead title="Open bookings" aside="oldest first" />
           {open.length === 0 && <p className="m-0 py-3 text-[14px] opacity-70">No open pickup bookings.</p>}
           {open.map((x) => {
             const on = x.id === selected?.id;
             return (
-              <div key={x.id} className={`flex flex-col gap-2 border-b border-divider px-3 py-4 text-[14px] ${on ? "bg-neutral-200 shadow-[inset_4px_0_0_var(--color-accent)]" : ""}`}>
+              <div key={x.id} className={`flex flex-col gap-2 border-b border-divider px-3 py-4 text-[14px] ${on ? "bg-surface shadow-[inset_5px_0_0_var(--color-accent)]" : ""}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Link href={`/ops/inventory/pickups?b=${x.id}`} className="text-[16px] font-extrabold text-text no-underline hover:underline">
                     {x.companies?.name ?? "-"}
@@ -108,7 +120,9 @@ export default async function PickupsPage({ searchParams }: { searchParams: Prom
 
           {done.length > 0 && (
             <>
-              <h5 className="mb-1 mt-6">Recently collected</h5>
+              <div className="mt-8">
+                <SectionHead title="Recently collected" />
+              </div>
               {done.map((x) => (
                 <div key={x.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-divider py-2 text-[13px]">
                   <span>
@@ -125,14 +139,17 @@ export default async function PickupsPage({ searchParams }: { searchParams: Prom
           {selected && canAct ? (
             <div className="flex flex-col gap-4">
               <div>
-                <h6 className="m-0">Record collection</h6>
-                <h3 className="mb-0 mt-1">{selected.companies?.name}</h3>
+                <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-accent-700">RECORD COLLECTION</span>
+                <h2 className="mb-0 mt-1.5 text-[28px] tracking-[-.03em] sm:text-[32px]">{selected.companies?.name}</h2>
                 <div className="text-[13px] opacity-75">
                   {PICKUP_PILL[selected.status].label} · {formatDateTime(selected.proposed_time ?? selected.requested_at)} · {formatQty(total(selected))} crowns
                 </div>
               </div>
               <div className="flex flex-col text-[13px]">
-                <div className="mb-1 text-[11px] uppercase tracking-[0.08em] opacity-60">Batches to load</div>
+                <div className="mb-1 flex justify-between border-b-2 border-text pb-1.5 text-[11px] uppercase tracking-[0.08em]">
+                  <span>Batches to load</span>
+                  <span className="opacity-60">location internal</span>
+                </div>
                 {items(selected).map((i) => (
                   <div key={i.batch_no} className="flex justify-between gap-2 border-b border-divider py-1.5">
                     <span>

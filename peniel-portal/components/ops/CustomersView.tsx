@@ -5,6 +5,7 @@ import CrownImport from "./CrownImport";
 import InviteDialog from "./InviteDialog";
 import UsersTable, { type UserRow } from "./UsersTable";
 import { OpsTopBar } from "@/components/ops/OpsHeader";
+import { SectionHead } from "@/components/ops/OpsKit";
 
 export type CompanyListItem = { id: string; name: string; brands: number; users: number; openOrders: number };
 export type BrandCard = {
@@ -46,13 +47,13 @@ export default function CustomersView({
   return (
     <>
       <OpsTopBar />
-    <div className="grid lg:grid-cols-[300px_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[300px_minmax(0,1fr)]">
       <div className="border-b-2 border-divider lg:border-b-0 lg:border-r-2">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-divider px-6 py-5">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-text px-6 pb-[18px] pt-[22px]">
           <div>
-            <h3 className="m-0">Customers</h3>
-            <div className="text-[12px] opacity-70">
-              {companies.length} compan{companies.length === 1 ? "y" : "ies"}
+            <h1 className="m-0 text-[44px] leading-[.95] tracking-[-.04em]">Customers</h1>
+            <div className="mt-1.5 text-[13px] opacity-70">
+              {companies.length} compan{companies.length === 1 ? "y" : "ies"} · {companies.reduce((t, c) => t + c.openOrders, 0)} open orders
             </div>
           </div>
           {canInvite && <CompanyDialog triggerLabel="+ New customer" />}
@@ -66,12 +67,12 @@ export default function CustomersView({
                 href={`/ops/customers?c=${c.id}`}
                 aria-current={on ? "page" : undefined}
                 className={
-                  "flex shrink-0 flex-col gap-0.5 border-b border-divider px-6 py-3.5 text-[14px] text-text no-underline hover:text-text max-lg:border-r " +
-                  (on ? "bg-neutral-200 shadow-[inset_4px_0_0_var(--color-accent)]" : "hover:bg-text/5")
+                  "flex shrink-0 flex-col gap-1 border-b-2 border-divider px-6 py-4 text-[14px] no-underline max-lg:border-r-2 " +
+                  (on ? "bg-text text-bg hover:text-bg" : "text-text hover:bg-text/5 hover:text-text")
                 }
               >
-                <b>{c.name}</b>
-                <span className="text-[12px] opacity-70">
+                <b className="text-[15px]">{c.name}</b>
+                <span className="text-[12px] opacity-75">
                   {c.brands} brand{c.brands === 1 ? "" : "s"} · {c.users} user{c.users === 1 ? "" : "s"} ·{" "}
                   {c.openOrders} open order{c.openOrders === 1 ? "" : "s"}
                 </span>
@@ -83,12 +84,12 @@ export default function CustomersView({
 
       {selected ? (
         <div className="min-w-0">
-          <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 py-5 sm:px-8">
+          <div className="flex flex-wrap items-end gap-3 border-b-2 border-divider px-4 pb-6 pt-[22px] sm:px-8">
             <div className="min-w-0 flex-[1_1_260px]">
-              <h6 className="m-0 text-accent-700">
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[.1em] text-accent-700">
                 Customer since {selected.since} · ID {selected.code}
-              </h6>
-              <h2 className="mb-0 mt-1">{selected.name}</h2>
+              </span>
+              <h2 className="mb-1 mt-1.5 text-[32px] leading-[1] tracking-[-.03em] sm:text-[48px]">{selected.name}</h2>
               <div className="text-[13px] opacity-70">
                 {[selected.address, selected.email, `${selected.openOrders} open orders`].filter(Boolean).join(" · ")}
               </div>
@@ -99,9 +100,8 @@ export default function CustomersView({
             )}
           </div>
 
-          <div className="border-b-2 border-divider px-4 py-5 sm:px-8">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h4 className="m-0">Brands</h4>
+          <div className="border-b-2 border-divider px-4 py-6 sm:px-8">
+            <SectionHead title="Brands" aside={`${selected.brands.length} brand${selected.brands.length === 1 ? "" : "s"}`}>
               {canEditBrands && (
                 <div className="flex flex-wrap items-center gap-2">
                   {selected.brands.length > 0 && (
@@ -110,8 +110,8 @@ export default function CustomersView({
                   <BrandDialog companyId={selected.id} triggerLabel="+ Add brand" variant="secondary" />
                 </div>
               )}
-            </div>
-            <div className="overflow-hidden border-t-2 border-divider">
+            </SectionHead>
+            <div className="overflow-hidden">
               <div className="-ml-px grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
                 {selected.brands.map((b) => (
                   <div key={b.id} className="flex flex-col gap-1 border-l border-divider p-3.5 text-[13px]">
@@ -136,10 +136,9 @@ export default function CustomersView({
             )}
           </div>
 
-          <div className="px-4 pb-8 pt-5 sm:px-8">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h4 className="m-0">Users</h4>
-              <span className="text-[12px] opacity-70">No public sign-up. Users join by invite only.</span>
+          <div className="px-4 pb-8 pt-6 sm:px-8">
+            <div className="mb-2">
+              <SectionHead title="Users" aside="No public sign-up. Users join by invite only." />
             </div>
             <UsersTable users={selected.users} canManage={canInvite} meId={meId} />
           </div>

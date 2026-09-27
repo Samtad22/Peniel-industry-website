@@ -2,8 +2,8 @@ import Link from "next/link";
 import OpsHeader from "./OpsHeader";
 
 /**
- * Placeholder for an area scheduled in a later build phase — styled after the
- * design's "Maintenance: placeholder for later" screen (1r).
+ * Placeholder for an area scheduled in a later build phase, as an ink poster
+ * in the v2 look (the design's "Maintenance: placeholder for later", 1r).
  */
 export default function OpsPlanned({
   title,
@@ -20,18 +20,20 @@ export default function OpsPlanned({
   return (
     <>
       <OpsHeader title={title} />
-      <div className="flex max-w-[640px] flex-col gap-3 px-4 py-14 sm:px-8">
-        <span className="tag tag-outline self-start">{phase ? `Planned · Phase ${phase}` : "Planned"}</span>
-        <h3 className="m-0">
-          {title} is coming in {phase ? `Phase ${phase}` : "a later phase"}.
-        </h3>
-        <p className="m-0 text-[15px]">{children}</p>
-        {link && (
-          <Link href={link.href} className="btn btn-secondary btn-split w-[220px] text-text">
-            {link.label}
-            <span aria-hidden="true">→</span>
-          </Link>
-        )}
+      <div className="bg-text px-4 py-12 text-bg sm:px-8 sm:py-16">
+        <div className="flex max-w-[760px] flex-col gap-4">
+          <span className="font-mono text-[11px] font-semibold tracking-[.1em] text-accent">{phase ? `PLANNED · PHASE ${phase}` : "PLANNED"}</span>
+          <h2 className="m-0 text-balance text-[40px] leading-[.95] tracking-[-.04em] text-bg sm:text-[64px]">
+            {title} is coming in {phase ? `Phase ${phase}` : "a later phase"}.
+          </h2>
+          <p className="m-0 max-w-[620px] text-[15px] opacity-80">{children}</p>
+          {link && (
+            <Link href={link.href} className="btn btn-split w-full bg-bg px-4 py-3.5 !text-text hover:bg-neutral-200 sm:w-[260px]">
+              {link.label}
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
+        </div>
       </div>
     </>
   );

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import OrderDetail from "@/components/customer/OrderDetail";
+import { OpsTopBar } from "@/components/ops/OpsHeader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { requireStaff } from "@/lib/auth";
 import { loadCustomerOrderPreview } from "@/lib/customer-orders";
@@ -24,6 +25,7 @@ export default async function CustomerPreviewPage({ params }: { params: Promise<
 
   return (
     <>
+      <OpsTopBar current={`${o.order_no} / Preview`} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-accent-800 px-4 py-2.5 text-[13px] text-bg sm:px-8">
         <b>Preview as customer</b>
         <span className="w-full opacity-80 sm:w-auto sm:flex-1">This is what the customer sees for this order. Buttons are turned off.</span>

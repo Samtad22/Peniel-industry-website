@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteEntry, publishOrder, setEntryPublished } from "@/app/ops/production/actions";
 import OpsHeader from "@/components/ops/OpsHeader";
+import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
 import Bars from "@/components/ui/Bars";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -59,13 +60,13 @@ export default async function OrderProductionPage({ params }: { params: Promise<
   const projection = projectCompletion(daily, quantity - good, today);
   const lines = [...new Set(entries.map((e) => shortLine(e.line)))].sort();
   const pct = quantity ? Math.min(100, Math.round((good / quantity) * 100)) : 0;
-  const kpi = "border-b-2 border-l-2 border-divider px-4 py-5 sm:px-8";
 
   return (
     <>
       <OpsHeader
         crumb={{ label: "Production", href: "/ops/production", current: "by order" }}
-        title={`${o.order_no} · ${o.companies?.name ?? "-"} · ${o.brands?.name ?? "-"}`}
+        title={o.order_no}
+        sub={`${o.companies?.name ?? "-"} · ${o.brands?.name ?? "-"} · ${formatQty(quantity)} crowns`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href={`/ops/orders/${o.id}/preview`} target="_blank" className="btn btn-secondary text-text">
@@ -78,7 +79,9 @@ export default async function OrderProductionPage({ params }: { params: Promise<
         }
       />
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b-2 border-divider bg-accent-100 px-4 py-3.5 sm:px-8">
+      <div
+        className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b-2 px-4 py-4 sm:px-8 ${pending.length ? "border-accent-700 bg-accent text-bg" : "border-divider bg-surface"}`}
+      >
         <b>{pending.length ? `${pending.length} ${pending.length === 1 ? "entry" : "entries"} not yet published` : "Customer is up to date"}</b>
         <span className="text-[13px]">
           {lastPub
@@ -88,52 +91,48 @@ export default async function OrderProductionPage({ params }: { params: Promise<
         {canPublish && pending.length > 0 && (
           <form action={publishOrder} className="ml-auto">
             <input type="hidden" name="order_id" value={o.id} />
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="btn bg-bg !text-text hover:bg-neutral-200">
               Publish now ↑
             </button>
           </form>
         )}
       </div>
 
-      <div className="overflow-hidden">
-        <div className="-ml-0.5 grid grid-cols-2 xl:grid-cols-4">
-          <div className={kpi}>
-            <h6 className="m-0 flex items-center gap-1.5 opacity-60">Completed / ordered</h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">
-              {formatQty(good)} <span className="text-[18px] opacity-60">/ {formatQty(quantity)}</span>
-            </div>
-            <div className="mt-2 h-1.5 bg-surface">
-              <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="mt-1 text-[12px]">Customer sees {formatQty(publishedGood)} (published)</div>
-          </div>
-          <div className={kpi}>
-            <h6 className="m-0 opacity-60">Projected completion</h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{projection ? formatDayMonth(projection.date) : "-"}</div>
-            <div className="text-[12px]">
-              {projection ? `at ${formatQty(projection.perDay)}/day` : "no recent output"}
-              {due && ` · due ${formatDayMonth(due)}`}
-            </div>
-          </div>
-          <div className={kpi}>
-            <h6 className="m-0 opacity-60">Camera reject rate</h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{produced ? `${rejectPct(rejects, produced).toFixed(2)}%` : "-"}</div>
-            <div className="text-[12px]">sorted by hand; the customer sees the waste after sorting</div>
-          </div>
-          <div className={kpi}>
-            <h6 className="m-0 flex items-center gap-2 opacity-60">
-              Lines used <InternalOnly />
-            </h6>
-            <div className="text-[40px] font-extrabold leading-[1.1]">{lines.join(" · ") || "-"}</div>
-          </div>
-        </div>
-      </div>
+      <KpiStrip
+        items={[
+          {
+            label: "Completed / ordered",
+            value: formatQty(good),
+            sub: (
+              <span className="flex flex-col gap-1">
+                <span>of {formatQty(quantity)} ordered</span>
+                <span className="h-1.5 bg-surface">
+                  <span className="block h-full bg-accent" style={{ width: `${pct}%` }} />
+                </span>
+                Customer sees {formatQty(publishedGood)} (published)
+              </span>
+            ),
+          },
+          {
+            label: "Projected completion",
+            value: projection ? formatDayMonth(projection.date) : "-",
+            sub: `${projection ? `at ${formatQty(projection.perDay)}/day` : "no recent output"}${due ? ` · due ${formatDayMonth(due)}` : ""}`,
+          },
+          {
+            label: "Camera reject rate",
+            value: produced ? `${rejectPct(rejects, produced).toFixed(2)}%` : "-",
+            sub: "sorted by hand; the customer sees the waste after sorting",
+          },
+          { label: "Lines used · internal", value: lines.join(" · ") || "-", sub: `${entries.length} entries` },
+        ]}
+      />
 
       <div className="grid grid-cols-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_560px]">
         <div className="border-divider px-4 py-6 sm:px-8 xl:border-r-2">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h4 className="m-0">Daily output · last 14 days</h4>
-            <CustomerSees>Customer sees published days</CustomerSees>
+          <div className="mb-4">
+            <SectionHead title="Daily output · 14 days">
+              <CustomerSees>Customer sees published days</CustomerSees>
+            </SectionHead>
           </div>
           <Bars
             bars={daily.map((d, i) => ({
@@ -150,13 +149,14 @@ export default async function OrderProductionPage({ params }: { params: Promise<
         </div>
 
         <div className="px-4 py-6 sm:px-8 xl:pl-6">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h4 className="m-0">Production records</h4>
-            <InternalOnly />
+          <div className="mb-2">
+            <SectionHead title="Records">
+              <InternalOnly />
+            </SectionHead>
           </div>
           <div className="overflow-x-auto">
             <div className="min-w-[500px]">
-              <div className="th-row grid grid-cols-[80px_44px_44px_minmax(0,1fr)_70px_120px] gap-2 border-b-2 border-divider py-1.5">
+              <div className="th-row grid grid-cols-[80px_44px_44px_minmax(0,1fr)_70px_120px] gap-2 border-b border-divider py-1.5">
                 <span>Date</span>
                 <span>Shift</span>
                 <span>Line</span>
