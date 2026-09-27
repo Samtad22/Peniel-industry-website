@@ -8,7 +8,17 @@ export type PlantSettings = {
   oven_minutes: number;
   /** Sheets a stillage starts at on the forms (staff type the real count). */
   stillage_sheets: number;
+  /** Crowns a press makes in an hour with both its liners running. */
+  press_per_hour: number;
+  /** Hours in a shift. */
+  shift_hours: number;
 };
+
+/** Each press has two liners; a liner makes half the press's rate. */
+export const LINERS_PER_PRESS = 2;
+export const linerPerHour = (p: PlantSettings) => p.press_per_hour / LINERS_PER_PRESS;
+/** Crowns one liner can make in a shift. */
+export const linerPerShift = (p: PlantSettings) => linerPerHour(p) * p.shift_hours;
 
 export type CoaSettings = { company: string; documentNo: string; revision: string; tel: string; linerTypeId: string };
 
@@ -41,7 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tel: "+251 11 668 9255 / +251 957 238 924",
     linerTypeId: "Contoform 0369",
   },
-  plant: { reject_limit_pct: 0.5, oven_minutes: 30, stillage_sheets: 1_410 },
+  plant: { reject_limit_pct: 0.5, oven_minutes: 30, stillage_sheets: 1_410, press_per_hour: 270_000, shift_hours: 8 },
 };
 
 export const EMAIL_GROUPS: { key: EmailGroup; who: "Customer" | "Staff" | "Admins"; label: string }[] = [
@@ -99,6 +109,8 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): Settings
       reject_limit_pct: num(plant.reject_limit_pct, 0.01, 20, d.plant.reject_limit_pct),
       oven_minutes: Math.round(num(plant.oven_minutes, 1, 240, d.plant.oven_minutes)),
       stillage_sheets: Math.round(num(plant.stillage_sheets, 100, 3000, d.plant.stillage_sheets)),
+      press_per_hour: Math.round(num(plant.press_per_hour, 10_000, 2_000_000, d.plant.press_per_hour)),
+      shift_hours: num(plant.shift_hours, 1, 24, d.plant.shift_hours),
     },
   };
 }

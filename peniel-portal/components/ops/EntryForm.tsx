@@ -9,6 +9,8 @@ import { Button, FormMessage } from "@/components/ui/form";
 import { InternalOnly, CustomerSees } from "@/components/ui/Visibility";
 import { formatQty } from "@/lib/format";
 import { rejectPct, SHIFTS } from "@/lib/production-math";
+import { CROWNS_PER_SHEET } from "@/lib/print-runs";
+import { linerPerHour, linerPerShift } from "@/lib/settings";
 
 export type EntryOrder = { id: string; label: string; quantity: number; good: number; brand_id: string | null; brand: string };
 /** A finished stillage at a press, not used up yet. */
@@ -68,7 +70,11 @@ export default function EntryForm({
   orders: EntryOrder[];
   stillages: EntryStillage[];
 }) {
-  const { reject_limit_pct: REJECT_LIMIT_PCT } = usePlant();
+  const plant = usePlant();
+  const REJECT_LIMIT_PCT = plant.reject_limit_pct;
+  // What one liner can make: half the press's speed (both liners run together).
+  const perHour = linerPerHour(plant);
+  const perShift = linerPerShift(plant);
   const [produced, setProduced] = useState("");
   const [rejects, setRejects] = useState("");
   const [orderId, setOrderId] = useState(orders[0]?.id ?? "");
@@ -191,7 +197,7 @@ export default function EntryForm({
                     <span>
                       <b>{s.label}</b> · {s.sheets.toLocaleString("en-US")} sheets
                       <span className="block text-[12px] opacity-70">
-                        At {s.press} since {s.since}
+                        ≈ {formatQty(s.sheets * CROWNS_PER_SHEET)} crowns, about {((s.sheets * CROWNS_PER_SHEET) / plant.press_per_hour).toFixed(1)} h with both liners · At {s.press} since {s.since}
                         {s.entries ? ` · used in ${s.entries} ${s.entries === 1 ? "entry" : "entries"} so far` : " · not used yet"}
                       </span>
                     </span>
@@ -223,6 +229,9 @@ export default function EntryForm({
             <CustomerSees>Customer sees total per order</CustomerSees>
           </label>
           <Stepper id="produced" name="produced" value={produced} onChange={setProduced} step={1000} label="Crowns produced" />
+          <span className="text-[12px] opacity-70">
+            A liner makes about {formatQty(perHour)} an hour, {formatQty(perShift)} per {plant.shift_hours}-hour shift.
+          </span>
         </div>
         <div className="field">
           <label htmlFor="rejects" title="Crowns the liner camera pushed out. They go to sorting.">
@@ -247,6 +256,11 @@ export default function EntryForm({
         )}
       </div>
 
+      {p > perShift * 1.05 && (
+        <p className="m-0 border-2 border-accent bg-accent-100 px-3.5 py-3 text-[14px] font-semibold text-accent-800">
+          {formatQty(p)} is more than one liner makes in a shift (about {formatQty(perShift)}). Check the number, or split it by shift.
+        </p>
+      )}
       <FormMessage state={state} />
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)] gap-3">
         <Button type="button" variant="secondary" onClick={cancel} disabled={pending} icon="✕" className="min-h-[60px] px-5 py-4 text-[17px] text-text">
