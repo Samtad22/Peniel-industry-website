@@ -21,6 +21,10 @@
 -- Safe to run more than once.
 -- ============================================================================
 
+-- The stillage migration (20261008000001) adds print_runs.varnish; make sure it
+-- exists even if this file is run first, so the copy below works either way.
+alter table public.print_runs add column if not exists varnish text;
+
 create table if not exists public.stillage_passes (
   id             uuid primary key default gen_random_uuid(),
   print_run_id   uuid not null references public.print_runs (id) on delete cascade,
