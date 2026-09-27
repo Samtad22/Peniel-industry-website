@@ -53,6 +53,8 @@ export type EodSection = { title: string; lines: string[] };
 export type EodReport = {
   date: string;
   heading: string;
+  /** A few sentences on the day, from the same figures. */
+  summary: string;
   /** Headline numbers. */
   kpis: { label: string; value: string; sub?: string }[];
   /** What still looks missing or open before the day is closed. */
@@ -184,6 +186,29 @@ export function buildEodReport(d: EodInput): EodReport {
   if (openJobs.length) checks.push(`${plural(openJobs.length, "maintenance job")} still open: ${openJobs.map((m) => m.machine).join(", ")}. Finish ${openJobs.length === 1 ? "it" : "them"} if done.`);
   for (const sv of d.servicesOverdue) checks.push(`${sv.name}: planned service overdue by ${plural(sv.days, "day")}.`);
 
+  // ---- In a few sentences ----
+  const be = (c: number) => (c === 1 ? "is" : "are");
+  const shiftsRan = SHIFTS.filter((s) => d.production.some((p) => p.shift === s)).length;
+  const said: string[] = [];
+  said.push(
+    produced
+      ? `The presses made ${formatQty(produced)} crowns over ${plural(shiftsRan, "shift")}, with ${pct(rejects, produced)} camera rejects.`
+      : "No production was logged.",
+  );
+  if (d.printRuns.length) said.push(`${plural(d.printRuns.length, "stillage")} ${d.printRuns.length === 1 ? "was" : "were"} printed (${n(printed)} good sheets).`);
+  said.push(
+    d.inspections.length
+      ? `Quality inspected ${plural(d.inspections.length, "batch", "batches")}: ${n(released)} released${held ? `, ${n(held)} on hold` : ""}.`
+      : "No batches were inspected.",
+  );
+  said.push(
+    `${d.newOrders.length ? `${plural(d.newOrders.length, "new order")} came in` : "No new orders came in"}${d.dueSoon.length ? `; ${plural(d.dueSoon.length, "order")} ${be(d.dueSoon.length)} due within 7 days` : ""}.`,
+  );
+  if (downtime) said.push(`Machines were stopped for ${duration(downtime)}${d.machinesDown.length ? `, and ${plural(d.machinesDown.length, "machine")} ${be(d.machinesDown.length)} still down` : ""}.`);
+  else if (d.machinesDown.length) said.push(`${plural(d.machinesDown.length, "machine")} ${be(d.machinesDown.length)} down.`);
+  if (d.lowMaterials.length) said.push(`${plural(d.lowMaterials.length, "raw material")} ${be(d.lowMaterials.length)} at or below the reorder level (${d.lowMaterials.map((m) => m.name).join(", ")}).`);
+  said.push(checks.length ? `${plural(checks.length, "item")} to check before the day is closed.` : "Everything looks logged.");
+
   const kpis = [
     { label: "Crowns produced", value: formatQty(produced), sub: `${pct(rejects, produced)} camera rejects` },
     { label: "Good sheets printed", value: n(printed), sub: plural(d.printRuns.length, "stillage") },
@@ -194,6 +219,7 @@ export function buildEodReport(d: EodInput): EodReport {
   return {
     date: d.date,
     heading: `End of day report · ${formatDate(d.date)}`,
+    summary: said.join(" "),
     kpis,
     checks,
     sections: [
@@ -210,6 +236,7 @@ export function buildEodReport(d: EodInput): EodReport {
 /** The report as email paragraphs (the email layout escapes and breaks lines). */
 export function eodEmailLines(r: EodReport): string[] {
   return [
+    `SUMMARY\n${r.summary}`,
     r.kpis.map((k) => `${k.label}: ${k.value}${k.sub ? ` (${k.sub})` : ""}`).join("\n"),
     `CHECK BEFORE CLOSING THE DAY\n${r.checks.length ? r.checks.map((c) => `• ${c}`).join("\n") : "• Everything looks logged."}`,
     ...r.sections.map((s) => `${s.title.toUpperCase()}\n${s.lines.map((l) => `• ${l}`).join("\n")}`),

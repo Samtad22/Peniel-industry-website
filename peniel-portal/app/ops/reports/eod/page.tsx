@@ -3,7 +3,6 @@ import Link from "next/link";
 import EodEmailButton from "@/components/ops/EodEmailButton";
 import OpsHeader from "@/components/ops/OpsHeader";
 import { InternalPanel, KpiStrip, SectionHead } from "@/components/ops/OpsKit";
-import PrintButton from "@/components/ui/PrintButton";
 import { requireStaff } from "@/lib/auth";
 import { buildEodReport } from "@/lib/eod-report";
 import { loadEodInput } from "@/lib/eod-data";
@@ -42,13 +41,17 @@ export default async function EodReportPage({ searchParams }: { searchParams: Pr
           <div className="flex flex-wrap items-start gap-2 print:hidden">
             {dayLink(addDays(date, -1), "← Day before")}
             {date < today && dayLink(addDays(date, 1), "Next day →")}
-            <PrintButton />
+            <a href={`/reports/eod?d=${date}&print=1`} target="_blank" rel="noreferrer" className="btn btn-primary btn-split no-underline">
+              Print / Save as PDF
+              <span aria-hidden="true">⎙</span>
+            </a>
             <EodEmailButton date={date} />
           </div>
         }
       />
       <KpiStrip items={r.kpis} />
       <div className="flex flex-col gap-8 px-4 py-6 sm:px-8">
+        <p className="m-0 max-w-[900px] text-[15px] leading-[1.55]">{r.summary}</p>
         <InternalPanel label="CHECK BEFORE CLOSING THE DAY">
           {r.checks.length === 0 ? (
             <p className="m-0 text-[14px] font-extrabold">Everything looks logged.</p>

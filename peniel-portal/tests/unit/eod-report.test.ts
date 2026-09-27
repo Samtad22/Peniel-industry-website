@@ -35,6 +35,7 @@ test("a quiet day says nothing was logged and what to check", () => {
   assert.ok(r.checks.includes("No production logged for shift A, B, C."));
   assert.ok(r.checks.includes("No printed sheets logged."));
   assert.equal(r.kpis[0].value, "0");
+  assert.equal(r.summary, "No production was logged. No batches were inspected. No new orders came in. 2 items to check before the day is closed.");
 });
 
 test("a full day: totals, per shift and order, sheets, quality, orders and the gaps", () => {
@@ -89,10 +90,15 @@ test("a full day: totals, per shift and order, sheets, quality, orders and the g
     "1 certificate waiting for a signature: batch B-1 (PN-26-0001).",
     "1 order waiting in the inbox.",
   ]);
+  assert.equal(
+    r.summary,
+    "The presses made 2.0M crowns over 2 shifts, with 0.20% camera rejects. 2 stillages were printed (2,814 good sheets). Quality inspected 2 batches: 1 released, 1 on hold. 1 new order came in; 1 order is due within 7 days. 1 raw material is at or below the reorder level (Tinplate). 6 items to check before the day is closed.",
+  );
   const email = eodEmailLines(r);
-  assert.ok(email[0].startsWith("Crowns produced: 2.0M (0.20% camera rejects)"));
-  assert.ok(email[1].startsWith("CHECK BEFORE CLOSING THE DAY\n• No production logged for shift C."));
-  assert.ok(email[2].startsWith("PRODUCTION\n• 2,000,000 crowns produced"));
+  assert.ok(email[0].startsWith("SUMMARY\nThe presses made 2.0M crowns"));
+  assert.ok(email[1].startsWith("Crowns produced: 2.0M (0.20% camera rejects)"));
+  assert.ok(email[2].startsWith("CHECK BEFORE CLOSING THE DAY\n• No production logged for shift C."));
+  assert.ok(email[3].startsWith("PRODUCTION\n• 2,000,000 crowns produced"));
 });
 
 test("maintenance: jobs and downtime on the day, machines down, open jobs and overdue services to check", () => {
