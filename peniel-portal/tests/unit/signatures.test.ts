@@ -14,9 +14,9 @@ test("a signature is a PNG data URL of a sensible size", () => {
   assert.equal(isSignatureImage(`data:image/png;base64,${"A".repeat(MAX_SIGNATURE_CHARS)}`), false);
 });
 
-test("one signature, prepared by quality; admin can remove it but not sign", () => {
+test("one signature, prepared by quality or admin; admin can remove any", () => {
   assert.deepEqual(signing({}, manager), { canSign: true, canRemove: false });
-  assert.deepEqual(signing({}, admin), { canSign: false, canRemove: false });
+  assert.deepEqual(signing({}, admin), { canSign: true, canRemove: false });
   assert.deepEqual(signing({}, { userId: "s", role: "sales" }), { canSign: false, canRemove: false });
   const signed = { prepared: sig("tsegaw") };
   assert.deepEqual(signing(signed, manager), { canSign: false, canRemove: true });
