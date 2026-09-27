@@ -138,6 +138,20 @@ test("packing: 1 box and 1 polybag per 10,000 good crowns; printing ink is off t
   await pool.query("update public.raw_materials set active = true where name = 'Polybag'");
   await commit(admin, (db) => db.query("delete from public.production_entries where id = $1", [entry]));
 
+  // Sorting: cartons that passed are packed again, one box and one polybag each.
+  const sort = await commit(admin, async (db) =>
+    (await db.query(
+      "insert into public.sorting_records (order_id, batch_no, sorted_on, passed_cartons, waste_cartons) values ($1, '099', '2026-09-27', 12, 1) returning id",
+      [HAB_ORDER_HABESHA],
+    )).rows[0].id as string,
+  );
+  assert.equal(await onHand("Box"), box0 - 12);
+  assert.equal(await onHand("Polybag"), bag0 - 12);
+  await commit(admin, (db) => db.query("update public.sorting_records set passed_cartons = 10 where id = $1", [sort]));
+  assert.equal(await onHand("Box"), box0 - 10);
+  await commit(admin, (db) => db.query("delete from public.sorting_records where id = $1", [sort]));
+  assert.equal(await onHand("Box"), box0);
+
   const ink = await pool.query("select 1 from public.raw_materials where name = 'Printing ink' and active");
   assert.equal(ink.rowCount, 0);
 });

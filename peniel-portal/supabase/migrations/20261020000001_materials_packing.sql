@@ -7,7 +7,8 @@
 --    bring it back from its Settings.
 -- 2. A new usage basis, "box": one box of 10,000 good crowns packed. Each
 --    production entry packs produced_qty / 10,000 boxes (camera rejects go
---    to sorting, not into boxes). Each box takes 1 box and 1 polybag.
+--    to sorting, not into boxes), and each sorting report packs its passed
+--    cartons (1 carton = 1 box of 10,000). Each box takes 1 box and 1 polybag.
 -- 3. The list: Varnish (used per sheet varnished; the rate is set in
 --    Inventory), Polybag and Box (1 each per box, automatically). Printing
 --    ink is taken off: deleted if it was never used, otherwise hidden.
@@ -39,6 +40,7 @@ declare
   r record;
   p record;
   e record;
+  srt record;
   m record;
 begin
   delete from public.raw_material_movements where source = 'auto' and source_table = p_table and source_id = p_id;
@@ -72,6 +74,14 @@ begin
         -- Good crowns go into boxes of 10,000.
         'box', e.produced_qty / 10000.0);
     end if;
+  elsif p_table = 'sorting_records' then
+    select sr.passed_cartons, sr.batch_no, sr.sorted_on, o.order_no into srt
+    from public.sorting_records sr join public.orders o on o.id = sr.order_id where sr.id = p_id;
+    if found then
+      v_label := 'sorting ' || srt.order_no || ' batch ' || srt.batch_no || ' ' || srt.sorted_on;
+      -- Crowns that passed sorting are packed again: one box per carton.
+      v_basis := jsonb_build_object('box', srt.passed_cartons);
+    end if;
   end if;
 
   for m in
@@ -86,6 +96,10 @@ begin
 end
 $$;
 revoke all on function app.material_usage_sync(text, uuid) from public;
+
+drop trigger if exists material_usage on public.sorting_records;
+create trigger material_usage after insert or update of passed_cartons or delete on public.sorting_records
+  for each row execute function app.material_usage_trigger();
 
 -- The new materials (rates for packing: 1 box and 1 polybag per box).
 insert into public.raw_materials (name, unit, on_hand, reorder_level, use_basis, use_rate) values
