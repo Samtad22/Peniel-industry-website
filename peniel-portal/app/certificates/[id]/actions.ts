@@ -8,8 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SignState = { error?: string; ok?: string } | null;
 
-/** The quality manager (role quality) signs; admin can remove a signature (RLS enforces the same). */
-const SIGNERS = ["quality"] as const;
+/** The quality manager (role quality) or admin signs, as themselves (RLS enforces the same). */
+const SIGNERS = ["admin", "quality"] as const;
 const REMOVERS = ["admin", "quality"] as const;
 const UUID = /^[0-9a-f-]{36}$/i;
 const LINES = SIGNATURE_LINES;

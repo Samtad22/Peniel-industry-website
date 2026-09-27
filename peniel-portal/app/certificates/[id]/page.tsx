@@ -50,7 +50,7 @@ const pct = (count: number, sample: number) => (sample > 0 ? `${fmt(Math.round((
  * form PIC-OF-053 rev. 006. Customers can open it for their own released,
  * published batches, signed by the quality manager (enforced by
  * certificate_of_analysis in the database); staff see any batch, marked as a
- * draft until it is final, and the quality manager signs it here.
+ * draft until it is final, and the quality manager (or admin) signs it here.
  */
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,9 +63,9 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   const c = data as Certificate | null;
   if (!c) notFound();
 
-  // The quality manager signs here (the database checks every rule again).
+  // The quality manager or admin signs here (the database checks every rule again).
   const staff = isStaffRole(profile.role);
-  const signer = profile.role === "quality";
+  const signer = profile.role === "quality" || profile.role === "admin";
   const sig = c.signatures?.prepared;
   const can = signing(c.signatures ?? {}, { userId: profile.user_id, role: profile.role });
   let saved: string | null = null;
@@ -214,7 +214,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
             {staff && (can.canSign || can.canRemove || !sig) && (
               <div className="flex min-h-11 flex-wrap items-center gap-3 print:hidden">
                 {can.canSign && <SignDialog inspectionId={c.id} line="prepared" saved={saved} />}
-                {!sig && !can.canSign && <span className="text-[12px] opacity-70">To be signed by the quality manager.</span>}
+                {!sig && !can.canSign && <span className="text-[12px] opacity-70">To be signed by the quality manager or admin.</span>}
                 {can.canRemove && <RemoveSignatureButton inspectionId={c.id} line="prepared" />}
               </div>
             )}

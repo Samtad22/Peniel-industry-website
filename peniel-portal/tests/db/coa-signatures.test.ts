@@ -98,9 +98,12 @@ test("the signer is always the caller, whatever they send", async () => {
   });
 });
 
-test("one signature: no approved by, and only quality signs", async () => {
+test("one signature: no approved by, and only quality or admin signs", async () => {
+  const byAdmin = await save({ batch: "B-SIGN-3A" });
+  await sign(admin, byAdmin);
+  const c = await certificate(habesha, byAdmin);
+  assert.equal(c.prepared_by, "boss", "the admin's own name");
   const id = await save({ batch: "B-SIGN-3" });
-  assert.equal(await errorCode(sign(admin, id)), "42501", "admin removes, doesn't sign");
   assert.equal(await errorCode(sign(production, id)), "42501");
   assert.equal(await errorCode(sign(habesha, id)), "42501");
   await sign(manager, id);

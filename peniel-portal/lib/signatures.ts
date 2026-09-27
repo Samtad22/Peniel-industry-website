@@ -1,6 +1,6 @@
 // Signing the Certificate of Analysis (supabase/migrations/20261010000001_coa_signatures.sql,
-// 20261011000001_coa_one_signature.sql). One signature, "Prepared by", by the quality
-// manager. The database enforces every rule; these mirror them to show the right buttons.
+// 20261011000001_coa_one_signature.sql, 20261013000001_coa_admin_signs.sql). One
+// signature, "Prepared by", by the quality manager or admin. The database enforces every rule; these mirror them to show the right buttons.
 
 export const SIGNATURE_LINES = { prepared: "Prepared by" } as const;
 export type SignatureLine = keyof typeof SIGNATURE_LINES;
@@ -16,11 +16,11 @@ export function isSignatureImage(s: string): boolean {
   return s.length <= MAX_SIGNATURE_CHARS && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(s);
 }
 
-/** Who signs: the quality manager (role quality). Admin can remove a signature, not sign. */
+/** Who signs: the quality manager (role quality) or admin, as themselves. */
 export function signing(sigs: Signatures, who: { userId: string; role: string }): { canSign: boolean; canRemove: boolean } {
   const sig = sigs.prepared;
   return {
-    canSign: who.role === "quality" && !sig,
+    canSign: (who.role === "quality" || who.role === "admin") && !sig,
     canRemove: !!sig && ((who.role === "quality" && sig.signer_id === who.userId) || who.role === "admin"),
   };
 }
