@@ -62,3 +62,60 @@ export function wholeNumber(raw: string): number {
   if (!s) return 0;
   return /^\d{1,9}$/.test(s) ? Number(s) : NaN;
 }
+
+/** Minutes a stillage usually stays in the oven for varnish or lacquer. */
+export const OVEN_MINUTES = 30;
+
+export type OvenStage = "varnish" | "lacquer";
+
+/** One pass of a stillage through the oven. `finished_at` null = still in the oven. */
+export type StillagePass = {
+  id: string;
+  print_run_id: string;
+  stage: OvenStage;
+  material: string | null;
+  oven_temp_c: number | null;
+  started_at: string;
+  finished_at: string | null;
+  sheets_spoiled: number;
+  notes: string | null;
+};
+
+export type StillageStatus = "printed" | "varnish_oven" | "varnished" | "lacquer_oven" | "finished";
+
+export const STILLAGE_STATUS_LABEL: Record<StillageStatus, string> = {
+  printed: "Waiting for varnish",
+  varnish_oven: "In the oven · varnish",
+  varnished: "Waiting for lacquer",
+  lacquer_oven: "In the oven · lacquer",
+  finished: "Finished",
+};
+
+/** Where a stillage is: printed → varnish in the oven → varnished → lacquer in the oven → finished. */
+export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at">[]): StillageStatus {
+  const varnish = passes.find((p) => p.stage === "varnish");
+  const lacquer = passes.find((p) => p.stage === "lacquer");
+  if (lacquer) return lacquer.finished_at ? "finished" : "lacquer_oven";
+  if (varnish) return varnish.finished_at ? "varnished" : "varnish_oven";
+  return "printed";
+}
+
+/** Good sheets left on the stillage: printed, less what the oven passes spoiled. */
+export const goodSheets = (printed: number, passes: Pick<StillagePass, "sheets_spoiled">[]): number =>
+  Math.max(0, printed - passes.reduce((s, p) => s + Number(p.sheets_spoiled), 0));
+
+/** Whole minutes between two times (or since `from`, up to `to`). */
+export const minutesBetween = (from: string, to: string | Date): number => Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000));
+
+/** The next stillage number after the ones used: "ST-021" → "ST-022", "7" → "8"; "ST-001" when none. */
+export function nextStillageNo(used: (string | null)[]): string {
+  let best: { prefix: string; n: number; width: number } | null = null;
+  for (const u of used) {
+    const m = /^(.*?)(\d+)$/.exec((u ?? "").trim());
+    if (!m) continue;
+    const n = Number(m[2]);
+    if (!best || n > best.n) best = { prefix: m[1], n, width: m[2].length };
+  }
+  if (!best) return "ST-001";
+  return `${best.prefix}${String(best.n + 1).padStart(best.width, "0")}`;
+}

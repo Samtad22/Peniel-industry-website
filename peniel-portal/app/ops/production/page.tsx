@@ -34,7 +34,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   const from = range === "week" ? addDays(today, -6) : today;
   const supabase = await createClient();
 
-  const [entries, lines, orders, { data: runData }, { data: heldData }] = await Promise.all([
+  const [entries, lines, orders, { data: runData }, { data: heldData }, { count: inOven }] = await Promise.all([
     loadEntries(supabase, { from: addDays(today, -20), to: today }),
     loadLines(supabase),
     loadProducibleOrders(supabase),
@@ -45,6 +45,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       .order("created_at", { ascending: false })
       .returns<RunRow[]>(),
     supabase.from("qc_inspections").select("batch_no, inspected_at, orders(order_no)").eq("result", "on_hold").returns<HeldRow[]>(),
+    supabase.from("stillage_passes").select("id", { count: "exact", head: true }).is("finished_at", null),
   ]);
   const runs = runData ?? [];
   const inRange = entries.filter((e) => e.entry_date >= from);
@@ -94,9 +95,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
         unit: range === "week" ? "sheets · 7 days" : "sheets today",
         pct: (100 * sheets.printed) / best,
         bars: perDay,
-        note: printing.length
-          ? `${sheets.stillages} stillage${sheets.stillages === 1 ? "" : "s"} · ${printing.join(" · ")} · ${formatSpoiledPct(sheets.printed, sheets.spoiled)} spoiled`
-          : "No stillages logged",
+        note: `${printing.length ? `${sheets.stillages} stillage${sheets.stillages === 1 ? "" : "s"} printed · ${printing.join(" · ")}` : "No stillages printed"} · ${inOven ?? 0} in the oven now`,
         down: false,
       };
     })(),

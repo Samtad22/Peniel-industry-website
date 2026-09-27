@@ -97,3 +97,60 @@ test("customers can't read or write print runs", async () => {
     assert.equal(await errorCode(db.query("select * from public.print_runs")), "42501");
   });
 });
+
+test("each stillage goes through the oven for varnish, then lacquer, once each", async () => {
+  let stillage = "";
+  await as(production, async (db) => {
+    const { rows } = await run(db, { stillage_no: "ST-100" });
+    stillage = rows[0].id;
+    // Lacquer can't come before the varnish is out of the oven.
+    assert.equal(await errorCode(db.query("insert into public.stillage_passes (print_run_id, stage) values ($1, 'lacquer')", [stillage])), "23514");
+  });
+  await as(production, async (db) => {
+    await db.query("insert into public.print_runs (id, brand_id, shift, sheets_printed) values ($1, $2, 'A', 1410)", [stillage, HAB_BRAND_HABESHA]);
+    // In the oven: no finish time yet.
+    const { rows } = await db.query(
+      "insert into public.stillage_passes (print_run_id, stage, material, oven_temp_c, started_at) values ($1, 'varnish', ' Gold varnish ', 185, '2026-09-26T08:00:00Z') returning id, material",
+      [stillage],
+    );
+    assert.equal(rows[0].material, "Gold varnish");
+    assert.equal(await errorCode(db.query("insert into public.stillage_passes (print_run_id, stage) values ($1, 'lacquer')", [stillage])), "23514");
+  });
+  await as(production, async (db) => {
+    await db.query("insert into public.print_runs (id, brand_id, shift, sheets_printed) values ($1, $2, 'A', 1410)", [stillage, HAB_BRAND_HABESHA]);
+    await db.query("insert into public.stillage_passes (print_run_id, stage, started_at) values ($1, 'varnish', '2026-09-26T08:00:00Z')", [stillage]);
+    // Out before in is refused; 30 minutes later is fine.
+    assert.equal(
+      await errorCode(db.query("update public.stillage_passes set finished_at = '2026-09-26T07:59:00Z' where print_run_id = $1", [stillage])),
+      "23514",
+    );
+  });
+  await as(production, async (db) => {
+    await db.query("insert into public.print_runs (id, brand_id, shift, sheets_printed) values ($1, $2, 'A', 1410)", [stillage, HAB_BRAND_HABESHA]);
+    await db.query(
+      "insert into public.stillage_passes (print_run_id, stage, started_at, finished_at, sheets_spoiled) values ($1, 'varnish', '2026-09-26T08:00:00Z', '2026-09-26T08:30:00Z', 3)",
+      [stillage],
+    );
+    await db.query("insert into public.stillage_passes (print_run_id, stage, material, started_at) values ($1, 'lacquer', 'Inside lacquer', '2026-09-26T08:40:00Z')", [stillage]);
+    // Once each.
+    assert.equal(await errorCode(db.query("insert into public.stillage_passes (print_run_id, stage) values ($1, 'varnish')", [stillage])), "23505");
+  });
+});
+
+test("oven passes: other staff read, customers see nothing", async () => {
+  await as(production, async (db) => {
+    const { rows } = await run(db, { stillage_no: "ST-200" });
+    await db.query("insert into public.stillage_passes (print_run_id, stage, finished_at) values ($1, 'varnish', now())", [rows[0].id]);
+    await db.query("commit");
+  });
+  await as(sales, async (db) => {
+    const { rows } = await db.query("select count(*)::int as n from public.stillage_passes");
+    assert.ok(rows[0].n >= 1);
+    const del = await db.query("delete from public.stillage_passes");
+    assert.equal(del.rowCount, 0);
+  });
+  await as(habesha, async (db) => {
+    const { rows } = await db.query("select * from public.stillage_passes");
+    assert.equal(rows.length, 0);
+  });
+});

@@ -27,3 +27,17 @@ test("whole numbers from a form field", () => {
   assert.ok(Number.isNaN(wholeNumber("1.5")));
   assert.ok(Number.isNaN(wholeNumber("-3")));
 });
+
+test("a stillage moves printed → varnish oven → varnished → lacquer oven → finished", async () => {
+  const { stillageStatus, goodSheets, nextStillageNo, minutesBetween } = await import("../../lib/print-runs.ts");
+  assert.equal(stillageStatus([]), "printed");
+  assert.equal(stillageStatus([{ stage: "varnish", finished_at: null }]), "varnish_oven");
+  assert.equal(stillageStatus([{ stage: "varnish", finished_at: "2026-09-27T08:30:00Z" }]), "varnished");
+  assert.equal(stillageStatus([{ stage: "varnish", finished_at: "x" }, { stage: "lacquer", finished_at: null }]), "lacquer_oven");
+  assert.equal(stillageStatus([{ stage: "varnish", finished_at: "x" }, { stage: "lacquer", finished_at: "y" }]), "finished");
+  assert.equal(goodSheets(1_410, [{ sheets_spoiled: 3 }, { sheets_spoiled: 2 }]), 1_405);
+  assert.equal(minutesBetween("2026-09-27T08:00:00Z", "2026-09-27T08:31:20Z"), 31);
+  assert.equal(nextStillageNo(["ST-021", "ST-009", null, "odd"]), "ST-022");
+  assert.equal(nextStillageNo(["7"]), "8");
+  assert.equal(nextStillageNo([]), "ST-001");
+});
