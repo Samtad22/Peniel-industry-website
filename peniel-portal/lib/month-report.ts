@@ -120,7 +120,10 @@ export function buildMonthReport(d: MonthInput): MonthReport {
   // ---- Raw materials ----
   const mats = d.materials.filter((m) => m.used || m.received);
   const materials = mats.length
-    ? mats.map((m) => `${m.name}: ${qty(m.used)} ${m.unit} used, ${qty(m.received)} ${m.unit} received, ${qty(m.onHand)} ${m.unit} on hand now.`)
+    ? [
+        `${plural(mats.length, "material")} used or received.`,
+        ...mats.map((m) => `${m.name}: ${qty(m.used)} ${m.unit} used, ${qty(m.received)} ${m.unit} received, ${qty(m.onHand)} ${m.unit} on hand now.`),
+      ]
     : ["No movements."];
 
   return {

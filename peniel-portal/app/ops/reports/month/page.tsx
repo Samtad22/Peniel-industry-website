@@ -3,7 +3,6 @@ import Link from "next/link";
 import MonthEmailButton from "@/components/ops/MonthEmailButton";
 import OpsHeader from "@/components/ops/OpsHeader";
 import ReportView from "@/components/ops/ReportView";
-import PrintButton from "@/components/ui/PrintButton";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO } from "@/lib/format";
 import { loadMonthInput } from "@/lib/month-data";
@@ -38,7 +37,10 @@ export default async function MonthReportPage({ searchParams }: { searchParams: 
           <div className="flex flex-wrap items-start gap-2 print:hidden">
             {link(previousMonth(`${month}-01`), "← Month before")}
             {month < thisMonth && link(next, "Next month →")}
-            <PrintButton />
+            <a href={`/reports/month?m=${month}&print=1`} target="_blank" rel="noreferrer" className="btn btn-primary btn-split no-underline">
+              Print / Save as PDF
+              <span aria-hidden="true">⎙</span>
+            </a>
             <MonthEmailButton month={month} />
           </div>
         }

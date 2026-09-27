@@ -56,6 +56,7 @@ test("a month in one page", () => {
   assert.equal(orders[0], "1 new order for 5.0M crowns.");
   assert.equal(maint[0], "3 jobs, 1 breakdown, 11.5 h of downtime.");
   assert.ok(maint.includes("Press 2: 10.0 h down."));
-  assert.equal(mats[0], "Lacquer: 140.5 L used, 400 L received, 780 L on hand now.");
+  assert.equal(mats[0], "1 material used or received.");
+  assert.equal(mats[1], "Lacquer: 140.5 L used, 400 L received, 780 L on hand now.");
   assert.ok(monthEmailLines(r)[1].startsWith("PRODUCTION\n• 1,500,000"));
 });
