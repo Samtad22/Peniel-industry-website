@@ -234,6 +234,38 @@ export function notifyDocumentShared(documentId: string) {
   });
 }
 
+/**
+ * The Certificate of Analysis for a released, published batch is signed on
+ * both lines. The database claims the email (once per signed certificate), so
+ * calling this after any signing or publishing is safe.
+ */
+export function notifyCertificateReady(inspectionId: string) {
+  run(async (db) => {
+    const { data: claimed } = await db.rpc("coa_claim_ready_email", { p_inspection_id: inspectionId });
+    if (claimed !== true) return;
+    const { data: i } = await db
+      .from("qc_inspections")
+      .select("id, batch_no, orders(order_no, po_number, company_id, brands(name))")
+      .eq("id", inspectionId)
+      .maybeSingle<{ id: string; batch_no: string; orders: { order_no: string; po_number: string; company_id: string; brands: { name: string } | null } | null }>();
+    if (!i?.orders) return;
+    const o = i.orders;
+    await sendEmails(
+      await customerEmails(db, o.company_id),
+      {
+        subject: `Certificate of Analysis ready: batch ${i.batch_no}`,
+        heading: "Certificate of Analysis ready",
+        lines: [
+          `The Certificate of Analysis for batch ${i.batch_no}${o.brands ? ` (${o.brands.name})` : ""}, order ${o.order_no}, PO ${o.po_number}, is signed and ready.`,
+          "Open it in the portal to view, print or save it as a PDF.",
+        ],
+        cta: { label: "Open the certificate", path: `/certificates/${i.id}` },
+      },
+      { kind: "certificate_ready", companyId: o.company_id, entityId: i.id },
+    );
+  });
+}
+
 /** Peniel wrote to the customer (never called for internal notes). */
 export function notifyMessageToCustomer(threadId: string, body: string, files = 0) {
   run(async (db) => {

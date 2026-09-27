@@ -87,6 +87,11 @@ export default async function InspectionPage({
   ]);
   if (!isNew && !insp) notFound();
   // Sorting of this batch's camera rejects (by order and batch number, with or without this inspection).
+  // Certificate signatures that still match the results (changing them voids the signatures).
+  const { data: coa } = insp
+    ? await supabase.rpc("certificate_of_analysis", { p_inspection_id: insp.id })
+    : { data: null };
+  const signedLines = Object.keys((coa as { signatures?: object } | null)?.signatures ?? {}).length;
   const { data: sortData } = insp
     ? await supabase
         .from("sorting_records")
@@ -143,9 +148,15 @@ export default async function InspectionPage({
         sub={insp ? `${insp.orders?.brands?.name ?? ""} · ${insp.orders?.order_no ?? ""} · ${insp.orders?.companies?.name ?? ""}` : formatDate(new Date())}
         actions={
           insp ? (
-            <a href={`/certificates/${insp.id}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-text">
-              Certificate of Analysis ↗
-            </a>
+            <div className="flex flex-col items-end gap-1">
+              <a href={`/certificates/${insp.id}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-text">
+                Certificate of Analysis ↗
+              </a>
+              <span className="font-mono text-[11px] tracking-[.08em] uppercase opacity-70">
+                {signedLines === 2 ? "Signed" : `Signatures ${signedLines} of 2`}
+                {signedLines > 0 ? " · changing the results clears them" : ""}
+              </span>
+            </div>
           ) : undefined
         }
       />
