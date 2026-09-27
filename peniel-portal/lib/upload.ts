@@ -5,7 +5,7 @@ import type { MessageFile } from "@/lib/message-files";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
 
-export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork" | "crowns" | "message-attachments";
+export type Bucket = "order-attachments" | "documents" | "proofs" | "artwork" | "crowns" | "message-attachments" | "artwork-library";
 
 export async function uploadToStorage(
   bucket: Bucket,
@@ -32,7 +32,9 @@ export async function uploadToStorage(
         : reject(
             new Error(
               xhr.status === 413
-                ? "File too large (limit 20 MB)"
+                ? bucket === "artwork-library"
+                  ? "File too large for the storage upload limit."
+                  : "File too large (limit 20 MB)"
                 : xhr.status === 403
                   ? "You don't have permission to upload here."
                   : "Upload failed. Check your connection and retry.",

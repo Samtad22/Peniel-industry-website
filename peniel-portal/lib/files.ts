@@ -22,7 +22,12 @@ export const ACCEPT = ".pdf,.jpg,.jpeg,.png,.xlsx,.docx";
 const ARTWORK_EXT: Record<string, string> = { ai: "application/postscript", eps: "application/postscript" };
 export const ARTWORK_ACCEPT = `${ACCEPT},.ai,.eps`;
 
-export type UploadKind = "document" | "artwork";
+export type UploadKind = "document" | "artwork" | "library";
+
+/** The artwork library (designs and 702-up print layouts) takes large designers' files. */
+export const LIBRARY_MAX_BYTES = 200 * 1024 * 1024;
+const LIBRARY_EXT = new Set(["ai", "eps", "pdf", "jpg", "jpeg", "png"]);
+export const LIBRARY_ACCEPT = ".ai,.eps,.pdf,.jpg,.jpeg,.png";
 
 const extOf = (name: string) => /\.([a-z0-9]+)$/i.exec(name)?.[1].toLowerCase() ?? "";
 
@@ -58,6 +63,12 @@ export function formatBytes(n: number): string {
 /** Why a file can't be uploaded, or null when it can. */
 export function fileProblem(file: { name: string; size: number }, kind: UploadKind = "document"): string | null {
   const ext = extOf(file.name);
+  if (kind === "library") {
+    if (!LIBRARY_EXT.has(ext)) return "Only AI, EPS, PDF, JPG or PNG files";
+    if (file.size > LIBRARY_MAX_BYTES) return `File too large (${formatBytes(file.size)} > 200 MB)`;
+    if (file.size === 0) return "The file is empty";
+    return null;
+  }
   if (!BY_EXT[ext] && !(kind === "artwork" && ARTWORK_EXT[ext])) {
     return kind === "artwork" ? "Only PDF, AI, EPS, JPG, PNG, XLSX or DOCX files can be attached" : "Only PDF, JPG, PNG, XLSX or DOCX files can be attached";
   }
