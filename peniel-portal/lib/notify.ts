@@ -235,8 +235,8 @@ export function notifyDocumentShared(documentId: string) {
 }
 
 /**
- * The Certificate of Analysis for a released, published batch is signed on
- * both lines. The database claims the email (once per signed certificate), so
+ * The Certificate of Analysis for a released, published batch is signed by
+ * the quality manager. The database claims the email (once per signed certificate), so
  * calling this after any signing or publishing is safe.
  */
 export function notifyCertificateReady(inspectionId: string) {
