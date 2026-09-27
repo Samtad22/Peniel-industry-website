@@ -28,6 +28,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
       .from("print_runs")
       .select("stillage_no, sheets_printed, sheets_spoiled, brands(name)")
       .eq("run_date", date)
+      .eq("printed", true)
       .order("created_at")
       .returns<{ stillage_no: string | null; sheets_printed: number; sheets_spoiled: number; brands: Named }[]>(),
     db.from("stillage_passes").select("stage, sheets_spoiled").gte("finished_at", from).lt("finished_at", to).returns<EodInput["passesOut"]>(),
@@ -36,7 +37,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
       .select("stage, started_at, print_runs(stillage_no)")
       .is("finished_at", null)
       .order("started_at")
-      .returns<{ stage: "varnish" | "lacquer"; started_at: string; print_runs: { stillage_no: string | null } | null }[]>(),
+      .returns<{ stage: "base_coat" | "varnish" | "lacquer"; started_at: string; print_runs: { stillage_no: string | null } | null }[]>(),
     db
       .from("qc_inspections")
       .select("batch_no, result, published, orders(order_no, brands(name))")

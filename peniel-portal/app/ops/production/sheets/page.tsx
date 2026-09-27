@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BaseCoatDialog, PrintItDialog } from "@/components/ops/BaseCoat";
 import OpsHeader from "@/components/ops/OpsHeader";
 import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
 import { DeletePassButton, IntoOvenDialog, OutOfOvenDialog, OvenTimer } from "@/components/ops/OvenPass";
@@ -30,13 +31,15 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Printed sheets" };
 
 type RunRow = PrintRun & { created_at: string; brands: { name: string; companies: { name: string } | null } | null };
-type BrandRow = { id: string; name: string; colours: string[]; companies: { name: string } | null };
+type BrandRow = { id: string; name: string; colours: string[]; base_coat: "white" | "transparent" | null; companies: { name: string } | null };
 
 const shortCompany = (name: string | undefined | null) => (name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "");
 const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Addis_Ababa" });
 const hhmm = (iso: string) => timeFmt.format(new Date(iso));
 
 const STATUS_STYLE: Record<StillageStatus, string> = {
+  base_oven: "bg-accent text-bg",
+  base_coated: "border border-dashed border-text",
   printed: "border border-text",
   varnish_oven: "bg-accent text-bg",
   varnished: "border border-accent-700 text-accent-700",
@@ -46,7 +49,8 @@ const STATUS_STYLE: Record<StillageStatus, string> = {
 
 /**
  * Printed sheets: their own process, not tied to orders. Per stillage (about
- * 1,410 sheets): 01 the print line (two-unit roller printer with the UV dryer
+ * 1,410 sheets): 00 a white or transparent base coat through the big oven
+ * (only brands that need one), 01 the print line (two-unit roller printer with the UV dryer
  * at its end), 02 varnish through the oven (about 30 minutes), 03 lacquer
  * through the oven again. Internal only: customers never see it.
  */
@@ -61,13 +65,13 @@ export default async function PrintedSheetsPage() {
   const [{ data: runData }, { data: brandData }] = await Promise.all([
     supabase
       .from("print_runs")
-      .select("id, brand_id, stillage_no, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coil_lot, notes, created_at, brands(name, companies(name))")
+      .select("id, brand_id, stillage_no, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coil_lot, notes, printed, base_sheets, created_at, brands(name, companies(name))")
       .gte("run_date", addDays(today, -60))
       .order("run_date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(1000)
       .returns<RunRow[]>(),
-    supabase.from("brands").select("id, name, colours, companies(name)").eq("active", true).order("name").returns<BrandRow[]>(),
+    supabase.from("brands").select("id, name, colours, base_coat, companies(name)").eq("active", true).order("name").returns<BrandRow[]>(),
   ]);
   const runs = runData ?? [];
   const { data: passData } = runs.length
@@ -82,21 +86,27 @@ export default async function PrintedSheetsPage() {
 
   const stillages = runs.map((r) => {
     const mine = passes.filter((p) => p.print_run_id === r.id);
+    const base = mine.find((p) => p.stage === "base_coat") ?? null;
     const varnish = mine.find((p) => p.stage === "varnish") ?? null;
     const lacquer = mine.find((p) => p.stage === "lacquer") ?? null;
-    return { r, varnish, lacquer, status: stillageStatus(mine), good: goodSheets(Number(r.sheets_printed), mine), label: r.stillage_no ?? `#${r.id.slice(0, 4)}` };
+    const printed = r.printed !== false;
+    // Before printing, the sheets are the ones base-coated (less what the base coat spoiled).
+    const good = printed ? goodSheets(Number(r.sheets_printed), mine) : Math.max(0, Number(r.base_sheets ?? 0) - Number(base?.sheets_spoiled ?? 0));
+    return { r, base, varnish, lacquer, printed, status: stillageStatus(mine, printed), good, label: r.stillage_no ?? `#${r.id.slice(0, 4)}` };
   });
   const at = (s: StillageStatus) => stillages.filter((x) => x.status === s);
-  const inOven = stillages.filter((x) => x.status === "varnish_oven" || x.status === "lacquer_oven");
+  const inOven = stillages.filter((x) => x.status === "base_oven" || x.status === "varnish_oven" || x.status === "lacquer_oven");
+  const waitingPrint = at("base_coated").reverse();
   const waitingVarnish = at("printed").reverse();
   const waitingLacquer = at("varnished").reverse();
   const finishedToday = stillages.filter((x) => x.status === "finished" && x.lacquer?.finished_at && addisDateISO(new Date(x.lacquer.finished_at)) === today);
-  const printedToday = stillages.filter((x) => x.r.run_date === today);
+  const printedToday = stillages.filter((x) => x.printed && x.r.run_date === today);
+  const printedOnes = stillages.filter((x) => x.printed);
   const sum = (xs: typeof stillages, f: (x: (typeof stillages)[number]) => number) => xs.reduce((t, x) => t + f(x), 0);
 
   const lastBrand = runs[0]?.brand_id;
   const formBrands: PrintBrand[] = (brandData ?? [])
-    .map((b) => ({ id: b.id, label: `${b.name} · ${shortCompany(b.companies?.name)}`, colours: b.colours ?? [] }))
+    .map((b) => ({ id: b.id, label: `${b.name} · ${shortCompany(b.companies?.name)}`, colours: b.colours ?? [], baseCoat: b.base_coat }))
     .sort((a, b) => Number(b.id === lastBrand) - Number(a.id === lastBrand));
   const materials = (stage: OvenStage) => [...new Set(passes.filter((p) => p.stage === stage).reverse().map((p) => p.material).filter((m): m is string => Boolean(m)))].slice(0, 20);
   const lastTemp = (stage: OvenStage) => {
@@ -117,25 +127,29 @@ export default async function PrintedSheetsPage() {
       ? `${hhmm(p.started_at)}–${p.finished_at ? `${hhmm(p.finished_at)} (${minutesBetween(p.started_at, p.finished_at)} min)` : "in the oven"}${p.oven_temp_c != null ? ` · ${Number(p.oven_temp_c)} °C` : ""}${p.material ? ` · ${p.material}` : ""}`
       : "-";
   const BRAND_COLS = "grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)_80px_110px_80px] items-center gap-3";
-  const ROWS = "grid grid-cols-[90px_96px_minmax(0,1fr)_100px_minmax(0,1.4fr)_minmax(0,1.4fr)_190px] items-center gap-3";
+  const ROWS = "grid grid-cols-[90px_minmax(0,1fr)_96px_minmax(0,1fr)_100px_minmax(0,1.3fr)_minmax(0,1.3fr)_190px] items-center gap-3";
 
   return (
     <>
       <OpsHeader
         crumb={{ label: "Production", href: "/ops/production", current: "Printed sheets" }}
         title="Printed sheets"
-        sub={`Per stillage: 01 print line (printer + UV dryer) → 02 varnish through the oven (about ${OVEN_MINUTES} min) → 03 lacquer through the oven. Not tied to orders.`}
+        sub={`Per stillage: 00 base coat through the oven (brands that need it) → 01 print line (printer + UV dryer) → 02 varnish through the oven (about ${OVEN_MINUTES} min) → 03 lacquer through the oven. Not tied to orders.`}
         actions={<InternalOnly>Internal only · customers never see printed sheets</InternalOnly>}
       />
 
       <KpiStrip
         items={[
-          { label: "Printed today", value: printedToday.length, sub: `stillages · ${sum(printedToday, (x) => Number(x.r.sheets_printed)).toLocaleString("en-US")} sheets` },
+          {
+            label: "Printed today",
+            value: printedToday.length,
+            sub: `stillages · ${sum(printedToday, (x) => Number(x.r.sheets_printed)).toLocaleString("en-US")} sheets${waitingPrint.length ? ` · ${waitingPrint.length} base-coated waiting` : ""}`,
+          },
           {
             label: "In the oven",
             value: inOven.length,
-            sub: `${inOven.filter((x) => x.status === "varnish_oven").length} varnish · ${inOven.filter((x) => x.status === "lacquer_oven").length} lacquer`,
-            hot: inOven.some((x) => minutesBetween((x.lacquer ?? x.varnish)!.started_at, now) > OVEN_MINUTES),
+            sub: `${inOven.some((x) => x.status === "base_oven") ? `${inOven.filter((x) => x.status === "base_oven").length} base coat · ` : ""}${inOven.filter((x) => x.status === "varnish_oven").length} varnish · ${inOven.filter((x) => x.status === "lacquer_oven").length} lacquer`,
+            hot: inOven.some((x) => minutesBetween((x.lacquer ?? x.varnish ?? x.base)!.started_at, now) > OVEN_MINUTES),
           },
           { label: "Waiting for varnish", value: waitingVarnish.length, sub: `${sum(waitingVarnish, (x) => x.good).toLocaleString("en-US")} sheets` },
           { label: "Waiting for lacquer", value: waitingLacquer.length, sub: `${sum(waitingLacquer, (x) => x.good).toLocaleString("en-US")} sheets` },
@@ -155,7 +169,8 @@ export default async function PrintedSheetsPage() {
       <div className={`grid grid-cols-[minmax(0,1fr)] ${canEnter ? "xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" : ""}`}>
         {canEnter && (
           <section className="border-b-2 border-divider px-4 py-6 sm:px-8 xl:border-r-2">
-            <div className="mb-4">
+            <div className="mb-4 flex flex-col gap-3">
+              <BaseCoatDialog brands={formBrands} nextNo={nextStillageNo(runs.map((r) => r.stillage_no))} nowLocal={nowLocal} lastTemp={lastTemp("base_coat")} />
               <SectionHead title="01 · Print a stillage" aside="printer + UV dryer" />
             </div>
             <PrintRunForm today={today} brands={formBrands} nextNo={nextStillageNo(runs.map((r) => r.stillage_no))} />
@@ -167,13 +182,13 @@ export default async function PrintedSheetsPage() {
             <SectionHead title="In the oven" aside={`usually ${OVEN_MINUTES} min a pass`} />
             {inOven.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">Nothing in the oven.</p>}
             {inOven.map((x) => {
-              const pass = (x.status === "lacquer_oven" ? x.lacquer : x.varnish)!;
+              const pass = (x.status === "lacquer_oven" ? x.lacquer : x.status === "base_oven" ? x.base : x.varnish)!;
               return (
                 <div key={x.r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-divider py-3 sm:grid-cols-[minmax(0,1fr)_110px_150px]">
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
                       <b className="font-mono text-[16px]">{x.label}</b>
-                      <span className={`px-[7px] py-0.5 text-[10px] font-extrabold uppercase tracking-[.08em] ${STATUS_STYLE[x.status]}`}>{pass.stage === "varnish" ? "02 varnish" : "03 lacquer"}</span>
+                      <span className={`px-[7px] py-0.5 text-[10px] font-extrabold uppercase tracking-[.08em] ${STATUS_STYLE[x.status]}`}>{pass.stage === "base_coat" ? `00 ${pass.material ?? "base coat"}` : pass.stage === "varnish" ? "02 varnish" : "03 lacquer"}</span>
                     </span>
                     <span className="block truncate text-[13px] opacity-75">
                       {x.r.brands?.name ?? "-"} · {x.good.toLocaleString("en-US")} sheets · in at {hhmm(pass.started_at)}
@@ -190,6 +205,26 @@ export default async function PrintedSheetsPage() {
               );
             })}
           </div>
+
+          {waitingPrint.length > 0 && (
+            <div>
+              <SectionHead title="01 · Waiting for printing" aside={`${waitingPrint.length} base-coated`} />
+              {waitingPrint.slice(0, 12).map((x, i) => (
+                <div key={x.r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-divider py-2.5 sm:grid-cols-[minmax(0,1fr)_190px]">
+                  <span className="min-w-0">
+                    <b className="font-mono text-[15px]">{x.label}</b>
+                    <span className="block truncate text-[13px] opacity-75">
+                      {x.r.brands?.name ?? "-"} · {x.good.toLocaleString("en-US")} sheets · {x.base?.material ?? "base coat"}
+                      {x.base?.finished_at ? ` out ${formatDayMonth(x.base.finished_at)} ${hhmm(x.base.finished_at)}` : ""}
+                    </span>
+                  </span>
+                  {canEnter && (
+                    <PrintItDialog today={today} brands={formBrands} stillage={{ id: x.r.id, brandId: x.r.brand_id, stillageNo: x.label, sheets: x.good || null }} primary={i === 0} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {(
             [
@@ -223,9 +258,10 @@ export default async function PrintedSheetsPage() {
       <section className="px-4 pb-6 pt-6 sm:px-8">
         <SectionHead title="Stillages" aside={`${runs.length} in the last 60 days`} />
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px]">
+          <div className="min-w-[1240px]">
             <div className={`${ROWS} th-row border-b border-divider py-2`}>
               <span>Stillage</span>
+              <span>00 Base coat</span>
               <span>01 Printed</span>
               <span>Brand</span>
               <span className="text-right">Sheets</span>
@@ -235,17 +271,16 @@ export default async function PrintedSheetsPage() {
             </div>
             {stillages.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No stillages in the last 60 days.</p>}
             {stillages.slice(0, 60).map((x) => (
-              <div key={x.r.id} className={`${ROWS} border-b border-divider py-2 text-[13px]`} title={[x.r.notes, x.varnish?.notes, x.lacquer?.notes].filter(Boolean).join(" · ") || undefined}>
+              <div key={x.r.id} className={`${ROWS} border-b border-divider py-2 text-[13px]`} title={[x.r.notes, x.base?.notes, x.varnish?.notes, x.lacquer?.notes].filter(Boolean).join(" · ") || undefined}>
                 <b className="truncate font-mono">{x.label}</b>
-                <span>
-                  {formatDayMonth(x.r.run_date)} · {x.r.shift}
-                </span>
+                <span className="truncate">{x.base ? passLine(x.base) : <span className="opacity-40">-</span>}</span>
+                <span>{x.printed ? `${formatDayMonth(x.r.run_date)} · ${x.r.shift}` : <span className="opacity-60">not yet</span>}</span>
                 <span className="truncate">
                   {x.r.brands?.name ?? "-"} · {shortCompany(x.r.brands?.companies?.name)}
                 </span>
                 <span className="text-right">
                   <b className="tabular-nums">{x.good.toLocaleString("en-US")}</b>
-                  {x.good !== Number(x.r.sheets_printed) || Number(x.r.sheets_spoiled) > 0 ? (
+                  {x.printed && (x.good !== Number(x.r.sheets_printed) || Number(x.r.sheets_spoiled) > 0) ? (
                     <span className="block text-[11px] text-accent-700">
                       {(Number(x.r.sheets_spoiled) + Number(x.r.sheets_printed) - x.good).toLocaleString("en-US")} spoiled
                     </span>
@@ -311,7 +346,7 @@ export default async function PrintedSheetsPage() {
           </div>
         </div>
         <p className="mb-0 mt-3 text-[12px] opacity-60">
-          Spoiled {formatSpoiledPct(sum(stillages, (x) => x.good), sum(stillages, (x) => Number(x.r.sheets_printed) + Number(x.r.sheets_spoiled) - x.good))} of all sheets
+          Spoiled {formatSpoiledPct(sum(printedOnes, (x) => x.good), sum(printedOnes, (x) => Number(x.r.sheets_printed) + Number(x.r.sheets_spoiled) - x.good))} of all sheets
           through the process in the last 60 days.
         </p>
       </section>

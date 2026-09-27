@@ -19,9 +19,9 @@ export type EodInput = {
   production: { shift: string; produced_qty: number; reject_qty: number; published: boolean; order_no: string; brand: string; customer: string }[];
   printRuns: { stillage_no: string | null; brand: string; sheets_printed: number; sheets_spoiled: number }[];
   /** Oven passes that came out on the day. */
-  passesOut: { stage: "varnish" | "lacquer"; sheets_spoiled: number }[];
+  passesOut: { stage: "base_coat" | "varnish" | "lacquer"; sheets_spoiled: number }[];
   /** Oven passes with no "out" time yet, whatever day they went in. */
-  inOven: { stage: "varnish" | "lacquer"; started_at: string; stillage_no: string | null }[];
+  inOven: { stage: "base_coat" | "varnish" | "lacquer"; started_at: string; stillage_no: string | null }[];
   inspections: { batch_no: string; order_no: string; brand: string; result: "released" | "on_hold" | null; published: boolean }[];
   /** Released, published certificates with no signature yet. */
   unsignedCertificates: { batch_no: string; order_no: string }[];
@@ -98,9 +98,9 @@ export function buildEodReport(d: EodInput): EodReport {
       sheets.push(`${brand}: ${plural(rows.length, "stillage")}${nos.length ? ` (${nos.join(", ")})` : ""}, ${n(sum(rows.map((r) => r.sheets_printed)))} sheets.`);
     }
   }
-  for (const stage of ["varnish", "lacquer"] as const) {
+  for (const stage of ["base_coat", "varnish", "lacquer"] as const) {
     const out = d.passesOut.filter((p) => p.stage === stage);
-    if (out.length) sheets.push(`${stage === "varnish" ? "Varnished" : "Lacquered"}: ${plural(out.length, "stillage")} out of the oven, ${n(sum(out.map((p) => p.sheets_spoiled)))} sheets spoiled.`);
+    if (out.length) sheets.push(`${stage === "base_coat" ? "Base-coated" : stage === "varnish" ? "Varnished" : "Lacquered"}: ${plural(out.length, "stillage")} out of the oven, ${n(sum(out.map((p) => p.sheets_spoiled)))} sheets spoiled.`);
   }
 
   // ---- Quality ----
@@ -165,7 +165,7 @@ export function buildEodReport(d: EodInput): EodReport {
   if (d.printRuns.length === 0) checks.push("No printed sheets logged.");
   for (const p of d.inOven) {
     const mins = Math.max(0, Math.round((new Date(d.now).getTime() - new Date(p.started_at).getTime()) / 60000));
-    checks.push(`Stillage ${p.stillage_no ?? "(no number)"} still in the ${p.stage} oven (${mins} min): log it out.`);
+    checks.push(`Stillage ${p.stillage_no ?? "(no number)"} still in the ${p.stage === "base_coat" ? "base coat" : p.stage} oven (${mins} min): log it out.`);
   }
   const unpublishedQc = d.inspections.filter((i) => !i.published).length;
   if (unpublishedQc) checks.push(`${plural(unpublishedQc, "inspection")} not published.`);

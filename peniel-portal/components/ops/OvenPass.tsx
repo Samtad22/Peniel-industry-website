@@ -5,9 +5,9 @@ import { deletePass, finishPass, startPass, type PrintRunState } from "@/app/ops
 import Modal from "@/components/ui/Modal";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
-import { minutesBetween, OVEN_MINUTES, type OvenStage } from "@/lib/print-runs";
+import { minutesBetween, OVEN_MINUTES, OVEN_STAGE_LABEL, type OvenStage } from "@/lib/print-runs";
 
-const STAGE = { varnish: "Varnish", lacquer: "Lacquer" } as const;
+const STAGE = OVEN_STAGE_LABEL;
 
 /** `datetime-local` value plus minutes ("2026-09-27T08:00" + 30 → "2026-09-27T08:30"). */
 const addMinutes = (local: string, minutes: number) =>

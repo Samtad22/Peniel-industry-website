@@ -1,6 +1,7 @@
 // Printed sheets (internal only), their own process: tinplate sheets go
-// through the two-unit roller printer, the UV dryer, the varnish oven and
-// lacquer coating, and come off on stillages. One row = one finished
+// (for some brands) through a base coat in the big oven first, then the
+// two-unit roller printer, the UV dryer, the varnish oven and lacquer
+// coating, and come off on stillages. One row = one finished
 // stillage, printed with a brand's design; no order or batch number.
 // Sheets are the figure that counts; crowns (702 per sheet) are only a note.
 // Shared by the browser and the server; no imports.
@@ -25,6 +26,10 @@ export type PrintRun = {
   oven_temp_c: number | null;
   coil_lot: string | null;
   notes: string | null;
+  /** False while a base-coated stillage waits for the print line. */
+  printed?: boolean;
+  /** Sheets that went into the base coat. */
+  base_sheets?: number | null;
 };
 
 /** Spoiled sheets as a share of all sheets through the line: 150 of 12,150 → 1.23. Null when nothing ran. */
@@ -66,7 +71,14 @@ export function wholeNumber(raw: string): number {
 /** Minutes a stillage usually stays in the oven for varnish or lacquer. */
 export const OVEN_MINUTES = 30;
 
-export type OvenStage = "varnish" | "lacquer";
+/** Passes through the big oven: the base coat (before printing, some brands), then varnish and lacquer. */
+export type OvenStage = "base_coat" | "varnish" | "lacquer";
+
+export const OVEN_STAGE_LABEL: Record<OvenStage, string> = { base_coat: "Base coat", varnish: "Varnish", lacquer: "Lacquer" };
+
+/** The base coats a brand can need before printing. */
+export type BaseCoat = "white" | "transparent";
+export const BASE_COAT_LABEL: Record<BaseCoat, string> = { white: "White base coat", transparent: "Transparent base coat" };
 
 /** One pass of a stillage through the oven. `finished_at` null = still in the oven. */
 export type StillagePass = {
@@ -81,9 +93,11 @@ export type StillagePass = {
   notes: string | null;
 };
 
-export type StillageStatus = "printed" | "varnish_oven" | "varnished" | "lacquer_oven" | "finished";
+export type StillageStatus = "base_oven" | "base_coated" | "printed" | "varnish_oven" | "varnished" | "lacquer_oven" | "finished";
 
 export const STILLAGE_STATUS_LABEL: Record<StillageStatus, string> = {
+  base_oven: "In the oven · base coat",
+  base_coated: "Waiting for printing",
   printed: "Waiting for varnish",
   varnish_oven: "In the oven · varnish",
   varnished: "Waiting for lacquer",
@@ -91,8 +105,15 @@ export const STILLAGE_STATUS_LABEL: Record<StillageStatus, string> = {
   finished: "Finished",
 };
 
-/** Where a stillage is: printed → varnish in the oven → varnished → lacquer in the oven → finished. */
-export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at">[]): StillageStatus {
+/**
+ * Where a stillage is: (base coat in the oven → waiting for printing →)
+ * printed → varnish in the oven → varnished → lacquer in the oven → finished.
+ */
+export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at">[], printed = true): StillageStatus {
+  if (!printed) {
+    const base = passes.find((p) => p.stage === "base_coat");
+    return base && !base.finished_at ? "base_oven" : "base_coated";
+  }
   const varnish = passes.find((p) => p.stage === "varnish");
   const lacquer = passes.find((p) => p.stage === "lacquer");
   if (lacquer) return lacquer.finished_at ? "finished" : "lacquer_oven";
@@ -100,9 +121,9 @@ export function stillageStatus(passes: Pick<StillagePass, "stage" | "finished_at
   return "printed";
 }
 
-/** Good sheets left on the stillage: printed, less what the oven passes spoiled. */
-export const goodSheets = (printed: number, passes: Pick<StillagePass, "sheets_spoiled">[]): number =>
-  Math.max(0, printed - passes.reduce((s, p) => s + Number(p.sheets_spoiled), 0));
+/** Good sheets left on the stillage: printed, less what the varnish and lacquer passes spoiled (the base coat came before the count). */
+export const goodSheets = (printed: number, passes: (Pick<StillagePass, "sheets_spoiled"> & { stage?: OvenStage })[]): number =>
+  Math.max(0, printed - passes.filter((p) => p.stage !== "base_coat").reduce((s, p) => s + Number(p.sheets_spoiled), 0));
 
 /** Whole minutes between two times (or since `from`, up to `to`). */
 export const minutesBetween = (from: string, to: string | Date): number => Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000));

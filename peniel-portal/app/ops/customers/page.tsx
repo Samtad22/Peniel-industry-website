@@ -26,6 +26,7 @@ type BrandRow = {
   finish: string | null;
   colours: string[];
   crown_image_path: string | null;
+  base_coat: "white" | "transparent" | null;
   current: { version: number } | null;
 };
 
@@ -43,7 +44,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       .returns<CompanyRow[]>(),
     supabase
       .from("brands")
-      .select("id, company_id, name, size, liner, finish, colours, crown_image_path, current:artwork_versions!brands_current_artwork_fk(version)")
+      .select("id, company_id, name, size, liner, finish, colours, crown_image_path, base_coat, current:artwork_versions!brands_current_artwork_fk(version)")
       .eq("active", true)
       .order("name")
       .returns<BrandRow[]>(),
@@ -92,6 +93,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               finish: b.finish,
               colours: b.colours,
               crown_image_path: b.crown_image_path,
+              base_coat: b.base_coat,
               artwork: b.current ? `v${b.current.version} approved` : "No approved artwork",
             },
           })),

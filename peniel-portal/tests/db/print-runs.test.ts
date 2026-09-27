@@ -154,3 +154,54 @@ test("oven passes: other staff read, customers see nothing", async () => {
     assert.equal(rows.length, 0);
   });
 });
+
+/** The error code of one statement, without aborting the surrounding transaction. */
+const fails = async (db: { query: typeof pool.query }, q: (() => Promise<unknown>) | string, params?: unknown[]) => {
+  await db.query("savepoint t");
+  const code = await errorCode(typeof q === "function" ? q() : db.query(q, params));
+  await db.query("rollback to savepoint t");
+  return code;
+};
+
+test("base coat: before printing, in the oven; printed only once it's out; then varnish and lacquer", async () => {
+  await as(production, async (db) => {
+    // A Habesha stillage waiting for its base coat: not printed, no printed sheets yet.
+    const { rows } = await db.query(
+      "insert into public.print_runs (brand_id, shift, stillage_no, sheets_printed, printed, base_sheets) values ($1, 'A', 'ST-300', 0, false, 1410) returning id",
+      [HAB_BRAND_HABESHA],
+    );
+    const id = rows[0].id;
+    // No varnish before printing.
+    assert.equal(await fails(db, "insert into public.stillage_passes (print_run_id, stage) values ($1, 'varnish')", [id]), "23514");
+    await db.query("insert into public.stillage_passes (print_run_id, stage, material, started_at) values ($1, 'base_coat', 'White base coat', '2026-09-26T06:00:00Z')", [id]);
+    // Not printed while the base coat is in the oven.
+    assert.equal(
+      await fails(db, "update public.print_runs set printed = true, sheets_printed = 1400, run_date = '2026-09-26' where id = $1", [id]),
+      "23514",
+    );
+    await db.query("update public.stillage_passes set finished_at = '2026-09-26T06:30:00Z', sheets_spoiled = 4 where print_run_id = $1", [id]);
+    await db.query("update public.print_runs set printed = true, sheets_printed = 1400, sheets_spoiled = 6 where id = $1", [id]);
+    // Once printed, no more base coat; varnish and lacquer follow as usual.
+    assert.equal(await fails(db, "insert into public.stillage_passes (print_run_id, stage) values ($1, 'base_coat')", [id]), "23514");
+    await db.query("insert into public.stillage_passes (print_run_id, stage, started_at, finished_at) values ($1, 'varnish', '2026-09-26T09:00:00Z', '2026-09-26T09:30:00Z')", [id]);
+    await db.query("insert into public.stillage_passes (print_run_id, stage, started_at) values ($1, 'lacquer', '2026-09-26T10:00:00Z')", [id]);
+    // Can't be "unprinted" once varnished.
+    assert.equal(await fails(db, "update public.print_runs set printed = false where id = $1", [id]), "23514");
+  });
+  await as(production, async (db) => {
+    // A printed stillage can't get a base coat afterwards.
+    const { rows } = await run(db, { stillage_no: "ST-301" });
+    assert.equal(await fails(db, "insert into public.stillage_passes (print_run_id, stage) values ($1, 'base_coat')", [rows[0].id]), "23514");
+    // A printed stillage still needs sheets.
+    assert.equal(await fails(db, () => run(db, { stillage_no: "ST-302", sheets_printed: 0, sheets_spoiled: 0 })), "23514");
+  });
+});
+
+test("brands can need a white or transparent base coat; customers don't see it", async () => {
+  await pool.query("update public.brands set base_coat = 'white' where id = $1", [HAB_BRAND_HABESHA]);
+  assert.equal(await errorCode(pool.query("update public.brands set base_coat = 'gold' where id = $1", [HAB_BRAND_FETA])), "23514");
+  await as(habesha, async (db) => {
+    const { rows } = await db.query("select * from public.customer_brands where id = $1", [HAB_BRAND_HABESHA]);
+    assert.ok(!("base_coat" in rows[0]));
+  });
+});

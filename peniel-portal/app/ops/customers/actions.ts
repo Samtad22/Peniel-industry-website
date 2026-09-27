@@ -88,6 +88,8 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
     liner,
     finish: str(fd, "finish", 50) || null,
     colours,
+    // Internal: sheets get this coat in the big oven before printing.
+    base_coat: ["white", "transparent"].includes(str(fd, "base_coat", 20)) ? str(fd, "base_coat", 20) : null,
   };
 
   const supabase = await createClient();

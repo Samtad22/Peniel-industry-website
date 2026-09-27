@@ -6,11 +6,11 @@ import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { formatQty } from "@/lib/format";
 import { parseInk } from "@/lib/inks";
-import { CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, STILLAGE_SHEETS, wholeNumber } from "@/lib/print-runs";
+import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, STILLAGE_SHEETS, wholeNumber, type BaseCoat } from "@/lib/print-runs";
 import { SHIFTS } from "@/lib/production-math";
 
 /** A brand whose design can be printed, with its colours. */
-export type PrintBrand = { id: string; label: string; colours: string[] };
+export type PrintBrand = { id: string; label: string; colours: string[]; baseCoat?: BaseCoat | null };
 
 
 const fmt = (v: string) => {
@@ -28,21 +28,27 @@ export default function PrintRunForm({
   today,
   brands,
   nextNo,
+  fixed,
+  onDone,
 }: {
   today: string;
   brands: PrintBrand[];
   /** The stillage number to suggest (the last one + 1). */
   nextNo: string;
+  /** Printing a base-coated stillage that is waiting for the print line. */
+  fixed?: { id: string; brandId: string; stillageNo: string; sheets: number | null };
+  onDone?: () => void;
 }) {
-  const [brandId, setBrandId] = useState(brands[0]?.id ?? "");
+  const [brandId, setBrandId] = useState(fixed?.brandId ?? brands[0]?.id ?? "");
   const brand = brands.find((b) => b.id === brandId);
-  const [printed, setPrinted] = useState(String(STILLAGE_SHEETS));
+  const [printed, setPrinted] = useState(String(fixed?.sheets ?? STILLAGE_SHEETS));
   const [spoiled, setSpoiled] = useState("");
-  const [stillage, setStillage] = useState(nextNo);
+  const [stillage, setStillage] = useState(fixed?.stillageNo ?? nextNo);
   const [state, action, pending] = useActionState<PrintRunState, FormData>(async (prev, fd) => {
     const res = await savePrintRun(prev, fd);
     // Saved: keep the brand and shift; suggest the next stillage number.
-    if (res?.ok) {
+    if (res?.ok && fixed) onDone?.();
+    if (res?.ok && !fixed) {
       setPrinted(String(STILLAGE_SHEETS));
       setSpoiled("");
       setStillage((prevNo) => {
@@ -60,6 +66,7 @@ export default function PrintRunForm({
 
   return (
     <form action={action} className="flex flex-col gap-[18px]">
+      {fixed && <input type="hidden" name="id" value={fixed.id} />}
       <div className="flex justify-end">
         <InternalOnly>Internal only · customers never see printed sheets</InternalOnly>
       </div>
@@ -80,6 +87,15 @@ export default function PrintRunForm({
         </fieldset>
       </div>
 
+      {fixed ? (
+        <>
+          <input type="hidden" name="brand_id" value={brandId} />
+          <input type="hidden" name="stillage_no" value={stillage} />
+          <p className="m-0 text-[14px]">
+            Stillage <b className="font-mono">{stillage}</b> · {brand?.label ?? ""} · base-coated, now off the print line.
+          </p>
+        </>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
         <Field label="Brand printed" htmlFor="pr-brand">
           <select id="pr-brand" name="brand_id" required value={brandId} onChange={(e) => setBrandId(e.target.value)} className="input !min-h-[52px] text-[16px]">
@@ -95,6 +111,13 @@ export default function PrintRunForm({
           <input id="pr-stillage" name="stillage_no" required maxLength={40} value={stillage} onChange={(e) => setStillage(e.target.value)} placeholder="e.g. ST-014" className="input !min-h-[52px] text-[16px]" />
         </Field>
       </div>
+      )}
+      {!fixed && brand?.baseCoat && (
+        <p role="note" className="m-0 border-l-4 border-accent bg-accent-100 px-3 py-2 text-[13px]">
+          {brand.label.split(" · ")[0]} needs a {BASE_COAT_LABEL[brand.baseCoat].toLowerCase()} before printing. Base coat the stillage first
+          (&ldquo;00 · Base coat&rdquo;), then print it from &ldquo;Waiting for printing&rdquo;.
+        </p>
+      )}
 
       {brand && (
         <fieldset className="field m-0 border-0 p-0" key={brand.id}>
@@ -147,7 +170,7 @@ export default function PrintRunForm({
 
       <FormMessage state={state} />
       <Button type="submit" disabled={pending || !brandId || !stillage.trim() || p + sp === 0} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
-        {pending ? "Saving…" : "Save printed stillage"}
+        {pending ? "Saving…" : fixed ? "Save: printed" : "Save printed stillage"}
       </Button>
     </form>
   );
