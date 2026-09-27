@@ -157,7 +157,7 @@ export default async function ArtworkPage({ searchParams }: { searchParams: Prom
                         {f.notes ? ` · ${f.notes}` : ""}
                       </span>
                     </span>
-                    {canAdd && <DeleteLibraryFile id={f.id} name={f.title ?? f.file_name} />}
+                    {isAdmin && <DeleteLibraryFile id={f.id} name={f.title ?? f.file_name} />}
                   </li>
                 ))}
               </ul>

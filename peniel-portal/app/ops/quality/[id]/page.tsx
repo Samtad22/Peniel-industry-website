@@ -165,7 +165,7 @@ export default async function InspectionPage({
         defectTypes={defectTypes ?? []}
         presets={presets.hold}
         canEdit={me.role === "admin" || me.role === "quality"}
-        canDelete={me.role === "admin" || (me.role === "quality" && !insp?.published)}
+        canDelete={me.role === "admin"}
       />
       {insp && (
         <SortingPanel
@@ -173,6 +173,7 @@ export default async function InspectionPage({
           records={sortData ?? []}
           held={insp.result === "on_hold"}
           canEdit={me.role === "admin" || me.role === "quality"}
+          canDelete={me.role === "admin"}
         />
       )}
     </>
@@ -185,11 +186,13 @@ function SortingPanel({
   records,
   held,
   canEdit,
+  canDelete,
 }: {
   batch: { orderId: string; batchNo: string; label: string };
   records: SortingRecord[];
   held: boolean;
   canEdit: boolean;
+  canDelete: boolean;
 }) {
   const t = sortingTotals(records);
   const COLS = "grid grid-cols-[110px_80px_80px_80px_80px_minmax(0,1fr)_60px] items-center gap-2.5";
@@ -228,7 +231,7 @@ function SortingPanel({
                   {x.reported_by ?? "-"}
                   {x.notes ? ` · ${x.notes}` : ""}
                 </span>
-                {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
+                {canDelete ? <DeleteSortingButton id={x.id} /> : <span />}
               </div>
             ))}
           </div>

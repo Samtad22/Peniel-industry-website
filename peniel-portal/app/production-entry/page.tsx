@@ -83,7 +83,7 @@ export default async function ProductionEntryPage() {
                   <span className={e.published ? "opacity-60" : "font-extrabold text-accent-700"}>
                     {e.published ? "Published" : "Not published"}
                   </span>
-                  {!e.published && (
+                  {!e.published && me.role === "admin" && (
                     <ConfirmForm
                       action={deleteEntry}
                       fields={{ id: e.id }}

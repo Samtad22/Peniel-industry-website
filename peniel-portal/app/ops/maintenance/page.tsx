@@ -259,7 +259,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
                       </td>
                       <td className="py-2 pr-3">{l.done_by ?? ""}</td>
                       <td className="py-2 text-right">
-                        <DeleteJobButton id={l.id} />
+                        {isAdmin && <DeleteJobButton id={l.id} />}
                       </td>
                     </tr>
                   ))}

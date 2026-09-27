@@ -43,7 +43,7 @@ export default function InspectionForm({
   defectTypes: { code: string; customer_label: string }[];
   presets: Preset[];
   canEdit: boolean;
-  /** Quality can delete an unpublished inspection; admin any. */
+  /** Only admin deletes inspections. */
   canDelete?: boolean;
 }) {
   const [state, action, pending] = useActionState<QcState, FormData>(saveInspection, null);

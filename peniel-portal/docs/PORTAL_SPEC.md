@@ -48,6 +48,8 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `hold_reason_presets` — editable customer-facing phrases for staff to pick from
 - `audit_log` — actor, action, entity, entity_id, before jsonb, after jsonb, created_at
 
+**Deleting log entries is admin only** (production entries, inspections, sorting records, stillages and oven passes, maintenance jobs, artwork library files): a restrictive delete policy on each table (migration 20261018000001). The staff who record them can still add and correct them, and forms have a Cancel button to leave without saving.
+
 ### Customer access layer
 Customers get **no direct SELECT** on the tables above. They read through views or RPC functions that (a) filter to the caller's `company_id` and (b) select only customer-safe columns:
 

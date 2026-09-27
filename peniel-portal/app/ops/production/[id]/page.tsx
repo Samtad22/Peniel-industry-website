@@ -189,7 +189,7 @@ export default async function OrderProductionPage({ params }: { params: Promise<
                     ) : (
                       <span className={e.published ? "opacity-70" : "font-extrabold text-accent-700"}>{e.published ? "✓" : "Pending"}</span>
                     )}
-                    {canPublish && !e.published && (
+                    {me.role === "admin" && !e.published && (
                       <ConfirmForm
                         action={deleteEntry}
                         fields={{ id: e.id }}

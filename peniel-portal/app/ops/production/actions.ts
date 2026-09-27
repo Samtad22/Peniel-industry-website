@@ -59,7 +59,7 @@ export async function saveEntry(_prev: ProductionState, fd: FormData): Promise<P
 }
 
 export async function deleteEntry(fd: FormData): Promise<void> {
-  await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();

@@ -82,7 +82,7 @@ export async function finishMaintenance(_prev: MaintState, fd: FormData): Promis
 
 /** Remove a job logged by mistake. */
 export async function deleteMaintenance(fd: FormData): Promise<void> {
-  await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = text(fd, "id", 40);
   if (!UUID.test(id)) return;
   const supabase = await createClient();
