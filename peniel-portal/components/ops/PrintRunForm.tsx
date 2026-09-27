@@ -1,12 +1,13 @@
 "use client";
 
+import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useState } from "react";
 import { deletePrintRun, savePrintRun, type PrintRunState } from "@/app/ops/production/sheets/actions";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { formatQty } from "@/lib/format";
 import { parseInk } from "@/lib/inks";
-import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, STILLAGE_SHEETS, wholeNumber, type BaseCoat } from "@/lib/print-runs";
+import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, wholeNumber, type BaseCoat } from "@/lib/print-runs";
 import { SHIFTS } from "@/lib/production-math";
 
 /** A brand whose design can be printed, with its colours. */
@@ -39,6 +40,7 @@ export default function PrintRunForm({
   fixed?: { id: string; brandId: string; stillageNo: string; sheets: number | null };
   onDone?: () => void;
 }) {
+  const { stillage_sheets: STILLAGE_SHEETS } = usePlant();
   const [brandId, setBrandId] = useState(fixed?.brandId ?? brands[0]?.id ?? "");
   const brand = brands.find((b) => b.id === brandId);
   const [printed, setPrinted] = useState(String(fixed?.sheets ?? STILLAGE_SHEETS));

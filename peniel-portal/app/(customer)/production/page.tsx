@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import ProductionView, { type BatchRow, type BookingRow, type ProductionTab, type StockRow } from "@/components/customer/ProductionView";
 import { brandSpec, type CustomerBrand } from "@/lib/customer-orders";
@@ -135,6 +136,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
           stockIds: b.stock_ids ?? [],
         })),
         pickupMin: addisLocalNow(),
+        rejectLimit: (await getSettings()).plant.reject_limit_pct,
       }}
     />
   );

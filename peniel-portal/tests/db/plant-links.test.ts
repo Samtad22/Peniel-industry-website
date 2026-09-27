@@ -6,10 +6,12 @@ import { as, createUser, errorCode, HAB_BRAND_HABESHA, HAB_ORDER_HABESHA, pool }
 
 let production: string;
 let warehouse: string;
+let admin: string;
 
 before(async () => {
   production = await createUser({ email: "prod@links.test", role: "production" });
   warehouse = await createUser({ email: "store@links.test", role: "warehouse" });
+  admin = await createUser({ email: "boss@links.test", role: "admin" });
 });
 
 after(() => pool.end());
@@ -93,9 +95,9 @@ test("materials with a rate are used automatically, and kept in step on edit and
   );
   assert.equal(await onHand("PVC-free liner compound"), liner0 - 501);
 
-  // Deleting gives it back.
-  await commit(production, (db) => db.query("delete from public.production_entries where id = $1", [entry]));
-  await commit(production, (db) => db.query("delete from public.print_runs where id = $1", [id]));
+  // Deleting (admin only) gives it back.
+  await commit(admin, (db) => db.query("delete from public.production_entries where id = $1", [entry]));
+  await commit(admin, (db) => db.query("delete from public.print_runs where id = $1", [id]));
   assert.equal(await onHand("PVC-free liner compound"), liner0);
   assert.equal(await onHand("Tinplate sheet 0.23 mm"), tin0);
   assert.equal(await onHand("Lacquer"), lac0);

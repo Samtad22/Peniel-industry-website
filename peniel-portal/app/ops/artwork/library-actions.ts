@@ -60,7 +60,7 @@ export async function addLibraryFiles(input: {
 
 /** Remove a file from the library (the record and the stored file). */
 export async function deleteLibraryFile(fd: FormData): Promise<void> {
-  await requireStaff(["admin", "sales"]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();

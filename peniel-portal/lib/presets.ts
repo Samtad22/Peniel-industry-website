@@ -10,6 +10,7 @@ export async function loadPresets(supabase: Supabase) {
     .select("id, text, kind")
     .eq("active", true)
     .order("sort_order")
+    .order("text")
     .returns<{ id: string; text: string; kind: "hold" | "reject" }[]>();
   const rows = data ?? [];
   return {

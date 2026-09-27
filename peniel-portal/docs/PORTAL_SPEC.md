@@ -5,7 +5,7 @@
 | Side | Role | Can do |
 |---|---|---|
 | Customer | `customer_user` | Everything in the customer portal for their own company and all of its brands |
-| Staff | `admin` | Everything, including customers, users, settings |
+| Staff | `admin` | Everything, including customers, users and their roles, settings, the activity log |
 | Staff | `sales` | Order inbox, orders, artwork, documents, customers (view), messages |
 | Staff | `production` | Production entry and views, orders (view) |
 | Staff | `quality` | QC inspections, release/hold, orders (view) |
@@ -45,8 +45,11 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `artwork_submissions` — artwork a customer sends Peniel: company_id, brand_id, order_id, title, note, file, status (submitted/accepted/changes_requested), staff_comment (customer-facing), reviewed_by, artwork_version_id
 - `documents` — id, company_id, brand_id, order_id, type, file_path, visibility (customer/internal), uploaded_by
 - `message_threads` / `messages` — company_id, order_id (nullable), assigned_to, author, body, read flags
-- `hold_reason_presets` — editable customer-facing phrases for staff to pick from
-- `audit_log` — actor, action, entity, entity_id, before jsonb, after jsonb, created_at
+- `hold_reason_presets` — editable customer-facing phrases for staff to pick from: kind `hold` (hold / delay) or `reject` (not accepting an order), sort_order, active. Admin adds, edits, reorders and removes them on Ops → Settings (removing sets active = false; orders keep their text). Audited.
+- `portal_settings` — what admins change on Ops → Settings, one row per key, value jsonb merged over the defaults in `lib/settings.ts` (a missing row or key means the default): `plant` (camera reject limit %, minutes per oven pass, sheets a stillage starts at; used by the entry, inspection, stillage and oven forms and the customer's reject flag), `coa` (company, document no., revision, telephone, liner type ID printed on every Certificate of Analysis), `emails_off` (groups of notification emails turned off; they are logged as skipped, "Turned off in Settings"), `report_recipients` (staff who get the end-of-day report and monthly summary; empty = all active admins). Staff read, admin writes, audited (migration 20261019000001).
+- `audit_log` — actor, action, entity, entity_id, before jsonb, after jsonb, created_at. Admin reads it on Ops → Settings → Activity log (`/ops/settings/activity`): every change, filtered by area, person and dates, each row expandable to the old and new values.
+
+**Deleting log entries is admin only** (production entries, inspections, sorting records, stillages and oven passes, maintenance jobs, artwork library files): a restrictive delete policy on each table (migration 20261018000001). The staff who record them can still add and correct them, and forms have a Cancel button to leave without saving.
 
 ### Customer access layer
 Customers get **no direct SELECT** on the tables above. They read through views or RPC functions that (a) filter to the caller's `company_id` and (b) select only customer-safe columns:

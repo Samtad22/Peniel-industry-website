@@ -66,19 +66,32 @@ describe("production entries", () => {
     });
   });
 
-  test("a published entry can't be changed or deleted until it is unpublished", async () => {
+  test("a published entry can't be changed or deleted until it is unpublished; only admin deletes", async () => {
+    let id = "";
     await as(staff.production, async (db) => {
       const { rows } = await entry(db, 1000, 5, true);
+      id = rows[0].id;
       await db.query("savepoint s");
       await assert.rejects(
-        db.query("update public.production_entries set produced_qty = 2000 where id = $1", [rows[0].id]),
+        db.query("update public.production_entries set produced_qty = 2000 where id = $1", [id]),
         /Unpublish this entry before changing it/,
       );
       await db.query("rollback to savepoint s");
-      await assert.rejects(db.query("delete from public.production_entries where id = $1", [rows[0].id]), /Unpublish this entry before deleting it/);
+      await db.query("update public.production_entries set published = false where id = $1", [id]);
+      // Production can't delete, even unpublished: only admin.
+      const r = await db.query("delete from public.production_entries where id = $1", [id]);
+      assert.equal(r.rowCount, 0);
+      await db.query("update public.production_entries set published = true where id = $1", [id]);
+      await db.query("commit");
+    });
+    await as(staff.admin, async (db) => {
+      await db.query("savepoint s");
+      await assert.rejects(db.query("delete from public.production_entries where id = $1", [id]), /Unpublish this entry before deleting it/);
       await db.query("rollback to savepoint s");
-      await db.query("update public.production_entries set published = false where id = $1", [rows[0].id]);
-      await db.query("delete from public.production_entries where id = $1", [rows[0].id]);
+      await db.query("update public.production_entries set published = false where id = $1", [id]);
+      const r = await db.query("delete from public.production_entries where id = $1", [id]);
+      assert.equal(r.rowCount, 1);
+      await db.query("commit");
     });
   });
 

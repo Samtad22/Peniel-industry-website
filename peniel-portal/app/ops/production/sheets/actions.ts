@@ -100,7 +100,7 @@ export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<
 
 /** Remove a stillage entered by mistake. */
 export async function deletePrintRun(fd: FormData): Promise<void> {
-  await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();
@@ -256,7 +256,7 @@ export async function finishPass(_prev: PrintRunState, fd: FormData): Promise<Pr
 
 /** Remove an oven pass entered by mistake (the lacquer first, if there is one). */
 export async function deletePass(fd: FormData): Promise<void> {
-  await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();

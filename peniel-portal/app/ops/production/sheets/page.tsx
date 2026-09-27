@@ -1,3 +1,4 @@
+import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import { BaseCoatDialog, PrintItDialog, ToPressDialog, UndoToPressButton } from "@/components/ops/BaseCoat";
 import OpsHeader from "@/components/ops/OpsHeader";
@@ -16,7 +17,6 @@ import {
   goodSheets,
   minutesBetween,
   nextStillageNo,
-  OVEN_MINUTES,
   STILLAGE_STATUS_LABEL,
   stillageStatus,
   type OvenStage,
@@ -57,8 +57,11 @@ const STATUS_STYLE: Record<StillageStatus, string> = {
  * through the oven again. Internal only: customers never see it.
  */
 export default async function PrintedSheetsPage() {
+  const OVEN_MINUTES = (await getSettings()).plant.oven_minutes;
   const me = await requireStaff(opsRolesFor("sheets"));
   const canEnter = me.role === "admin" || me.role === "production";
+  // Only admin deletes entries (the database enforces the same).
+  const canDelete = me.role === "admin";
   const now = new Date();
   const today = addisDateISO(now);
   const nowLocal = addisLocalNow();
@@ -388,7 +391,7 @@ export default async function PrintedSheetsPage() {
                 </span>
                 <span className="truncate">
                   {passLine(x.varnish)}
-                  {canEnter && x.varnish && !x.lacquer && (
+                  {canDelete && x.varnish && !x.lacquer && (
                     <>
                       {" "}
                       <DeletePassButton id={x.varnish.id} label={`varnish of ${x.label}`} />
@@ -397,7 +400,7 @@ export default async function PrintedSheetsPage() {
                 </span>
                 <span className="truncate">
                   {passLine(x.lacquer)}
-                  {canEnter && x.lacquer && (
+                  {canDelete && x.lacquer && (
                     <>
                       {" "}
                       <DeletePassButton id={x.lacquer.id} label={`lacquer of ${x.label}`} />
@@ -409,7 +412,7 @@ export default async function PrintedSheetsPage() {
                     {x.status === "at_press" && x.r.press_id ? `To ${pressName.get(x.r.press_id) ?? "the press"}` : STILLAGE_STATUS_LABEL[x.status]}
                   </span>
                   {canEnter && x.status === "at_press" && <UndoToPressButton id={x.r.id} label={x.label} />}
-                  {canEnter && !x.varnish && <DeletePrintRunButton id={x.r.id} />}
+                  {canDelete && !x.varnish && <DeletePrintRunButton id={x.r.id} />}
                 </span>
               </div>
             ))}

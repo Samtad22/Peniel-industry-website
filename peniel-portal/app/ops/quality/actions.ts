@@ -86,16 +86,14 @@ export async function saveInspection(_prev: QcState, fd: FormData): Promise<QcSt
 
 /**
  * Delete an inspection entered by mistake (its defects, signatures and the
- * certificate go with it). Quality: unpublished ones; admin: any.
+ * certificate go with it). Admin only.
  */
 export async function deleteInspection(fd: FormData): Promise<void> {
-  const me = await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
   const supabase = await createClient();
-  let q = supabase.from("qc_inspections").delete().eq("id", id);
-  if (me.role !== "admin") q = q.eq("published", false);
-  const { data } = await q.select("batch_no").maybeSingle<{ batch_no: string }>();
+  const { data } = await supabase.from("qc_inspections").delete().eq("id", id).select("batch_no").maybeSingle<{ batch_no: string }>();
   refresh();
   redirect(data ? `/ops/quality?deleted=${encodeURIComponent(data.batch_no)}` : "/ops/quality");
 }
@@ -148,7 +146,7 @@ export async function addSortingRecord(_prev: SortingState, fd: FormData): Promi
 
 /** Remove a sorting report entered by mistake. */
 export async function deleteSortingRecord(fd: FormData): Promise<void> {
-  await requireStaff([...WRITERS]);
+  await requireStaff(["admin"]);
   const id = String(fd.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
   const supabase = await createClient();
