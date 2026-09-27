@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inventory" };
 
-type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null };
+type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active: boolean };
 type Stock = {
   id: string;
   company_id: string;
@@ -41,7 +41,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const canSetMaterials = me.role === "admin" || me.role === "warehouse";
   const weekAgo = `${addDays(new Date().toISOString().slice(0, 10), -7)}T00:00:00+03:00`;
   const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate").order("name").returns<Material[]>(),
+    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active").order("name").returns<Material[]>(),
     supabase
       .from("finished_stock")
       .select("id, company_id, batch_no, quantity, location, status, customer_reason, ready_since, order_id, companies(name), brands(name), orders(order_no)")
@@ -60,6 +60,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     // Material used automatically over the last 7 days.
     supabase.from("raw_material_movements").select("material_id, quantity").eq("source", "auto").gte("created_at", weekAgo).returns<{ material_id: string; quantity: number }[]>(),
   ]);
+  const onList = (materials ?? []).filter((m) => m.active !== false);
+  const offList = (materials ?? []).filter((m) => m.active === false);
   const usedWeek = (id: string) => -(autoUse ?? []).filter((u) => u.material_id === id).reduce((t, u) => t + Number(u.quantity), 0);
 
   const q = (sp.q ?? "").trim().toLowerCase();
@@ -130,11 +132,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             </h2>
             <div className="flex flex-wrap gap-2">
               {canSetMaterials && <MaterialSettingsDialog />}
-              <MaterialDialog materials={(materials ?? []).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
+              <MaterialDialog materials={onList.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-4">
-            {(materials ?? []).map((m, i) => {
+          <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-3">
+            {onList.map((m, i) => {
               const onHand = Number(m.on_hand);
               const reorder = m.reorder_level == null ? null : Number(m.reorder_level);
               const low = reorder != null && onHand <= reorder;
@@ -145,7 +147,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               return (
                 <div
                   key={m.id}
-                  className={`flex flex-col gap-3 border-divider px-4 pb-6 pt-[22px] sm:px-6 ${i % 2 ? "border-l-2" : ""} xl:[&:not(:first-child)]:border-l-2 max-xl:[&:nth-child(n+3)]:border-t-2 ${low ? "bg-accent-100" : ""}`}
+                  className={`flex flex-col gap-3 border-divider px-4 pb-6 pt-[22px] sm:px-6 ${i % 2 ? "max-xl:border-l-2" : ""} ${i % 3 ? "xl:border-l-2" : ""} ${i >= 2 ? "max-xl:border-t-2" : ""} ${i >= 3 ? "xl:border-t-2" : ""} ${low ? "bg-accent-100" : ""}`}
                 >
                   <h6 className={`m-0 ${low ? "text-accent-800" : ""}`}>{m.name}</h6>
                   <div className="relative h-[160px] border-2 border-text bg-surface sm:h-[220px]">
@@ -185,7 +187,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </span>
                     {canSetMaterials && (
                       <MaterialSettingsDialog
-                        material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate) }}
+                        material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: true }}
                       />
                     )}
                   </div>
@@ -193,6 +195,19 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               );
             })}
           </div>
+          {canSetMaterials && offList.length > 0 && (
+            <p className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t-2 border-divider px-4 py-3 text-[12px] sm:px-8">
+              <span className="opacity-70">Taken off the list (history kept):</span>
+              {offList.map((m) => (
+                <span key={m.id} className="inline-flex items-baseline gap-1.5">
+                  {m.name}
+                  <MaterialSettingsDialog
+                    material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: false }}
+                  />
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       )}
 

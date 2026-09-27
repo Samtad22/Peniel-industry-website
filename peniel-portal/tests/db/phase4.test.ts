@@ -172,7 +172,7 @@ describe("pickups and stock", () => {
 
 describe("raw materials", () => {
   test("movements update the stock on hand, which can't go negative", async () => {
-    const { rows } = await pool.query("select id, on_hand from public.raw_materials where name = 'Printing ink'");
+    const { rows } = await pool.query("select id, on_hand from public.raw_materials where name = 'Lacquer'");
     await as(staff.warehouse, async (db) => {
       await db.query("insert into public.raw_material_movements (material_id, quantity, reason, created_by) values ($1, 90, 'Received', $2)", [
         rows[0].id,

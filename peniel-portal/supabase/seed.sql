@@ -52,8 +52,11 @@ insert into public.production_lines (id, name, active) values
 insert into public.raw_materials (name, unit, on_hand, reorder_level) values
   ('Tinplate sheet 0.23 mm',   'sheets', 180000, 50000),
   ('PVC-free liner compound',  'kg',       4200,   1500),
-  ('Printing ink',             'kg',        310,    100),
   ('Lacquer',                  'L',         520,    200);
+-- Varnish, Polybag and Box come from the migrations (20261020000001).
+update public.raw_materials set on_hand = 480,  reorder_level = 200  where name = 'Varnish';
+update public.raw_materials set on_hand = 6000, reorder_level = 2000 where name = 'Polybag';
+update public.raw_materials set on_hand = 6000, reorder_level = 2000 where name = 'Box';
 
 -- Orders ---------------------------------------------------------------------
 -- Inserted as `submitted`, then moved along so each gets a realistic timeline.

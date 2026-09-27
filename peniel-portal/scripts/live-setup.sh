@@ -63,10 +63,10 @@ insert into public.production_lines (name) values
 on conflict (name) do nothing;
 
 -- Raw materials, starting at zero. Record deliveries in Ops → Inventory.
+-- (Varnish, Polybag and Box come from the migrations.)
 insert into public.raw_materials (name, unit, on_hand, reorder_level) values
   ('Tinplate sheet 0.23 mm',  'sheets', 0, 50000),
   ('PVC-free liner compound', 'kg',     0, 1500),
-  ('Printing ink',            'kg',     0, 100),
   ('Lacquer',                 'L',      0, 200)
 on conflict (name) do nothing;
 

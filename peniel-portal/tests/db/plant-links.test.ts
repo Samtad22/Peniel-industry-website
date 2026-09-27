@@ -67,17 +67,17 @@ test("only a finished stillage goes to the press", async () => {
 
 test("materials with a rate are used automatically, and kept in step on edit and delete", async () => {
   await pool.query("update public.raw_materials set use_basis = 'sheet_in', use_rate = 1 where name = 'Tinplate sheet 0.23 mm'");
-  await pool.query("update public.raw_materials set use_basis = 'sheet_printed', use_rate = 0.002 where name = 'Printing ink'");
+  await pool.query("update public.raw_materials set use_basis = 'sheet_printed', use_rate = 0.002 where name = 'Varnish'");
   await pool.query("update public.raw_materials set use_basis = 'lacquer_sheet', use_rate = 0.01 where name = 'Lacquer'");
   await pool.query("update public.raw_materials set use_basis = 'thousand_crowns', use_rate = 0.5 where name = 'PVC-free liner compound'");
   const tin0 = await onHand("Tinplate sheet 0.23 mm");
-  const ink0 = await onHand("Printing ink");
+  const ink0 = await onHand("Varnish");
   const lac0 = await onHand("Lacquer");
   const liner0 = await onHand("PVC-free liner compound");
 
   const id = await newStillage("ST-600");
   assert.equal(await onHand("Tinplate sheet 0.23 mm"), tin0 - 1410);
-  assert.equal(await onHand("Printing ink"), ink0 - 2.82);
+  assert.equal(await onHand("Varnish"), ink0 - 2.82);
   // A corrected count re-computes; no double counting.
   await commit(production, (db) => db.query("update public.print_runs set sheets_printed = 1390 where id = $1", [id]));
   assert.equal(await onHand("Tinplate sheet 0.23 mm"), tin0 - 1400);
@@ -101,18 +101,57 @@ test("materials with a rate are used automatically, and kept in step on edit and
   assert.equal(await onHand("PVC-free liner compound"), liner0);
   assert.equal(await onHand("Tinplate sheet 0.23 mm"), tin0);
   assert.equal(await onHand("Lacquer"), lac0);
-  assert.equal(await onHand("Printing ink"), ink0);
+  assert.equal(await onHand("Varnish"), ink0);
 });
 
 test("automatic use can take stock below zero; by hand it can't", async () => {
-  await pool.query("update public.raw_materials set use_basis = 'oven_pass', use_rate = 100000, on_hand = 10 where name = 'Printing ink'");
+  await pool.query("update public.raw_materials set use_basis = 'oven_pass', use_rate = 100000, on_hand = 10 where name = 'Varnish'");
   const id = await newStillage("ST-700");
   await commit(production, (db) => db.query("insert into public.stillage_passes (print_run_id, stage, started_at) values ($1, 'varnish', now())", [id]));
-  assert.ok((await onHand("Printing ink")) < 0, "a count is due");
+  assert.ok((await onHand("Varnish")) < 0, "a count is due");
   const mat = (await pool.query("select id from public.raw_materials where name = 'Lacquer'")).rows[0].id;
   const all = await onHand("Lacquer");
   assert.equal(
     await errorCode(commit(warehouse, (db) => db.query("insert into public.raw_material_movements (material_id, quantity, reason) values ($1, $2, 'issued')", [mat, -(all + 1)]))),
     "23514",
   );
+});
+
+test("packing: 1 box and 1 polybag per 10,000 good crowns; printing ink is off the list", async () => {
+  const box0 = await onHand("Box");
+  const bag0 = await onHand("Polybag");
+  const entry = await commit(production, async (db) =>
+    (await db.query(
+      "insert into public.production_entries (order_id, entry_date, shift, line_id, produced_qty, reject_qty) select $1, '2026-09-27', 'B', id, 233464, 700 from public.production_lines where machine_id is not null limit 1 returning id",
+      [HAB_ORDER_HABESHA],
+    )).rows[0].id as string,
+  );
+  // Good crowns only (camera rejects go to sorting): 233,464 / 10,000 = 23.346 boxes.
+  assert.equal(await onHand("Box"), box0 - 23.346);
+  assert.equal(await onHand("Polybag"), bag0 - 23.346);
+
+  // A material taken off the list isn't used automatically.
+  await pool.query("update public.raw_materials set active = false where name = 'Polybag'");
+  await commit(production, (db) => db.query("update public.production_entries set produced_qty = 100000 where id = $1", [entry]));
+  assert.equal(await onHand("Box"), box0 - 10);
+  assert.equal(await onHand("Polybag"), bag0);
+  await pool.query("update public.raw_materials set active = true where name = 'Polybag'");
+  await commit(admin, (db) => db.query("delete from public.production_entries where id = $1", [entry]));
+
+  // Sorting: cartons that passed are packed again, one box and one polybag each.
+  const sort = await commit(admin, async (db) =>
+    (await db.query(
+      "insert into public.sorting_records (order_id, batch_no, sorted_on, passed_cartons, waste_cartons) values ($1, '099', '2026-09-27', 12, 1) returning id",
+      [HAB_ORDER_HABESHA],
+    )).rows[0].id as string,
+  );
+  assert.equal(await onHand("Box"), box0 - 12);
+  assert.equal(await onHand("Polybag"), bag0 - 12);
+  await commit(admin, (db) => db.query("update public.sorting_records set passed_cartons = 10 where id = $1", [sort]));
+  assert.equal(await onHand("Box"), box0 - 10);
+  await commit(admin, (db) => db.query("delete from public.sorting_records where id = $1", [sort]));
+  assert.equal(await onHand("Box"), box0);
+
+  const ink = await pool.query("select 1 from public.raw_materials where name = 'Printing ink' and active");
+  assert.equal(ink.rowCount, 0);
 });

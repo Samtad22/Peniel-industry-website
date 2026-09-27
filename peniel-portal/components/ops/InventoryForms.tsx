@@ -238,7 +238,7 @@ export function CollectionForm({ id, suggestedNote }: { id: string; suggestedNot
   );
 }
 
-export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null };
+export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active?: boolean };
 
 /** Add a raw material, or edit it: name, unit, reorder level, and how much is used automatically. */
 export function MaterialSettingsDialog({ material }: { material?: MaterialFields }) {
@@ -301,6 +301,12 @@ function MaterialSettingsForm({ material, close }: { material?: MaterialFields; 
           </label>
           <input id="ms-rate" name="use_rate" inputMode="decimal" required defaultValue={material?.use_rate ?? ""} placeholder="e.g. 0.5" className="input" />
         </div>
+      )}
+      {material && (
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" name="active" defaultChecked={material.active !== false} className="size-4 accent-[var(--color-accent)]" />
+          On the list (untick to take it off: it stops being used automatically and its history stays in the reports)
+        </label>
       )}
       <p className="m-0 text-[12px] opacity-70">
         With a rate, logging sheets, oven passes and production takes the material off the stock by itself, from now on. Stock can then go below zero if deliveries

@@ -3,16 +3,17 @@
 // one usage rate on one basis; logging sheets, oven passes and production
 // entries then records the material used. Internal only. No imports.
 
-export type UseBasis = "sheet_in" | "sheet_printed" | "base_coat_sheet" | "varnish_sheet" | "lacquer_sheet" | "oven_pass" | "thousand_crowns";
+export type UseBasis = "sheet_in" | "sheet_printed" | "base_coat_sheet" | "varnish_sheet" | "lacquer_sheet" | "oven_pass" | "thousand_crowns" | "box";
 
 export const USE_BASIS: Record<UseBasis, { label: string; per: string }> = {
   sheet_in: { label: "Per sheet into the line (e.g. tinplate)", per: "sheet into the line" },
-  sheet_printed: { label: "Per sheet printed (e.g. printing ink)", per: "sheet printed" },
+  sheet_printed: { label: "Per sheet printed", per: "sheet printed" },
   base_coat_sheet: { label: "Per sheet base-coated (white / transparent coat)", per: "sheet base-coated" },
-  varnish_sheet: { label: "Per sheet varnished", per: "sheet varnished" },
-  lacquer_sheet: { label: "Per sheet lacquered", per: "sheet lacquered" },
+  varnish_sheet: { label: "Per sheet varnished (e.g. varnish)", per: "sheet varnished" },
+  lacquer_sheet: { label: "Per sheet lacquered (e.g. lacquer)", per: "sheet lacquered" },
   oven_pass: { label: "Per pass through the big oven (e.g. LPG)", per: "oven pass" },
   thousand_crowns: { label: "Per 1,000 crowns off the presses (e.g. liner compound)", per: "1,000 crowns" },
+  box: { label: "Per box of 10,000 good crowns packed (e.g. boxes, polybags)", per: "box of 10,000 crowns" },
 };
 
 /** "Uses 0.5 kg per 1,000 crowns", or null when not tracked automatically. */
