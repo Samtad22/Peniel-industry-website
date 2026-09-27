@@ -35,6 +35,8 @@ export type BrandFields = {
   finish: string | null;
   colours: string[];
   crown_image_path: string | null;
+  /** Base coat before printing (internal), if the brand needs one. */
+  base_coat?: "white" | "transparent" | null;
   /** "v2 approved" / "No approved artwork". */
   artwork: string;
 };
@@ -139,6 +141,13 @@ function BrandForm({ companyId, brand, close }: { companyId: string; brand?: Bra
             <input id="br-finish" name="finish" maxLength={50} defaultValue={brand?.finish ?? ""} placeholder="Gloss" className="input min-h-11" />
           </Field>
         </div>
+        <Field label="Base coat before printing (internal)" htmlFor="br-base">
+          <select id="br-base" name="base_coat" defaultValue={brand?.base_coat ?? ""} className="input min-h-11">
+            <option value="">None</option>
+            <option value="white">White base coat</option>
+            <option value="transparent">Transparent base coat</option>
+          </select>
+        </Field>
         <InkEditor initial={parseInks(brand?.colours)} />
         <FormMessage state={state} />
         <div className="dialog-actions">

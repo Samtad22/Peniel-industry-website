@@ -42,6 +42,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       .from("print_runs")
       .select("run_date, sheets_printed, sheets_spoiled, crowns_per_sheet, stillage_no, created_at, brands(name)")
       .gte("run_date", addDays(today, -20))
+      .eq("printed", true)
       .order("created_at", { ascending: false })
       .returns<RunRow[]>(),
     supabase.from("qc_inspections").select("batch_no, inspected_at, orders(order_no)").eq("result", "on_hold").returns<HeldRow[]>(),

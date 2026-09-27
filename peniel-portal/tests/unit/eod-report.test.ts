@@ -113,3 +113,13 @@ test("maintenance: jobs and downtime on the day, machines down, open jobs and ov
   assert.ok(r.checks.includes("1 maintenance job still open: Press 2. Finish it if done."));
   assert.ok(r.checks.includes("Coating oven (LPG): planned service overdue by 3 days."));
 });
+
+test("printed sheets: base coat passes are counted and named", () => {
+  const r = buildEodReport({
+    ...empty,
+    passesOut: [{ stage: "base_coat", sheets_spoiled: 2 }],
+    inOven: [{ stage: "base_coat", started_at: "2026-09-27T16:40:00Z", stillage_no: "ST-030" }],
+  });
+  assert.ok(r.sections[1].lines.includes("Base-coated: 1 stillage out of the oven, 2 sheets spoiled."));
+  assert.ok(r.checks.includes("Stillage ST-030 still in the base coat oven (20 min): log it out."));
+});
