@@ -136,14 +136,22 @@ export async function loadProducibleOrders(supabase: Supabase): Promise<Producib
   });
 }
 
+/**
+ * The lines entries are booked on: the presses' liners ("Press 1 · Liner 1A"),
+ * with their machine status. Liners still on the way are left out; running
+ * ones come first.
+ */
 export async function loadLines(supabase: Supabase) {
   const { data } = await supabase
     .from("production_lines")
-    .select("id, name")
+    .select("id, name, machines(status)")
     .eq("active", true)
     .order("name")
-    .returns<{ id: string; name: string }[]>();
-  return data ?? [];
+    .returns<{ id: string; name: string; machines: { status: string } | null }[]>();
+  return (data ?? [])
+    .filter((l) => l.machines?.status !== "on_order")
+    .map((l) => ({ id: l.id, name: l.name, status: (l.machines?.status ?? "running") as "running" | "down" | "idle" }))
+    .sort((a, b) => Number(b.status === "running") - Number(a.status === "running"));
 }
 
 /** Good output per day for the last `days` days, oldest first. */

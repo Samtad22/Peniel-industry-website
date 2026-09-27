@@ -18,7 +18,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
   const to = `${addDays(date, 1)}T00:00:00+03:00`;
   const week = addDays(date, 7);
 
-  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials, machinesRes, maintRes] = await Promise.all([
+  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials, machinesRes, maintRes, sent, stock] = await Promise.all([
     db
       .from("production_entries")
       .select("shift, produced_qty, reject_qty, published, orders(order_no, companies(name), brands(name))")
@@ -91,6 +91,14 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
       .lt("started_at", to)
       .gte("started_at", `${addDays(date, -365)}T00:00:00+03:00`)
       .returns<MaintenanceLog[]>(),
+    db.from("print_runs").select("id", { count: "exact", head: true }).gte("to_press_at", from).lt("to_press_at", to),
+    db
+      .from("print_runs")
+      .select("id, stillage_passes(stage, finished_at)")
+      .eq("printed", true)
+      .is("to_press_at", null)
+      .limit(20000)
+      .returns<{ id: string; stillage_passes: { stage: string; finished_at: string | null }[] }[]>(),
   ]);
   const machines = machinesRes.data ?? [];
   const maintLogs = maintRes.data ?? [];
@@ -114,6 +122,8 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     })),
     printRuns: (runs.data ?? []).map((r) => ({ stillage_no: r.stillage_no, brand: r.brands?.name ?? "", sheets_printed: Number(r.sheets_printed), sheets_spoiled: Number(r.sheets_spoiled) })),
     passesOut: (out.data ?? []).map((p) => ({ stage: p.stage, sheets_spoiled: Number(p.sheets_spoiled) })),
+    toPress: sent.count ?? 0,
+    sheetStock: (stock.data ?? []).filter((r) => (r.stillage_passes ?? []).some((p) => p.stage === "lacquer" && p.finished_at)).length,
     inOven: (oven.data ?? []).map((p) => ({ stage: p.stage, started_at: p.started_at, stillage_no: p.print_runs?.stillage_no ?? null })),
     inspections: (insp.data ?? []).map((i) => ({ batch_no: i.batch_no, result: i.result, published: i.published, order_no: i.orders?.order_no ?? "-", brand: i.orders?.brands?.name ?? "" })),
     unsignedCertificates: (unsigned.data ?? []).filter((i) => i.coa_signatures.length === 0).map((i) => ({ batch_no: i.batch_no, order_no: i.orders?.order_no ?? "-" })),

@@ -35,6 +35,7 @@ export default async function EodReportPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <OpsHeader
+        crumb={{ label: "Reports", href: "/ops/reports", current: "End of day" }}
         title="End of day report"
         sub={`${r.heading.replace("End of day report · ", "")} · emailed to admins every evening at about 20:00`}
         actions={

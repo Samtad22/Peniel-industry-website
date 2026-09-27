@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
-import { MaterialDialog, ReceiveStockDialog, StockStatusDialog } from "@/components/ops/InventoryForms";
+import { MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockStatusDialog } from "@/components/ops/InventoryForms";
 import { Pill } from "@/components/ui/StatusBadge";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { formatDate, formatQty } from "@/lib/format";
 import { STOCK_PILL, type StockStatus } from "@/lib/inventory";
+import { describeUse } from "@/lib/materials";
+import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inventory" };
 
-type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null };
+type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null };
 type Stock = {
   id: string;
   company_id: string;
@@ -36,8 +38,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const canStock = ["admin", "warehouse", "quality"].includes(me.role);
   const supabase = await createClient();
 
-  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level").order("name").returns<Material[]>(),
+  const canSetMaterials = me.role === "admin" || me.role === "warehouse";
+  const weekAgo = `${addDays(new Date().toISOString().slice(0, 10), -7)}T00:00:00+03:00`;
+  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }] = await Promise.all([
+    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate").order("name").returns<Material[]>(),
     supabase
       .from("finished_stock")
       .select("id, company_id, batch_no, quantity, location, status, customer_reason, ready_since, order_id, companies(name), brands(name), orders(order_no)")
@@ -53,7 +57,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       .order("order_no", { ascending: false })
       .returns<{ id: string; order_no: string; company_id: string; brand_id: string }[]>(),
     supabase.from("pickup_bookings").select("id", { count: "exact", head: true }).neq("status", "collected"),
+    // Material used automatically over the last 7 days.
+    supabase.from("raw_material_movements").select("material_id, quantity").eq("source", "auto").gte("created_at", weekAgo).returns<{ material_id: string; quantity: number }[]>(),
   ]);
+  const usedWeek = (id: string) => -(autoUse ?? []).filter((u) => u.material_id === id).reduce((t, u) => t + Number(u.quantity), 0);
 
   const q = (sp.q ?? "").trim().toLowerCase();
   const rows = (stock ?? []).filter(
@@ -121,7 +128,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             <h2 className="m-0 flex items-center gap-2.5 text-[26px] sm:text-[30px]">
               Raw materials <InternalOnly />
             </h2>
-            <MaterialDialog materials={(materials ?? []).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
+            <div className="flex flex-wrap gap-2">
+              {canSetMaterials && <MaterialSettingsDialog />}
+              <MaterialDialog materials={(materials ?? []).map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-4">
             {(materials ?? []).map((m, i) => {
@@ -157,8 +167,27 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </span>
                   </div>
                   <div className={`flex justify-between gap-2 text-[12px] ${low ? "font-extrabold text-accent-800" : ""}`}>
-                    <span>{low ? "Below reorder level" : "In stock"}</span>
+                    <span>{onHand < 0 ? "Below zero: a count is due" : low ? "Below reorder level" : "In stock"}</span>
                     <span>{reorder != null ? `reorder at ${reorder.toLocaleString("en-US")} ${m.unit}` : "no reorder level"}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                    <span className="opacity-75">
+                      {describeUse(m) ? (
+                        <>
+                          {describeUse(m)}
+                          <span className="block">
+                            {formatQty(usedWeek(m.id))} {m.unit} used in 7 days
+                          </span>
+                        </>
+                      ) : (
+                        "Not tracked automatically"
+                      )}
+                    </span>
+                    {canSetMaterials && (
+                      <MaterialSettingsDialog
+                        material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate) }}
+                      />
+                    )}
                   </div>
                 </div>
               );

@@ -72,16 +72,17 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       const out = mine.filter((e) => e.entry_date >= from).reduce((s, e) => s + e.produced, 0);
       const best = Math.max(1, ...perDay) * days;
       const running = [...new Set(mine.filter((e) => e.entry_date >= from).map((e) => e.order_no))];
+      const machineDown = l.status === "down";
       return {
         key: l.id,
         name: l.name,
-        status: out ? "Running" : "No entries",
+        status: machineDown ? "Down" : l.status === "idle" ? "Idle" : out ? "Running" : "No entries",
         value: formatQty(out),
         unit: range === "week" ? "crowns · 7 days" : "crowns today",
         pct: (100 * out) / best,
         bars: perDay,
         note: running.length ? running.join(" · ") : range === "week" ? "Nothing logged this week" : "Nothing logged today",
-        down: false,
+        down: machineDown,
       };
     }),
     (() => {

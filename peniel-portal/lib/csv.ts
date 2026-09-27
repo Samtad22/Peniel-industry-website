@@ -11,3 +11,11 @@ export function csvLine(values: (string | number | null | undefined)[]): string 
     })
     .join(",");
 }
+
+/** Rows (the first is the header) as a CSV file for Excel: a byte-order mark so it opens with the right characters. */
+export function toCsv(rows: (string | number | boolean | null | undefined)[][]): string {
+  return "﻿" + rows.map((r) => csvLine(r.map((v) => (typeof v === "boolean" ? String(v) : v)))).join("\r\n") + "\r\n";
+}
+
+/** `peniel-production-2026-09-01-to-2026-09-30.csv` */
+export const csvName = (kind: string, from: string, to: string) => `peniel-${kind}-${from}-to-${to}.csv`;

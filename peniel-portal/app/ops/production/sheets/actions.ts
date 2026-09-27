@@ -263,3 +263,41 @@ export async function deletePass(fd: FormData): Promise<void> {
   await supabase.from("stillage_passes").delete().eq("id", id);
   refresh();
 }
+
+/** A finished stillage goes to a press: it leaves the printed-sheet stock. */
+export async function sendToPress(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
+  await requireStaff([...WRITERS]);
+  const s = (k: string) => String(fd.get(k) ?? "").trim();
+  const id = s("id");
+  const pressId = s("press_id");
+  const at = addisLocalToIso(s("at"));
+  if (!UUID.test(id)) return { error: "Stillage not found." };
+  if (!UUID.test(pressId)) return { error: "Choose the press." };
+  if (!at) return { error: "Enter when it went to the press." };
+  if (new Date(at).getTime() > Date.now() + 5 * 60_000) return { error: "That time is in the future." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("print_runs")
+    .update({ to_press_at: at, press_id: pressId })
+    .eq("id", id)
+    .is("to_press_at", null)
+    .select("stillage_no")
+    .maybeSingle<{ stillage_no: string | null }>();
+  if (error) {
+    if (/finished \(lacquered\)/.test(error.message)) return { error: "Only a finished (lacquered) stillage goes to the press." };
+    return { error: /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save. Please try again." };
+  }
+  if (!data) return { error: "That stillage has already gone to the press. Refresh the page." };
+  refresh();
+  return { ok: `Stillage ${data.stillage_no ?? ""} sent to the press.` };
+}
+
+/** Undo "to the press" (sent by mistake): the stillage is back in stock. */
+export async function undoToPress(fd: FormData): Promise<void> {
+  await requireStaff([...WRITERS]);
+  const id = String(fd.get("id") ?? "");
+  if (!UUID.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("print_runs").update({ to_press_at: null }).eq("id", id);
+  refresh();
+}

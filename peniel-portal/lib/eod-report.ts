@@ -20,6 +20,10 @@ export type EodInput = {
   printRuns: { stillage_no: string | null; brand: string; sheets_printed: number; sheets_spoiled: number }[];
   /** Oven passes that came out on the day. */
   passesOut: { stage: "base_coat" | "varnish" | "lacquer"; sheets_spoiled: number }[];
+  /** Stillages sent to the presses on the day. */
+  toPress: number;
+  /** Finished stillages in printed-sheet stock now. */
+  sheetStock: number;
   /** Oven passes with no "out" time yet, whatever day they went in. */
   inOven: { stage: "base_coat" | "varnish" | "lacquer"; started_at: string; stillage_no: string | null }[];
   inspections: { batch_no: string; order_no: string; brand: string; result: "released" | "on_hold" | null; published: boolean }[];
@@ -102,6 +106,9 @@ export function buildEodReport(d: EodInput): EodReport {
     const out = d.passesOut.filter((p) => p.stage === stage);
     if (out.length) sheets.push(`${stage === "base_coat" ? "Base-coated" : stage === "varnish" ? "Varnished" : "Lacquered"}: ${plural(out.length, "stillage")} out of the oven, ${n(sum(out.map((p) => p.sheets_spoiled)))} sheets spoiled.`);
   }
+
+  if (d.toPress) sheets.push(`Sent to the presses: ${plural(d.toPress, "stillage")}.`);
+  sheets.push(`In stock now: ${plural(d.sheetStock, "finished stillage")}.`);
 
   // ---- Quality ----
   const released = d.inspections.filter((i) => i.result === "released").length;
