@@ -79,7 +79,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     db.from("finished_stock").select("quantity").gte("ready_since", from).lt("ready_since", to).returns<{ quantity: number }[]>(),
     db.from("finished_stock").select("quantity").gte("collected_at", from).lt("collected_at", to).returns<{ quantity: number }[]>(),
     db.from("pickup_bookings").select("id", { count: "exact", head: true }).eq("status", "requested"),
-    db.from("raw_materials").select("name, on_hand, unit, reorder_level").returns<{ name: string; on_hand: number; unit: string; reorder_level: number | null }[]>(),
+    db.from("raw_materials").select("name, on_hand, unit, reorder_level").eq("active", true).returns<{ name: string; on_hand: number; unit: string; reorder_level: number | null }[]>(),
     db
       .from("machines")
       .select("id, code, name, category, parent_id, sort_order, status, status_note, status_since, service_every_days")

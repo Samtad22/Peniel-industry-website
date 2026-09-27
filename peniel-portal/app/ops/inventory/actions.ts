@@ -147,7 +147,9 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
   if (basis && !(basis in USE_BASIS)) return { error: "Choose what it's used per." };
   if (Number.isNaN(rate)) return { error: "Usage: enter a number (e.g. 0.5), or leave it empty." };
   if (basis && rate == null) return { error: "Enter how much is used, or choose “not tracked”." };
-  const row = { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null };
+  // Unticking "On the list" hides the material (its history stays); a new one is always on the list.
+  const active = !UUID.test(id) || fd.get("active") === "on";
+  const row = { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active };
   const supabase = await createClient();
   const { error } = UUID.test(id) ? await supabase.from("raw_materials").update(row).eq("id", id) : await supabase.from("raw_materials").insert(row);
   if (error) {
@@ -155,5 +157,5 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
     return { error: /row-level|permission/i.test(error.message) ? "Your role can't change raw materials." : "Couldn't save. Please try again." };
   }
   refresh();
-  return { ok: UUID.test(id) ? "Saved. Usage from now on follows the new rate." : `${name} added.` };
+  return { ok: !UUID.test(id) ? `${name} added.` : active ? "Saved. Usage from now on follows the new rate." : `${name} is off the list. Its history stays in the reports.` };
 }
