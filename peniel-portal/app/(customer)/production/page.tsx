@@ -52,7 +52,7 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       .returns<{ order_id: string; entry_date: string; produced_qty: number; published_at: string | null }[]>(),
     supabase
       .from("customer_quality_batches")
-      .select("id, batch_no, order_id, order_no, inspected_at, sample_size, reject_pct, result, customer_reason, published_at")
+      .select("id, batch_no, order_id, order_no, inspected_at, sample_size, reject_pct, result, customer_reason, published_at, certificate_ready")
       .order("inspected_at", { ascending: false })
       .limit(200)
       .returns<(BatchRow & { sample_size: number; published_at: string | null })[]>(),

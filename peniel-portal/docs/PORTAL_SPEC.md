@@ -27,6 +27,8 @@ Internal-only columns are marked **(internal)**. They must never appear in custo
 - `production_entries` — id, order_id, entry_date, shift, line_id **(internal)**, produced_qty, reject_qty (camera rejects: crowns the liner press camera pushed out, sent to sorting), entered_by, published (bool)
 - `qc_inspections` — id, batch_no (unique within its order: batch numbers restart per brand), order_id, inspected_at, sample_size, measurements jsonb **(internal)** (the 11 measured parameters of the Certificate of Analysis PIC-OF-053, see `lib/qc.ts`), reject_pct, result (released/on_hold), customer_reason, internal_notes **(internal)**, published (bool), inspector_id
 - `qc_defects` — inspection_id, defect_type, count
+- `coa_signatures` — the Certificate of Analysis signatures: inspection_id, line (prepared/approved), signer_id, signer_name, image (a PNG drawn on screen), signed_at, fingerprint (the results signed: measurements, sample, result, batch, order and defect counts). Quality or admin sign as themselves; "Approved by" after "Prepared by", by a different person, for a released batch. Changing the results voids the signatures (signing again replaces them). Staff read; customers see them only on their final certificate. `qc_inspections.coa_legacy` marks certificates customers could open before signing existed (they stay open unsigned); `coa_notified_fp` = the signed results the customer was last emailed about.
+- `staff_signatures` — user_id, image: each person's saved signature to reuse; only its owner reads or changes it
 - `print_runs` **(internal table)** — printed sheets, their own process (no order or batch), one row per stillage (about 1,400 to 1,420 sheets), created at step 01, the print line (two-unit roller printer with the UV dryer at its end): brand_id (the design printed), colours, stillage_no, run_date, shift, sheets_printed (good), sheets_spoiled (on the print line), coil_lot (tinplate), notes, crowns_per_sheet (702, only for a rough crown count), entered_by. order_id, varnish, lacquer and oven_temp_c are legacy and unused.
 - `stillage_passes` **(internal table)** — the stillage's oven passes: 02 varnish, then 03 lacquer (about 30 minutes each). print_run_id, stage, material (the varnish or lacquer), oven_temp_c, started_at, finished_at (empty = still in the oven), sheets_spoiled, notes. One pass per stage; lacquer only after the varnish is out. Good sheets = printed less the passes' spoilage. Recorded by production (and admin); customers never read either table.
 - `sorting_records` **(internal table)** — order_id, batch_no, inspection_id (optional), sorted_on, passed_cartons (the report's "Quantity": cartons that passed), waste_cartons (scrapped); sorted = passed + waste; 1 carton = 10,000 crowns, reported_by, notes, entered_by: the daily sorting report of the camera rejects, one row per order, batch and day. Recorded by quality (and admin). Passed crowns stay internal (never added to the customer's produced quantity); the waste is the customer's reject rate after sorting (`customer_orders.reject_pct`). Customers never read the table.
@@ -47,7 +49,8 @@ Customers get **no direct SELECT** on the tables above. They read through views 
 
 - `customer_orders` (completed_qty = published produced minus camera rejects; reject_pct = waste after sorting over crowns produced), `customer_order_timeline`, `customer_order_attachments`
 - `customer_daily_output` — aggregated from published `production_entries` by order and date: produced_qty = crowns that count toward the order (camera rejects taken out); reject_qty and reject_pct are empty (rejects are reported per order, after sorting); no line or shift
-- `customer_quality_batches`, `customer_defects_by_type` — from published inspections only; no measurements
+- `customer_quality_batches` (certificate_ready = released and signed on both lines, or coa_legacy), `customer_defects_by_type` — from published inspections only; no measurements
+- `certificate_of_analysis(inspection_id)` — the CoA for a batch: for the customer only when released, published and signed on both lines (or coa_legacy), with the signers' names, signature images and dates (no user ids)
 - `customer_finished_stock` — no location
 - `customer_proofs` (incl. courier and tracking number, never driver or vehicle), `customer_artwork`, `customer_artwork_submissions`, `customer_documents` (visibility = customer only)
 
@@ -57,7 +60,7 @@ Customer writes are limited to: create order (status `submitted`), upload attach
 `submitted → confirmed → awaiting_approval → scheduled → in_production → quality_check → ready_for_pickup / dispatched → delivered`, plus `on_hold` from any active state. `on_hold` and any due-date change require `customer_reason`.
 
 ## 4. Notifications (email)
-- To customer: order confirmed, proof awaiting approval, physical proof on its way (with DHL tracking), artwork reviewed, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message.
+- To customer: order confirmed, proof awaiting approval, physical proof on its way (with DHL tracking), artwork reviewed, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message, Certificate of Analysis ready (once per signed certificate, when it is released, published and signed on both lines).
 - To staff: new order submitted, artwork received from a customer, proof approved / changes requested, pickup requested, new customer message.
 
 ## 5. Build phases

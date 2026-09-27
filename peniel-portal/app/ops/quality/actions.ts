@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
+import { notifyCertificateReady } from "@/lib/notify";
 import { MEASURES } from "@/lib/qc";
 import { formatWastePct, parseCartons } from "@/lib/sorting";
 import { createClient } from "@/lib/supabase/server";
@@ -77,6 +78,8 @@ export async function saveInspection(_prev: QcState, fd: FormData): Promise<QcSt
     return { error: "Couldn't save the inspection. Please try again." };
   }
 
+  // Signed while unpublished, now published: the customer hears it's ready.
+  notifyCertificateReady(String(data));
   refresh();
   redirect(`/ops/quality?saved=${encodeURIComponent(s("batch_no"))}`);
 }
@@ -87,6 +90,7 @@ export async function setInspectionPublished(fd: FormData): Promise<void> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
   const supabase = await createClient();
   await supabase.from("qc_inspections").update({ published: fd.get("published") === "true" }).eq("id", id);
+  notifyCertificateReady(id);
   refresh();
 }
 

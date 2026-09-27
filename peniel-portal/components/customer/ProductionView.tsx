@@ -36,6 +36,8 @@ export type BatchRow = {
   reject_pct: number;
   result: "released" | "on_hold" | null;
   customer_reason: string | null;
+  /** Released and signed on both lines: the Certificate of Analysis opens. */
+  certificate_ready?: boolean;
 };
 
 export type StockRow = {
@@ -287,10 +289,12 @@ function Quality({ q }: { q: ProductionData["quality"] }) {
                   </span>
                   <span className={`text-[13px] ${b.result === "on_hold" ? "text-accent-800" : "opacity-70"}`}>{b.customer_reason ?? ""}</span>
                   <span className="text-[13px]">
-                    {b.result === "released" ? (
+                    {b.certificate_ready ? (
                       <a href={`/certificates/${b.id}`} target="_blank" rel="noreferrer" className="font-semibold">
                         CoA ↗
                       </a>
+                    ) : b.result === "released" ? (
+                      <span className="opacity-60">Being signed</span>
                     ) : (
                       <span className="opacity-50">-</span>
                     )}
