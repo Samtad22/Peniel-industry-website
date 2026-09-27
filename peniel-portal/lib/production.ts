@@ -82,6 +82,7 @@ export type ProducibleOrder = {
   order_no: string;
   company: string;
   brand: string;
+  brand_id: string | null;
   quantity: number;
   status: OrderStatus;
   due_date: string | null;
@@ -95,13 +96,14 @@ export type ProducibleOrder = {
 export async function loadProducibleOrders(supabase: Supabase): Promise<ProducibleOrder[]> {
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_no, quantity, status, confirmed_due_date, revised_due_date, companies(name), brands(name)")
+    .select("id, order_no, brand_id, quantity, status, confirmed_due_date, revised_due_date, companies(name), brands(name)")
     .in("status", PRODUCIBLE)
     .order("order_no")
     .returns<
       {
         id: string;
         order_no: string;
+        brand_id: string | null;
         quantity: number;
         status: OrderStatus;
         confirmed_due_date: string | null;
@@ -126,6 +128,7 @@ export async function loadProducibleOrders(supabase: Supabase): Promise<Producib
       order_no: o.order_no,
       company: o.companies?.name ?? "-",
       brand: o.brands?.name ?? "-",
+      brand_id: o.brand_id,
       quantity: Number(o.quantity),
       status: o.status,
       due_date: o.revised_due_date ?? o.confirmed_due_date,
@@ -134,6 +137,52 @@ export async function loadProducibleOrders(supabase: Supabase): Promise<Producib
       last_entry: mine.map((e) => e.entry_date).sort().at(-1) ?? null,
     };
   });
+}
+
+export type PressStillage = {
+  id: string;
+  stillage_no: string;
+  brand_id: string;
+  brand: string;
+  press: string;
+  to_press_at: string;
+  /** Good sheets on it: printed less what the oven passes spoiled. */
+  sheets: number;
+  /** Production entries that have used it so far. */
+  entries: number;
+};
+
+/** Finished stillages at the presses whose sheets aren't all used yet, oldest first. */
+export async function loadPressStillages(supabase: Supabase): Promise<PressStillage[]> {
+  const { data } = await supabase
+    .from("print_runs")
+    .select("id, stillage_no, brand_id, sheets_printed, to_press_at, brands(name), press:machines!print_runs_press_id_fkey(name), stillage_passes(sheets_spoiled), production_entry_stillages(entry_id)")
+    .not("to_press_at", "is", null)
+    .is("used_up_at", null)
+    .order("to_press_at")
+    .returns<
+      {
+        id: string;
+        stillage_no: string | null;
+        brand_id: string;
+        sheets_printed: number;
+        to_press_at: string;
+        brands: { name: string } | null;
+        press: { name: string } | null;
+        stillage_passes: { sheets_spoiled: number }[];
+        production_entry_stillages: { entry_id: string }[];
+      }[]
+    >();
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    stillage_no: r.stillage_no ?? `#${r.id.slice(0, 4)}`,
+    brand_id: r.brand_id,
+    brand: r.brands?.name ?? "-",
+    press: r.press?.name ?? "the press",
+    to_press_at: r.to_press_at,
+    sheets: Math.max(0, Number(r.sheets_printed) - (r.stillage_passes ?? []).reduce((t, p) => t + Number(p.sheets_spoiled), 0)),
+    entries: (r.production_entry_stillages ?? []).length,
+  }));
 }
 
 /**

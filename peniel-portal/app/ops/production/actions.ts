@@ -24,7 +24,7 @@ const count = (v: FormDataEntryValue | null) => {
 };
 
 export async function saveEntry(_prev: ProductionState, fd: FormData): Promise<ProductionState> {
-  const me = await requireStaff([...WRITERS]);
+  await requireStaff([...WRITERS]);
   const date = String(fd.get("entry_date") ?? "");
   const shift = String(fd.get("shift") ?? "");
   const lineId = String(fd.get("line_id") ?? "");
@@ -42,20 +42,33 @@ export async function saveEntry(_prev: ProductionState, fd: FormData): Promise<P
   if (!Number.isFinite(rejects)) return { error: "Rejects must be a whole number." };
   if (rejects > produced) return { error: "Rejects can't be more than the crowns produced." };
 
+  // The printed stillage(s) it was pressed from (required), and any whose sheets are now all used.
+  const stillages = [...new Set(fd.getAll("stillage").map(String).filter((id) => UUID.test(id)))];
+  const usedUp = [...new Set(fd.getAll("used_up").map(String))].filter((id) => stillages.includes(id));
+  if (stillages.length === 0) return { error: "Choose the printed stillage(s) this was pressed from." };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("production_entries").insert({
-    entry_date: date,
-    shift,
-    line_id: lineId,
-    order_id: orderId,
-    produced_qty: produced,
-    reject_qty: rejects,
-    entered_by: me.user_id,
+  const { error } = await supabase.rpc("log_production_entry", {
+    p_entry_date: date,
+    p_shift: shift,
+    p_line_id: lineId,
+    p_order_id: orderId,
+    p_produced: produced,
+    p_rejects: rejects,
+    p_stillages: stillages,
+    p_used_up: usedUp,
   });
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't enter production." : "Couldn't save the entry. Please try again." };
+  if (error) {
+    if (/stillage_not_at_press/.test(error.message)) return { error: "That stillage isn't at a press any more. Refresh the page." };
+    if (/stillage_wrong_brand/.test(error.message)) return { error: "That stillage is a different brand from the order." };
+    if (/stillage_required/.test(error.message)) return { error: "Choose the printed stillage(s) this was pressed from." };
+    return { error: /row-level|permission/i.test(error.message) ? "Your role can't enter production." : "Couldn't save the entry. Please try again." };
+  }
 
   refresh();
-  return { ok: `Saved ${produced.toLocaleString("en-US")} crowns. Not shown to the customer until published.` };
+  revalidatePath("/ops/production/sheets");
+  const done = usedUp.length ? ` ${usedUp.length === 1 ? "1 stillage" : `${usedUp.length} stillages`} marked used up.` : "";
+  return { ok: `Saved ${produced.toLocaleString("en-US")} crowns.${done} Not shown to the customer until published.` };
 }
 
 export async function deleteEntry(fd: FormData): Promise<void> {

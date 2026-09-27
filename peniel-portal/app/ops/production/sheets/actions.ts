@@ -298,6 +298,18 @@ export async function undoToPress(fd: FormData): Promise<void> {
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();
-  await supabase.from("print_runs").update({ to_press_at: null }).eq("id", id);
+  await supabase.from("print_runs").update({ to_press_at: null, used_up_at: null }).eq("id", id);
   refresh();
+}
+
+/** A stillage at a press: all its sheets used (it leaves the daily entry's list), or not after all. */
+export async function setStillageUsedUp(fd: FormData): Promise<void> {
+  await requireStaff([...WRITERS]);
+  const id = String(fd.get("id") ?? "");
+  const used = String(fd.get("used") ?? "") === "1";
+  if (!UUID.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("print_runs").update({ used_up_at: used ? new Date().toISOString() : null }).eq("id", id);
+  refresh();
+  revalidatePath("/production-entry");
 }

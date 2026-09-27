@@ -19,7 +19,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
   const to = `${addDays(date, 1)}T00:00:00+03:00`;
   const week = addDays(date, 7);
 
-  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials, machinesRes, maintRes, sent, stock] = await Promise.all([
+  const [prod, runs, out, oven, insp, unsigned, sorting, created, events, inbox, held, open, added, collected, pickups, materials, machinesRes, maintRes, sent, stock, usedUp] = await Promise.all([
     db
       .from("production_entries")
       .select("shift, produced_qty, reject_qty, published, orders(order_no, companies(name), brands(name))")
@@ -100,6 +100,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
       .is("to_press_at", null)
       .limit(20000)
       .returns<{ id: string; stillage_passes: { stage: string; finished_at: string | null }[] }[]>(),
+    db.from("print_runs").select("id", { count: "exact", head: true }).gte("used_up_at", from).lt("used_up_at", to),
   ]);
   const machines = machinesRes.data ?? [];
   const maintLogs = maintRes.data ?? [];
@@ -124,6 +125,7 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     printRuns: (runs.data ?? []).map((r) => ({ stillage_no: r.stillage_no, brand: r.brands?.name ?? "", sheets_printed: Number(r.sheets_printed), sheets_spoiled: Number(r.sheets_spoiled) })),
     passesOut: (out.data ?? []).map((p) => ({ stage: p.stage, sheets_spoiled: Number(p.sheets_spoiled) })),
     toPress: sent.count ?? 0,
+    usedUp: usedUp.count ?? 0,
     sheetStock: (stock.data ?? []).filter((r) => (r.stillage_passes ?? []).some((p) => p.stage === "lacquer" && p.finished_at)).length,
     inOven: (oven.data ?? []).map((p) => ({ stage: p.stage, started_at: p.started_at, stillage_no: p.print_runs?.stillage_no ?? null })),
     inspections: (insp.data ?? []).map((i) => ({ batch_no: i.batch_no, result: i.result, published: i.published, order_no: i.orders?.order_no ?? "-", brand: i.orders?.brands?.name ?? "" })),
