@@ -60,7 +60,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </section>
 
         <section className="flex flex-col gap-3">
-          <SectionHead title="Downloads for Excel" aside="CSV files · open them in Excel or Google Sheets" />
+          <SectionHead title="Downloads for Excel" aside="Excel files (.xlsx) · Peniel letterhead, totals, ready to print" />
           <form method="get" className="flex flex-wrap items-end gap-3">
             <div className="field">
               <label htmlFor="rp-from">From</label>

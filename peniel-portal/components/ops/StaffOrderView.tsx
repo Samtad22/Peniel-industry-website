@@ -144,6 +144,9 @@ export default function StaffOrderView({
         })}
       </ol>
       {o.status === "rejected" && <p className="m-0 bg-accent-100 px-4 py-2.5 text-[13px] font-extrabold text-accent-800 sm:px-8">This order was rejected.</p>}
+      {o.status === "cancelled" && (
+        <p className="m-0 bg-neutral-200 px-4 py-2.5 text-[13px] font-extrabold sm:px-8">Cancelled by the customer before it was confirmed{o.customer_reason ? `: “${o.customer_reason}”` : "."}</p>
+      )}
 
       <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-[18px] px-4 py-6 sm:px-8 xl:border-r-2 xl:border-divider">

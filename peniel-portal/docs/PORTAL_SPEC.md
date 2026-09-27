@@ -58,10 +58,10 @@ Customers get **no direct SELECT** on the tables above. They read through views 
 - `customer_finished_stock` — no location
 - `customer_proofs` (incl. courier and tracking number, never driver or vehicle), `customer_artwork`, `customer_artwork_submissions`, `customer_documents` (visibility = customer only)
 
-Customer writes are limited to: create order (status `submitted`), upload attachments to own orders, approve/request changes on own proofs, send artwork to Peniel for review, book pickups, send messages.
+Customer writes are limited to: create order (status `submitted`), cancel it while still `submitted`, upload attachments to own orders, approve/request changes on own proofs, send artwork to Peniel for review, book pickups, send messages.
 
 ## 3. Order statuses
-`submitted → confirmed → awaiting_approval → scheduled → in_production → quality_check → ready_for_pickup / dispatched → delivered`, plus `on_hold` from any active state. `on_hold` and any due-date change require `customer_reason`.
+`submitted → confirmed → awaiting_approval → scheduled → in_production → quality_check → ready_for_pickup / dispatched → delivered`, plus `on_hold` from any active state. `cancelled`: the customer cancels their own order while it is still `submitted` (customer_cancel_order; final, staff are emailed); staff reject a new or confirmed order instead. `on_hold` and any due-date change require `customer_reason`.
 
 ## 4. Notifications (email)
 - To customer: order confirmed, proof awaiting approval, physical proof on its way (with DHL tracking), artwork reviewed, order on hold / date revised (with reason), ready for pickup, dispatched, new document shared, new message, Certificate of Analysis ready (once per signed certificate, when it is released, published and signed).

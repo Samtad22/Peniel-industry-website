@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireCustomer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fileProblem, mimeFor, type AttachmentType } from "@/lib/files";
-import { notifyMessageToStaff, notifyOrderSubmitted } from "@/lib/notify";
+import { notifyMessageToStaff, notifyOrderCancelled, notifyOrderSubmitted } from "@/lib/notify";
 
 export type SubmitOrderInput = {
   brandId: string;
@@ -90,4 +90,22 @@ export async function replyOnOrder(_prev: ActionState, formData: FormData): Prom
 
   revalidatePath("/orders");
   return { ok: "Sent. Peniel will reply here." };
+}
+
+/** The customer cancels their order while Peniel hasn't confirmed it yet. */
+export async function cancelOrder(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  await requireCustomer();
+  const id = String(fd.get("order_id") ?? "");
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: "Order not found." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("customer_cancel_order", { p_order_id: id, p_reason: reason || null });
+  if (error) {
+    if (/already confirmed/i.test(error.message)) return { error: "Peniel has already confirmed this order. Send us a message to change or cancel it." };
+    return { error: "Couldn't cancel the order. Please try again or send us a message." };
+  }
+  notifyOrderCancelled(id);
+  revalidatePath("/orders", "layout");
+  revalidatePath("/ops", "layout");
+  return { ok: "Order cancelled. Peniel has been told." };
 }

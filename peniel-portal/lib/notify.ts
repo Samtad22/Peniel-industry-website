@@ -293,6 +293,27 @@ export function notifyMessageToCustomer(threadId: string, body: string, files = 
 // To staff
 // ---------------------------------------------------------------------------
 
+/** The customer cancelled their order before it was confirmed. */
+export function notifyOrderCancelled(orderId: string) {
+  run(async (db) => {
+    const o = await loadOrder(db, orderId);
+    if (!o || o.status !== "cancelled") return;
+    await sendEmails(
+      await staffEmails(db, ["admin", "sales"]),
+      {
+        subject: `Order ${o.order_no} cancelled by ${o.companies?.name ?? "the customer"}`,
+        heading: `Order ${o.order_no} was cancelled`,
+        lines: [
+          `${o.companies?.name ?? ""} cancelled this order before it was confirmed: ${o.brands?.name ?? ""} · ${qty(o.quantity)} crowns · PO ${o.po_number}.`,
+          ...(o.customer_reason ? [`Their reason: ${o.customer_reason}`] : []),
+        ],
+        cta: { label: "Open the order", path: `/ops/orders/${o.id}` },
+      },
+      { kind: "order_cancelled", companyId: o.company_id, entityId: o.id },
+    );
+  });
+}
+
 export function notifyOrderSubmitted(orderId: string) {
   run(async (db) => {
     const o = await loadOrder(db, orderId);

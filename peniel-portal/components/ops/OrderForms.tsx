@@ -387,8 +387,9 @@ export function StatusControl({
     return res;
   }, null);
 
+  // Only the customer cancels (before confirmation); staff reject a new or confirmed order.
   const allowed = (s: OrderStatus) =>
-    s !== "submitted" && status !== "rejected" && (s !== "rejected" || status === "confirmed");
+    s !== "submitted" && s !== "cancelled" && status !== "rejected" && (s !== "rejected" || status === "confirmed");
   const dateChanged = Boolean(newDue) && newDue !== (due ?? "");
   const needsReason = target === "on_hold" || target === "rejected" || dateChanged;
   const presets = target === "rejected" ? rejectPresets : holdPresets;
@@ -410,6 +411,9 @@ export function StatusControl({
   if (status === "rejected") {
     return <p className="m-0 bg-neutral-200 px-3.5 py-3 text-[13px]">This order was rejected. The customer can submit it again.</p>;
   }
+  if (status === "cancelled") {
+    return <p className="m-0 bg-neutral-200 px-3.5 py-3 text-[13px]">The customer cancelled this order before it was confirmed. It can&apos;t be reopened; they can submit it again.</p>;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -420,7 +424,7 @@ export function StatusControl({
         </p>
       )}
       <div className="grid grid-cols-2 border border-divider sm:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
-        {ORDER_STATUSES.map((s) => {
+        {ORDER_STATUSES.filter((s) => s !== "cancelled").map((s) => {
           const current = s === status;
           const chosen = s === target;
           const ok = allowed(s);

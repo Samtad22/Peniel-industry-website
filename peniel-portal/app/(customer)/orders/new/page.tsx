@@ -42,7 +42,7 @@ export default async function NewOrderPage({
     supabase
       .from("customer_orders")
       .select("id, order_no, brand_id, brand_name, po_number, quantity, due_date, delivery_method, delivery_address, status")
-      .neq("status", "rejected")
+      .not("status", "in", "(rejected,cancelled)")
       .order("created_at", { ascending: false })
       .limit(8)
       .returns<Recent[]>(),

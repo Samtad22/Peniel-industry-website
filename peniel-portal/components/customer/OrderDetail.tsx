@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CancelOrderDialog from "@/components/customer/CancelOrderDialog";
 import ProofCard from "@/components/customer/ProofCard";
 import ReplyForm from "@/components/customer/ReplyForm";
 import Crown, { InkSwatches } from "@/components/ui/Crown";
@@ -64,6 +65,12 @@ export default function OrderDetail({
           {o.customer_reason && <span className="text-[15px]">{o.customer_reason}</span>}
         </div>
       )}
+      {o.status === "cancelled" && (
+        <div className="flex flex-col gap-1.5 border-2 border-dashed border-neutral-600 px-4 py-3.5">
+          <b className="text-[12px]">× CANCELLED</b>
+          <span className="text-[14px]">You cancelled this order before Peniel confirmed it.{o.customer_reason ? ` ${o.customer_reason}` : ""}</span>
+        </div>
+      )}
       {o.status === "rejected" && (
         <div className="flex flex-col gap-1.5 border-2 border-accent-800 px-4 py-3.5 text-accent-800">
           <b className="text-[12px]">× NOT ACCEPTED</b>
@@ -74,7 +81,7 @@ export default function OrderDetail({
         <ProofCard key={p.id} p={p} preview={preview} />
       ))}
 
-      {o.customer_reason && o.status !== "on_hold" && o.status !== "rejected" && (
+      {o.customer_reason && o.status !== "on_hold" && o.status !== "rejected" && o.status !== "cancelled" && (
         <div className="flex flex-col gap-1 bg-accent-100 px-4 py-3 text-accent-800">
           <b className="text-[12px]">UPDATE FROM PENIEL · {formatDate(o.updated_at)}</b>
           <span className="text-[14px]">{o.customer_reason}</span>
@@ -170,6 +177,7 @@ export default function OrderDetail({
         <Link href={`/orders/new?po_from=${o.id}`} className="btn btn-secondary btn-split min-h-12 text-text">
           Order another brand on this PO<span aria-hidden="true">+</span>
         </Link>
+        {o.status === "submitted" && <CancelOrderDialog orderId={o.id} orderNo={o.order_no} />}
       </div>
     </div>
   );

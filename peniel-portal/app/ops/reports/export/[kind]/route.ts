@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireStaff } from "@/lib/auth";
-import { csvName, toCsv } from "@/lib/csv";
-import { addisDateISO } from "@/lib/format";
+import { addisDateISO, formatDate } from "@/lib/format";
 import { MACHINE_SECTIONS, MAINTENANCE_KINDS, type MaintenanceKind } from "@/lib/maintenance";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
 import { addDays } from "@/lib/production-math";
 import { MEASURES, measureValue } from "@/lib/qc";
-import { isExportKind, type ExportKind } from "@/lib/report-exports";
+import { EXPORTS, isExportKind, type ExportKind } from "@/lib/report-exports";
+import { buildXlsx, xlsxName } from "@/lib/xlsx-report";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,8 +19,18 @@ const mins = (a: string, b: string | null) => (b ? Math.round((Date.parse(b) - D
 
 type Kind = ExportKind;
 
+/** Columns totalled at the bottom of each sheet. */
+const TOTALS: Record<Kind, string[]> = {
+  production: ["Crowns produced", "Camera rejects", "Good crowns"],
+  sheets: ["Base-coated sheets", "Base coat: sheets spoiled", "Good sheets printed", "Spoiled on the print line", "Varnish: sheets spoiled", "Lacquer: sheets spoiled"],
+  quality: [],
+  maintenance: ["Minutes"],
+  orders: ["Quantity"],
+  materials: ["In", "Out"],
+};
+
 /**
- * Report downloads as CSV files that open in Excel (admin only; internal data).
+ * Report downloads as Excel files in Peniel's style (admin only; internal data).
  * `?from=YYYY-MM-DD&to=YYYY-MM-DD` (Addis Ababa days, both included).
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ kind: string }> }) {
@@ -35,11 +45,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const end = `${addDays(to, 1)}T00:00:00+03:00`;
   const db = await createClient();
   const rows = await build(kind, db, { from, to, start, end });
+  const file = await buildXlsx({
+    title: EXPORTS.find((e) => e.kind === kind)!.sheetTitle,
+    period: `${formatDate(from)} to ${formatDate(to)}`,
+    header: rows[0] as string[],
+    rows: rows.slice(1),
+    totals: TOTALS[kind],
+  });
 
-  return new Response(toCsv(rows), {
+  return new Response(new Uint8Array(file), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${csvName(kind, from, to)}"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${xlsxName(kind, from, to)}"`,
       "Cache-Control": "no-store",
     },
   });
@@ -67,7 +84,7 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
         Number(e.produced_qty),
         Number(e.reject_qty),
         Number(e.produced_qty) - Number(e.reject_qty),
-        e.published ? "yes" : "no",
+        e.published ? "Yes" : "No",
         e.enterer?.full_name,
         local(e.created_at),
       ]),
@@ -96,7 +113,7 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
         x.brands?.companies?.name,
         x.run_date,
         x.shift,
-        x.printed ? "yes" : "not yet",
+        x.printed ? "Yes" : "Not yet",
         x.base_sheets,
         ...passCols(pass(x.stillage_passes, "base_coat")),
         x.printed ? Number(x.sheets_printed) : null,
@@ -130,8 +147,8 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
         local(i.inspected_at),
         i.sample_size,
         Number(i.reject_pct),
-        i.result === "released" ? "released" : i.result === "on_hold" ? "on hold" : "",
-        i.published ? "yes" : "no",
+        i.result === "released" ? "Released" : i.result === "on_hold" ? "On hold" : "",
+        i.published ? "Yes" : "No",
         ...MEASURES.map((m) => measureValue(i.measurements ?? {}, m.key)),
         i.qc_defects.filter((d) => d.count > 0).map((d) => `${d.defect_type} ${d.count}`).join(" | "),
         i.customer_reason,
@@ -152,9 +169,9 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
       ["Started", "Finished", "Minutes", "Machine stopped", "Machine", "Section", "Job", "What", "Parts", "Done by", "Notes"],
       ...(data ?? []).map((l) => [
         local(l.started_at),
-        l.finished_at ? local(l.finished_at) : "going on",
+        l.finished_at ? local(l.finished_at) : "Going on",
         mins(l.started_at, l.finished_at),
-        l.stopped_machine ? "yes" : "no",
+        l.stopped_machine ? "Yes" : "No",
         l.machines?.name,
         MACHINE_SECTIONS.find((s) => s.category === l.machines?.category)?.title,
         MAINTENANCE_KINDS[l.kind]?.label ?? l.kind,
@@ -208,7 +225,7 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
       m.raw_materials?.unit,
       Number(m.quantity) > 0 ? Number(m.quantity) : null,
       Number(m.quantity) < 0 ? -Number(m.quantity) : null,
-      m.source === "auto" ? "yes" : "no",
+      m.source === "auto" ? "Yes" : "No",
       m.reason,
       m.profiles?.full_name,
     ]),

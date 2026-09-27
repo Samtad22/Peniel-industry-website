@@ -11,7 +11,8 @@ export type OrderStatus =
   | "dispatched"
   | "delivered"
   | "on_hold"
-  | "rejected";
+  | "rejected"
+  | "cancelled";
 
 /** Order of the statuses as an order moves forward (on_hold / rejected last). */
 export const ORDER_STATUSES: OrderStatus[] = [
@@ -26,11 +27,12 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "delivered",
   "on_hold",
   "rejected",
+  "cancelled",
 ];
 
 /** Statuses that count as open (not finished, not rejected). */
 export const OPEN_STATUSES: OrderStatus[] = ORDER_STATUSES.filter(
-  (s) => s !== "delivered" && s !== "rejected",
+  (s) => s !== "delivered" && s !== "rejected" && s !== "cancelled",
 );
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -45,6 +47,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   delivered: "Delivered",
   on_hold: "On hold",
   rejected: "Rejected",
+  cancelled: "Cancelled",
 };
 
 /** Badge text, as the design shows it to each side. */
@@ -58,6 +61,8 @@ export function statusBadgeLabel(status: OrderStatus, audience: "staff" | "custo
       return "❚❚ On hold";
     case "rejected":
       return "× Rejected";
+    case "cancelled":
+      return "× Cancelled";
     default:
       return ORDER_STATUS_LABELS[status];
   }
@@ -99,6 +104,8 @@ export const ORDER_STATUS_PILL: Record<OrderStatus, CSSProperties> = {
   on_hold: { background: "var(--color-accent-800)", color: "var(--color-bg)" },
   // Not in the design's list; an outlined deep-red badge.
   rejected: { borderColor: "var(--color-accent-800)", color: "var(--color-accent-800)" },
+  // Cancelled by the customer before Peniel confirmed it: a quiet, struck-out badge.
+  cancelled: { border: "1px dashed var(--color-neutral-600)", color: "var(--color-neutral-700)", textDecoration: "line-through" },
 };
 
 export type UserStatus = "active" | "invited" | "deactivated";

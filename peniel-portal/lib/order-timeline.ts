@@ -24,6 +24,7 @@ const LABELS: Record<OrderStatus, string> = {
   delivered: "Delivered",
   on_hold: "On hold",
   rejected: "Rejected",
+  cancelled: "Cancelled",
 };
 
 /** The usual path; artwork approval only appears when it happened. */
@@ -64,7 +65,7 @@ export function buildTimeline(order: {
     note: e.customer_reason || undefined,
   }));
 
-  if (order.status === "rejected" || order.status === "delivered") return steps;
+  if (order.status === "rejected" || order.status === "cancelled" || order.status === "delivered") return steps;
 
   const reached = Math.max(-1, ...past.map((e) => rank(e.status)).filter((r) => r >= 0));
   const handover: OrderStatus = order.delivery_method === "delivery" ? "dispatched" : "ready_for_pickup";
