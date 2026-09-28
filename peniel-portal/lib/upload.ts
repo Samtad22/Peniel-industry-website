@@ -1,6 +1,6 @@
 // Browser-only: upload a file straight to a private Storage bucket with
 // progress. Storage policies decide where the signed-in user may write.
-import { mimeFor, safeFileName } from "@/lib/files";
+import { formatBytes, mimeFor, safeFileName } from "@/lib/files";
 import type { MessageFile } from "@/lib/message-files";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase/env";
@@ -31,9 +31,9 @@ export async function uploadToStorage(
         ? resolve()
         : reject(
             new Error(
-              xhr.status === 413
+              tooLarge(xhr)
                 ? bucket === "artwork-library"
-                  ? "File too large for the storage upload limit."
+                  ? `File too large (${formatBytes(file.size)}) for the storage upload limit. Admin: raise the upload limit in Supabase (Storage → Settings), or save the file smaller.`
                   : "File too large (limit 20 MB)"
                 : xhr.status === 403
                   ? "You don't have permission to upload here."
@@ -43,6 +43,20 @@ export async function uploadToStorage(
     xhr.onerror = () => reject(new Error("Upload failed. Check your connection and retry."));
     xhr.send(file);
   });
+}
+
+/**
+ * Over a size limit. Storage answers 413, or 400 with `statusCode: "413"`
+ * ("Payload too large") when the project's own upload limit is exceeded.
+ */
+function tooLarge(xhr: XMLHttpRequest): boolean {
+  if (xhr.status === 413) return true;
+  try {
+    const body = JSON.parse(xhr.responseText) as { statusCode?: string | number; error?: string; message?: string };
+    return String(body.statusCode) === "413" || /too large|maximum allowed size/i.test(`${body.error} ${body.message}`);
+  } catch {
+    return false;
+  }
 }
 
 /**
