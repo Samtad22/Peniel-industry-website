@@ -2,9 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
-import { addisDateISO } from "@/lib/format";
+import { addisDateISO, formatQty } from "@/lib/format";
+import { formatGrams, parseInkGrams, SAMPLE_PURPOSE, splitInks } from "@/lib/ink-usage";
 import { addisLocalToIso } from "@/lib/inventory";
-import { BASE_COAT_LABEL, CROWNS_PER_SHEET, formatSpoiledPct, minutesBetween, OVEN_STAGE_LABEL, wholeNumber, type BaseCoat, type OvenStage } from "@/lib/print-runs";
+import {
+  BASE_COAT_LABEL,
+  CROWNS_PER_SHEET,
+  crownsFromSheets,
+  formatSpoiledPct,
+  MAX_STILLAGE_SHEETS,
+  MAX_STILLAGES_AT_ONCE,
+  minutesBetween,
+  OVEN_STAGE_LABEL,
+  splitEvenly,
+  stillageNumbers,
+  wholeNumber,
+  type BaseCoat,
+  type OvenStage,
+} from "@/lib/print-runs";
 import { addDays, SHIFTS } from "@/lib/production-math";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,10 +34,25 @@ function refresh() {
   revalidatePath("/ops", "layout");
 }
 
-/** Most sheets one stillage holds; more means a typo (a stillage is about 1,400 to 1,420). */
-const MAX_STILLAGE = 3_000;
 
-/** Record a stillage off the print line (printer + UV dryer): the start of its process (internal only). */
+/** Most sheets one stillage holds; more means a typo (a stillage is about 1,400 to 1,420). */
+const MAX_STILLAGE = MAX_STILLAGE_SHEETS;
+const n = (x: number) => x.toLocaleString("en-US");
+
+/** A database refusal, in words for the form. */
+function saveError(message: string): string {
+  if (/ink_unknown/.test(message)) return "An ink isn't on the list any more. Refresh the page and try again.";
+  if (/ink_grams/.test(message)) return "Ink used: type a number for each ink (e.g. 850 g or 1.2 kg).";
+  if (/row-level|permission/i.test(message)) return "Your role can't record printed sheets.";
+  return "Couldn't save. Please try again.";
+}
+
+/**
+ * Record stillages off the print line (printer + UV dryer): the start of
+ * their process (internal only). Several at once are saved as separate
+ * stillages, numbered on from the first, each with the sheets per stillage;
+ * the spoiled sheets are shared over them.
+ */
 export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
   await requireStaff([...WRITERS]);
   const s = (k: string) => String(fd.get(k) ?? "").trim();
@@ -30,6 +60,7 @@ export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<
   const shift = s("shift");
   const brandId = s("brand_id");
   const stillage = s("stillage_no").slice(0, 40);
+  const count = s("stillages") ? wholeNumber(s("stillages")) : 1;
   const printed = wholeNumber(s("sheets_printed"));
   const spoiled = wholeNumber(s("sheets_spoiled"));
   const colours = fd
@@ -44,17 +75,28 @@ export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<
   if (!SHIFTS.includes(shift as (typeof SHIFTS)[number])) return { error: "Choose the shift." };
   if (!UUID.test(brandId)) return { error: "Choose the brand printed." };
   if (!stillage) return { error: "Enter the stillage number, so its varnish and lacquer can be logged against it." };
-  if (!Number.isFinite(printed) || printed > MAX_STILLAGE) return { error: `Good sheets: enter the sheets on this stillage (up to ${MAX_STILLAGE.toLocaleString("en-US")}).` };
-  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE) return { error: "Spoiled sheets: enter a whole number." };
+  if (!Number.isFinite(count) || count < 1 || count > MAX_STILLAGES_AT_ONCE) return { error: `Stillages: 1 to ${MAX_STILLAGES_AT_ONCE} at a time.` };
+  if (!Number.isFinite(printed) || printed > MAX_STILLAGE) return { error: `Good sheets: enter the sheets on each stillage (up to ${n(MAX_STILLAGE)}).` };
+  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE * count) return { error: "Spoiled sheets: enter a whole number." };
   if (printed + spoiled === 0) return { error: "Enter the good or the spoiled sheets." };
+  if (count > 1 && printed === 0) return { error: "Enter the good sheets on each stillage." };
+  const numbers = stillageNumbers(stillage, count);
+  if (!numbers) return { error: "To save several stillages, end the first stillage number with a number (e.g. ST-014)." };
+  // Ink used for all of them together, in grams.
+  const inks = parseInkGrams(s("inks"));
+  if (!inks) return { error: "Ink used: type a number for each ink (e.g. 850 g or 1.2 kg)." };
 
   const supabase = await createClient();
   // A base-coated stillage waiting for the print line: print that one.
   const existing = s("id");
   if (UUID.test(existing)) {
+    if (count !== 1) return { error: "A base-coated stillage is printed one at a time." };
     const { data: row, error } = await supabase
       .from("print_runs")
       .update({
+        // Base-coated stock gets its brand now; a brand's own stillage keeps it.
+        brand_id: brandId,
+        inks,
         run_date: date,
         shift,
         colours,
@@ -71,30 +113,40 @@ export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<
       .maybeSingle<{ stillage_no: string | null }>();
     if (error) {
       if (/base coat out of the oven/i.test(error.message)) return { error: "Take the base coat out of the oven before printing this stillage." };
-      return { error: /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save the stillage. Please try again." };
+      return { error: saveError(error.message) };
     }
     if (!row) return { error: "That stillage is already printed. Refresh the page." };
     refresh();
     return { ok: `Stillage ${row.stillage_no ?? ""} printed: ${printed.toLocaleString("en-US")} good sheets, ${spoiled.toLocaleString("en-US")} spoiled (${formatSpoiledPct(printed, spoiled)}). Next: varnish.` };
   }
 
-  const { error } = await supabase.from("print_runs").insert({
-    brand_id: brandId,
-    stillage_no: stillage,
-    run_date: date,
-    shift,
-    colours,
-    sheets_printed: printed,
-    sheets_spoiled: spoiled,
-    crowns_per_sheet: CROWNS_PER_SHEET,
-    coil_lot: s("coil_lot").slice(0, 60) || null,
-    notes: s("notes").slice(0, 1000) || null,
-  });
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save the stillage. Please try again." };
+  // One row per stillage, all saved together or none.
+  const spoiledEach = splitEvenly(spoiled, count);
+  const inksEach = splitInks(inks, count);
+  const { error } = await supabase.from("print_runs").insert(
+    numbers.map((no, i) => ({
+      brand_id: brandId,
+      inks: inksEach[i],
+      stillage_no: no,
+      run_date: date,
+      shift,
+      colours,
+      sheets_printed: printed,
+      sheets_spoiled: spoiledEach[i],
+      crowns_per_sheet: CROWNS_PER_SHEET,
+      coil_lot: s("coil_lot").slice(0, 60) || null,
+      notes: s("notes").slice(0, 1000) || null,
+    })),
+  );
+  if (error) return { error: saveError(error.message) };
 
   refresh();
+  const good = printed * count;
   return {
-    ok: `Stillage ${stillage} printed: ${printed.toLocaleString("en-US")} good sheets, ${spoiled.toLocaleString("en-US")} spoiled (${formatSpoiledPct(printed, spoiled)}). Next: varnish.`,
+    ok:
+      count === 1
+        ? `Stillage ${stillage} printed: ${n(printed)} good sheets, ${n(spoiled)} spoiled (${formatSpoiledPct(printed, spoiled)}). Next: varnish.`
+        : `${count} stillages printed (${numbers[0]} to ${numbers[count - 1]}): ${n(good)} good sheets (about ${formatQty(crownsFromSheets(good, CROWNS_PER_SHEET))} crowns), ${n(spoiled)} spoiled (${formatSpoiledPct(good, spoiled)}). Next: varnish.`,
   };
 }
 
@@ -127,7 +179,9 @@ export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise
   const temp = tempRaw ? Number(tempRaw) : null;
   const spoiled = wholeNumber(s("sheets_spoiled"));
 
-  if (!UUID.test(brandId)) return { error: "Choose the brand." };
+  // Base-coated stock: the brand is chosen when it is printed.
+  const stock = s("stock") === "1";
+  if (!stock && !UUID.test(brandId)) return { error: "Choose the brand." };
   if (!stillage) return { error: "Enter the stillage number." };
   if (!(coat in BASE_COAT_LABEL)) return { error: "Choose white or transparent." };
   if (!SHIFTS.includes(shift as (typeof SHIFTS)[number])) return { error: "Choose the shift." };
@@ -143,7 +197,7 @@ export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise
   const { data: run, error } = await supabase
     .from("print_runs")
     .insert({
-      brand_id: brandId,
+      brand_id: stock ? null : brandId,
       stillage_no: stillage,
       run_date: s("started_at").slice(0, 10),
       shift,
@@ -174,9 +228,58 @@ export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise
   refresh();
   return {
     ok: finishedAt
-      ? `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. Next: print it (it's under "Waiting for printing").`
+      ? stock
+        ? `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. It waits in base-coated stock; the brand is chosen when it's printed.`
+        : `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. Next: print it (it's under "Waiting for printing").`
       : `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} in the oven since ${s("started_at").slice(11)}.`,
   };
+}
+
+/** Sample sheets (colour match, proof, trial): tinplate and ink come off stock; not stock for the presses. */
+export async function saveSampleSheets(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
+  await requireStaff([...WRITERS]);
+  const s = (k: string) => String(fd.get(k) ?? "").trim();
+  const date = s("sample_date");
+  const shift = s("shift");
+  const brandId = s("brand_id");
+  const purpose = s("purpose");
+  const sheets = wholeNumber(s("sheets"));
+  const inks = parseInkGrams(s("inks"));
+  const today = addisDateISO(new Date());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) return { error: "Choose today or an earlier date." };
+  if (date < addDays(today, -31)) return { error: "Samples more than a month old can't be added here." };
+  if (shift && !SHIFTS.includes(shift as (typeof SHIFTS)[number])) return { error: "Choose the shift." };
+  if (brandId && !UUID.test(brandId)) return { error: "Choose the brand." };
+  if (!(purpose in SAMPLE_PURPOSE)) return { error: "Choose what the samples were for." };
+  if (!Number.isFinite(sheets) || sheets < 1 || sheets > MAX_STILLAGE) return { error: `Sheets used: 1 to ${n(MAX_STILLAGE)}.` };
+  if (!inks) return { error: "Ink used: type a number for each ink (e.g. 850 g or 1.2 kg)." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("sample_sheets").insert({
+    sample_date: date,
+    shift: shift || null,
+    brand_id: brandId || null,
+    purpose,
+    sheets,
+    inks,
+    notes: s("notes").slice(0, 1000) || null,
+  });
+  if (error) return { error: saveError(error.message) };
+  refresh();
+  revalidatePath("/ops/inventory", "layout");
+  const grams = Object.values(inks).reduce((t, g) => t + g, 0);
+  return { ok: `${n(sheets)} sample sheet${sheets === 1 ? "" : "s"} logged${grams ? `, ${formatGrams(grams)} of ink` : ""}. Tinplate and ink are off the stock.` };
+}
+
+/** Remove sample sheets logged by mistake (admin only; their tinplate and ink go back). */
+export async function deleteSampleSheets(fd: FormData): Promise<void> {
+  await requireStaff(["admin"]);
+  const id = String(fd.get("id") ?? "");
+  if (!UUID.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("sample_sheets").delete().eq("id", id);
+  refresh();
+  revalidatePath("/ops/inventory", "layout");
 }
 
 const STAGE_LABEL = OVEN_STAGE_LABEL;
@@ -203,7 +306,7 @@ export async function startPass(_prev: PrintRunState, fd: FormData): Promise<Pri
   if (finishedAt && finishedAt < startedAt) return { error: "It can't come out before it went in." };
   if (new Date(startedAt).getTime() > Date.now() + 5 * 60_000) return { error: "The time it went in is in the future." };
   if (temp != null && (!Number.isFinite(temp) || temp < 0 || temp > 400)) return { error: "Oven temperature: enter °C, from 0 to 400." };
-  if (!Number.isFinite(spoiled) || spoiled > 3_000) return { error: "Spoiled sheets: enter a whole number." };
+  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE) return { error: "Spoiled sheets: enter a whole number." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("stillage_passes").insert({
@@ -238,7 +341,7 @@ export async function finishPass(_prev: PrintRunState, fd: FormData): Promise<Pr
   const spoiled = wholeNumber(s("sheets_spoiled"));
   if (!UUID.test(passId)) return { error: "Pass not found." };
   if (!finishedAt) return { error: "Enter when it came out of the oven." };
-  if (!Number.isFinite(spoiled) || spoiled > 3_000) return { error: "Spoiled sheets: enter a whole number." };
+  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE) return { error: "Spoiled sheets: enter a whole number." };
 
   const supabase = await createClient();
   const { data: pass } = await supabase.from("stillage_passes").select("started_at, stage").eq("id", passId).maybeSingle<{ started_at: string; stage: OvenStage }>();

@@ -102,6 +102,18 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
       .returns<{ id: string; stillage_passes: { stage: string; finished_at: string | null }[] }[]>(),
     db.from("print_runs").select("id", { count: "exact", head: true }).gte("used_up_at", from).lt("used_up_at", to),
   ]);
+  // Ink, sample sheets and base-coated stock (20261022000001).
+  const [samplesRes, runInks, inkNames, coated] = await Promise.all([
+    db.from("sample_sheets").select("sheets, inks, brands(name)").eq("sample_date", date).returns<{ sheets: number; inks: Record<string, number> | null; brands: Named }[]>(),
+    db.from("print_runs").select("inks").eq("run_date", date).eq("printed", true).returns<{ inks: Record<string, number> | null }[]>(),
+    db.from("raw_materials").select("id, ink_name").not("ink_name", "is", null).returns<{ id: string; ink_name: string }[]>(),
+    db.from("print_runs").select("id", { count: "exact", head: true }).is("brand_id", null).eq("printed", false),
+  ]);
+  const inkGrams = new Map<string, number>();
+  for (const row of [...(runInks.data ?? []), ...(samplesRes.data ?? [])]) {
+    for (const [id, g] of Object.entries(row.inks ?? {})) inkGrams.set(id, (inkGrams.get(id) ?? 0) + Number(g));
+  }
+  const inkName = new Map((inkNames.data ?? []).map((i) => [i.id, i.ink_name]));
   const machines = machinesRes.data ?? [];
   const maintLogs = maintRes.data ?? [];
   const nameOf = new Map(machines.map((m) => [m.id, m.name]));
@@ -127,6 +139,12 @@ export async function loadEodInput(db: SupabaseClient, date: string, now = new D
     toPress: sent.count ?? 0,
     usedUp: usedUp.count ?? 0,
     sheetStock: (stock.data ?? []).filter((r) => (r.stillage_passes ?? []).some((p) => p.stage === "lacquer" && p.finished_at)).length,
+    coatedStock: coated.count ?? 0,
+    samples: (samplesRes.data ?? []).map((s) => ({ brand: s.brands?.name ?? "", sheets: Number(s.sheets) })),
+    inkUsed: [...inkGrams.entries()]
+      .map(([id, grams]) => ({ name: inkName.get(id) ?? "Ink", grams }))
+      .filter((i) => i.grams > 0)
+      .sort((a, b) => b.grams - a.grams),
     inOven: (oven.data ?? []).map((p) => ({ stage: p.stage, started_at: p.started_at, stillage_no: p.print_runs?.stillage_no ?? null })),
     inspections: (insp.data ?? []).map((i) => ({ batch_no: i.batch_no, result: i.result, published: i.published, order_no: i.orders?.order_no ?? "-", brand: i.orders?.brands?.name ?? "" })),
     unsignedCertificates: (unsigned.data ?? []).filter((i) => i.coa_signatures.length === 0).map((i) => ({ batch_no: i.batch_no, order_no: i.orders?.order_no ?? "-" })),

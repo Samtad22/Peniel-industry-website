@@ -12,7 +12,8 @@ test("settings: stored values over the defaults, anything odd falls back", () =>
   ]);
   assert.equal(s.plant.reject_limit_pct, 0.6);
   assert.equal(s.plant.oven_minutes, 35);
-  assert.equal(s.plant.stillage_sheets, 1410, "out of range");
+  assert.equal(s.plant.stillage_sheets, 1420, "out of range");
+  assert.equal(mergeSettings([{ key: "plant", value: { stillage_sheets: 4260 } }]).plant.stillage_sheets, 4260, "over 3,000 is allowed");
   assert.equal(s.plant.press_per_hour, 270000, "missing keeps the default");
   assert.equal(linerPerHour(s.plant), 135000);
   assert.equal(linerPerShift(s.plant), 1080000);

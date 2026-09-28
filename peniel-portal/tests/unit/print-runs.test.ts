@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, printTotals, spoiledPct, STILLAGE_SHEETS, wholeNumber } from "../../lib/print-runs.ts";
+import { CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, printTotals, splitEvenly, spoiledPct, STILLAGE_SHEETS, stillageNumbers, wholeNumber } from "../../lib/print-runs.ts";
 
 test("spoiled sheets as a share of all sheets through the line", () => {
   assert.equal(spoiledPct(12_000, 150), 1.23);
@@ -9,9 +9,22 @@ test("spoiled sheets as a share of all sheets through the line", () => {
   assert.equal(spoiledPct(0, 20), 100);
 });
 
-test("a stillage of about 1,410 sheets, 702 crowns a sheet (a note, sheets are what count)", () => {
-  assert.equal(STILLAGE_SHEETS, 1_410);
+test("several stillages at once: numbered on from the first, spoiled sheets shared", () => {
+  assert.deepEqual(stillageNumbers(" ST-014 ", 3), ["ST-014", "ST-015", "ST-016"]);
+  assert.deepEqual(stillageNumbers("ST-099", 2), ["ST-099", "ST-100"]);
+  assert.deepEqual(stillageNumbers("7", 2), ["7", "8"]);
+  assert.deepEqual(stillageNumbers("A", 1), ["A"]);
+  assert.equal(stillageNumbers("ST-A", 2), null);
+  assert.deepEqual(splitEvenly(10, 3), [4, 3, 3]);
+  assert.deepEqual(splitEvenly(0, 2), [0, 0]);
+  assert.deepEqual(splitEvenly(5, 1), [5]);
+  assert.equal(crownsFromSheets(3 * STILLAGE_SHEETS, CROWNS_PER_SHEET), 2_990_520);
+});
+
+test("a stillage of about 1,420 sheets, 702 crowns a sheet (a note, sheets are what count)", () => {
+  assert.equal(STILLAGE_SHEETS, 1_420);
   assert.equal(CROWNS_PER_SHEET, 702);
+  assert.equal(crownsFromSheets(1_420, CROWNS_PER_SHEET), 996_840);
   assert.equal(crownsFromSheets(1_410, CROWNS_PER_SHEET), 989_820);
   assert.equal(crownsFromSheets(-5, 702), 0);
   const t = printTotals([

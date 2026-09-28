@@ -96,20 +96,26 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
     const { data } = await db
       .from("print_runs")
       .select(
-        "stillage_no, run_date, shift, printed, base_sheets, sheets_printed, sheets_spoiled, colours, coil_lot, notes, to_press_at, brands(name, companies(name)), press:machines!print_runs_press_id_fkey(name), stillage_passes(stage, material, oven_temp_c, started_at, finished_at, sheets_spoiled)",
+        "stillage_no, run_date, shift, printed, base_sheets, sheets_printed, sheets_spoiled, colours, inks, coil_lot, notes, to_press_at, brands(name, companies(name)), press:machines!print_runs_press_id_fkey(name), stillage_passes(stage, material, oven_temp_c, started_at, finished_at, sheets_spoiled)",
       )
       .gte("run_date", r.from)
       .lte("run_date", r.to)
       .order("run_date")
-      .returns<{ stillage_no: string | null; run_date: string; shift: string; printed: boolean; base_sheets: number | null; sheets_printed: number; sheets_spoiled: number; colours: string[]; coil_lot: string | null; notes: string | null; to_press_at: string | null; brands: { name: string; companies: Named } | null; press: Named; stillage_passes: Pass[] }[]>();
+      .returns<{ stillage_no: string | null; run_date: string; shift: string; printed: boolean; base_sheets: number | null; sheets_printed: number; sheets_spoiled: number; colours: string[]; inks: Record<string, number> | null; coil_lot: string | null; notes: string | null; to_press_at: string | null; brands: { name: string; companies: Named } | null; press: Named; stillage_passes: Pass[] }[]>();
+    const { data: inkRows } = await db.from("raw_materials").select("id, ink_name").not("ink_name", "is", null).returns<{ id: string; ink_name: string }[]>();
+    const inkName = new Map((inkRows ?? []).map((i) => [i.id, i.ink_name]));
+    const inkText = (inks: Record<string, number> | null) =>
+      Object.entries(inks ?? {})
+        .map(([id, g]) => `${inkName.get(id) ?? "Ink"}: ${Number(g)} g`)
+        .join(" | ");
     const pass = (ps: Pass[], stage: string) => ps.find((p) => p.stage === stage);
     const passCols = (p?: Pass) => [p?.material, local(p?.started_at), local(p?.finished_at), p ? mins(p.started_at, p.finished_at) : null, p?.oven_temp_c == null ? null : Number(p.oven_temp_c), p ? Number(p.sheets_spoiled) : null];
     const stageHead = (s: string) => [`${s}: material`, `${s}: in`, `${s}: out`, `${s}: minutes`, `${s}: °C`, `${s}: sheets spoiled`];
     return [
-      ["Stillage", "Brand", "Customer", "Date", "Shift", "Printed", "Base-coated sheets", ...stageHead("Base coat"), "Good sheets printed", "Spoiled on the print line", "Colours", ...stageHead("Varnish"), ...stageHead("Lacquer"), "To the press", "Press", "Coil / lot", "Notes"],
+      ["Stillage", "Brand", "Customer", "Date", "Shift", "Printed", "Base-coated sheets", ...stageHead("Base coat"), "Good sheets printed", "Spoiled on the print line", "Colours", "Ink used", ...stageHead("Varnish"), ...stageHead("Lacquer"), "To the press", "Press", "Coil / lot", "Notes"],
       ...(data ?? []).map((x) => [
         x.stillage_no,
-        x.brands?.name,
+        x.brands?.name ?? "No brand yet",
         x.brands?.companies?.name,
         x.run_date,
         x.shift,
@@ -119,6 +125,7 @@ async function build(kind: Kind, db: Awaited<ReturnType<typeof createClient>>, r
         x.printed ? Number(x.sheets_printed) : null,
         x.printed ? Number(x.sheets_spoiled) : null,
         (x.colours ?? []).join(" | "),
+        inkText(x.inks),
         ...passCols(pass(x.stillage_passes, "varnish")),
         ...passCols(pass(x.stillage_passes, "lacquer")),
         local(x.to_press_at),
