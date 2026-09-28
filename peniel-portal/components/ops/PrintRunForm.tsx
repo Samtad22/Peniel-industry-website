@@ -6,13 +6,14 @@ import { deletePrintRun, savePrintRun, type PrintRunState } from "@/app/ops/prod
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { formatQty } from "@/lib/format";
+import InkFields from "@/components/ops/InkFields";
+import { inkKey, type BrandInk } from "@/lib/ink-usage";
 import { parseInk } from "@/lib/inks";
 import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, MAX_STILLAGES_AT_ONCE, stillageNumbers, wholeNumber, type BaseCoat } from "@/lib/print-runs";
 import { SHIFTS } from "@/lib/production-math";
 
-/** A brand whose design can be printed, with its colours. */
-export type PrintBrand = { id: string; label: string; colours: string[]; baseCoat?: BaseCoat | null };
-
+/** A brand whose design can be printed, with its colours and their inks (grams per sheet). */
+export type PrintBrand = { id: string; label: string; colours: string[]; baseCoat?: BaseCoat | null; inks?: BrandInk[] };
 
 const fmt = (v: string) => {
   const n = wholeNumber(v);
@@ -41,8 +42,17 @@ export default function PrintRunForm({
   onDone?: () => void;
 }) {
   const { stillage_sheets: STILLAGE_SHEETS } = usePlant();
-  const [brandId, setBrandId] = useState(fixed?.brandId ?? brands[0]?.id ?? "");
+  // A base-coated stillage with no brand yet: the brand is chosen now.
+  const lockBrand = Boolean(fixed?.brandId);
+  const [brandId, setBrandIdRaw] = useState(fixed?.brandId || brands[0]?.id || "");
   const brand = brands.find((b) => b.id === brandId);
+  // Colours not printed this time (all are ticked to start with).
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const [savedCount, setSavedCount] = useState(0);
+  const setBrandId = (id: string) => {
+    setBrandIdRaw(id);
+    setOff(new Set());
+  };
   const [printed, setPrinted] = useState(String(fixed?.sheets ?? STILLAGE_SHEETS));
   const [spoiled, setSpoiled] = useState("");
   const [stillage, setStillage] = useState(fixed?.stillageNo ?? nextNo);
@@ -57,6 +67,7 @@ export default function PrintRunForm({
     setCount("1");
     setBrandId(brands[0]?.id ?? "");
     setFormKey((k) => k + 1);
+    setOff(new Set());
   };
   const [state, action, pending] = useActionState<PrintRunState, FormData>(async (prev, fd) => {
     const res = await savePrintRun(prev, fd);
@@ -68,6 +79,7 @@ export default function PrintRunForm({
       setSpoiled("");
       setCount("1");
       setStillage((prevNo) => stillageNumbers(prevNo, saved + 1)?.[saved] ?? "");
+      setSavedCount((n) => n + 1);
     }
     return res;
   }, null);
@@ -78,6 +90,10 @@ export default function PrintRunForm({
   const good = p * c;
   const numbers = c > 1 ? stillageNumbers(stillage, c) : null;
   const step = (d: number) => setCount(String(Math.min(MAX_STILLAGES_AT_ONCE, Math.max(1, (c || 1) + d))));
+  // Ink for the colours printed, over every sheet through the printer (good and spoiled).
+  const printedKeys = new Set((brand?.colours ?? []).filter((col) => !off.has(col)).map(inkKey));
+  const inks = (brand?.inks ?? []).filter((i) => printedKeys.has(inkKey(i.name)));
+  const throughPrinter = good + sp;
   const seg = "seg-opt min-h-[52px] flex-1 justify-center text-[15px]";
   const big = "input !min-h-[56px] text-[22px] font-extrabold";
 
@@ -104,7 +120,23 @@ export default function PrintRunForm({
         </fieldset>
       </div>
 
-      {fixed ? (
+      {fixed && !lockBrand ? (
+        <>
+          <input type="hidden" name="stillage_no" value={stillage} />
+          <p className="m-0 text-[14px]">
+            Stillage <b className="font-mono">{stillage}</b> · base-coated stock, now off the print line. Choose the brand printed on it.
+          </p>
+          <Field label="Brand printed" htmlFor="pr-brand">
+            <select id="pr-brand" name="brand_id" required value={brandId} onChange={(e) => setBrandId(e.target.value)} className="input !min-h-[52px] text-[16px]">
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </>
+      ) : fixed ? (
         <>
           <input type="hidden" name="brand_id" value={brandId} />
           <input type="hidden" name="stillage_no" value={stillage} />
@@ -151,7 +183,21 @@ export default function PrintRunForm({
                 const ink = parseInk(c);
                 return (
                   <label key={c} className="inline-flex min-h-11 cursor-pointer items-center gap-2 border-2 border-text px-3 text-[14px] has-[:checked]:bg-text has-[:checked]:text-bg">
-                    <input type="checkbox" name="colours" value={c} defaultChecked className="sr-only" />
+                    <input
+                      type="checkbox"
+                      name="colours"
+                      value={c}
+                      checked={!off.has(c)}
+                      onChange={(e) =>
+                        setOff((s) => {
+                          const next = new Set(s);
+                          if (e.target.checked) next.delete(c);
+                          else next.add(c);
+                          return next;
+                        })
+                      }
+                      className="sr-only"
+                    />
                     <span
                       aria-hidden="true"
                       className="inline-block size-4 shrink-0 rounded-full"
@@ -214,6 +260,12 @@ export default function PrintRunForm({
           <span className="opacity-60">({good ? formatQty(crownsFromSheets(good, CROWNS_PER_SHEET)) : "0"})</span>
         </span>
       </div>
+
+      {inks.length > 0 ? (
+        <InkFields key={`${formKey}-${brandId}-${savedCount}`} inks={inks} sheets={throughPrinter} idPrefix="pr-ink" />
+      ) : (
+        <input type="hidden" name="inks" value="{}" />
+      )}
 
       <Field label="Tinplate coil / lot" htmlFor="pr-coil">
         <input id="pr-coil" name="coil_lot" maxLength={60} placeholder="e.g. TP-2291" className="input min-h-11" />

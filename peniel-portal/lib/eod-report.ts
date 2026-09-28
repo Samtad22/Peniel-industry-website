@@ -6,6 +6,7 @@
 // Pure (no server imports) so it can be unit-tested; lib/eod-data.ts loads the rows.
 
 import { formatDate, formatQty } from "./format.ts";
+import { formatGrams } from "./ink-usage.ts";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "./order-status.ts";
 
 const SHIFTS = ["A", "B", "C"] as const;
@@ -26,6 +27,12 @@ export type EodInput = {
   usedUp?: number;
   /** Finished stillages in printed-sheet stock now. */
   sheetStock: number;
+  /** Base-coated stillages with no brand yet (base-coated stock) now. */
+  coatedStock?: number;
+  /** Sample sheets logged on the day. */
+  samples?: { brand: string; sheets: number }[];
+  /** Ink used on the day (stillages printed and samples), per ink. */
+  inkUsed?: { name: string; grams: number }[];
   /** Oven passes with no "out" time yet, whatever day they went in. */
   inOven: { stage: "base_coat" | "varnish" | "lacquer"; started_at: string; stillage_no: string | null }[];
   inspections: { batch_no: string; order_no: string; brand: string; result: "released" | "on_hold" | null; published: boolean }[];
@@ -111,9 +118,15 @@ export function buildEodReport(d: EodInput): EodReport {
     if (out.length) sheets.push(`${stage === "base_coat" ? "Base-coated" : stage === "varnish" ? "Varnished" : "Lacquered"}: ${plural(out.length, "stillage")} out of the oven, ${n(sum(out.map((p) => p.sheets_spoiled)))} sheets spoiled.`);
   }
 
+  if (d.samples?.length) {
+    const brands = [...new Set(d.samples.map((s) => s.brand).filter(Boolean))];
+    sheets.push(`Sample sheets: ${plural(sum(d.samples.map((s) => s.sheets)), "sheet")}${brands.length ? ` (${brands.join(", ")})` : ""}.`);
+  }
+  if (d.inkUsed?.length) sheets.push(`Ink used: ${d.inkUsed.map((i) => `${i.name} ${formatGrams(i.grams)}`).join(", ")}.`);
   if (d.toPress) sheets.push(`Sent to the presses: ${plural(d.toPress, "stillage")}.`);
   if (d.usedUp) sheets.push(`Used up at the presses: ${plural(d.usedUp, "stillage")}.`);
   sheets.push(`In stock now: ${plural(d.sheetStock, "finished stillage")}.`);
+  if (d.coatedStock) sheets.push(`Base-coated stock (brand later): ${plural(d.coatedStock, "stillage")}.`);
 
   // ---- Quality ----
   const released = d.inspections.filter((i) => i.result === "released").length;

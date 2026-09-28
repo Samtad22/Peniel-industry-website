@@ -131,3 +131,22 @@ test("printed sheets: base coat passes are counted and named", () => {
   assert.ok(r.sections[1].lines.includes("Base-coated: 1 stillage out of the oven, 2 sheets spoiled."));
   assert.ok(r.checks.includes("Stillage ST-030 still in the base coat oven (20 min): log it out."));
 });
+
+test("printed sheets: sample sheets, ink used and base-coated stock", () => {
+  const r = buildEodReport({
+    ...empty,
+    samples: [
+      { brand: "Habesha", sheets: 20 },
+      { brand: "Feta", sheets: 5 },
+    ],
+    inkUsed: [
+      { name: "PANTONE 485 C", grams: 1136 },
+      { name: "Black", grams: 250 },
+    ],
+    coatedStock: 2,
+  });
+  const sheets = r.sections.find((s) => /sheets/i.test(s.title))!.lines;
+  assert.ok(sheets.includes("Sample sheets: 25 sheets (Habesha, Feta)."), sheets.join("\n"));
+  assert.ok(sheets.includes("Ink used: PANTONE 485 C 1.14 kg, Black 250 g."));
+  assert.ok(sheets.includes("Base-coated stock (brand later): 2 stillages."));
+});

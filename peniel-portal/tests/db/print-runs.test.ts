@@ -74,7 +74,8 @@ test("a run entered against an order (the screen before stillages) takes the ord
 
 test("a stillage needs a brand, sheets, a known shift and a sensible oven temperature", async () => {
   for (const [extra, code] of [
-    [{ brand_id: null }, "23502"],
+    // Only base-coated stock (not printed yet) may have no brand.
+    [{ brand_id: null }, "23514"],
     [{ sheets_printed: 0, sheets_spoiled: 0 }, "23514"],
     [{ sheets_printed: -1 }, "23514"],
     [{ shift: "D" }, "23514"],

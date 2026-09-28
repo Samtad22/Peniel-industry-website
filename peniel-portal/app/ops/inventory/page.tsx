@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
-import { MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockCountDialog, StockStatusDialog } from "@/components/ops/InventoryForms";
+import { InkRatesDialog, MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockCountDialog, StockStatusDialog, type InkRateBrand } from "@/components/ops/InventoryForms";
+import { brandInks, formatGrams, formatInkStock, inkByBrand, inkKey, type InkGrams, type InkRate } from "@/lib/ink-usage";
+import { parseInk } from "@/lib/inks";
 import { Pill } from "@/components/ui/StatusBadge";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -14,7 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inventory" };
 
-type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active: boolean };
+type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active: boolean; ink_name: string | null };
+type InkUse = { inks: InkGrams | null; brands: { name: string } | null };
 type Stock = {
   id: string;
   company_id: string;
@@ -39,9 +42,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const supabase = await createClient();
 
   const canSetMaterials = me.role === "admin" || me.role === "warehouse";
-  const weekAgo = `${addDays(new Date().toISOString().slice(0, 10), -7)}T00:00:00+03:00`;
-  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active").order("name").returns<Material[]>(),
+  const canSetInkRates = canSetMaterials || me.role === "production";
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const weekAgo = `${addDays(todayIso, -7)}T00:00:00+03:00`;
+  const monthAgo = addDays(todayIso, -30);
+  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }, { data: rateData }, { data: runInks }, { data: sampleInks }] = await Promise.all([
+    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active, ink_name").order("name").returns<Material[]>(),
     supabase
       .from("finished_stock")
       .select("id, company_id, batch_no, quantity, location, status, customer_reason, ready_since, order_id, companies(name), brands(name), orders(order_no)")
@@ -49,7 +55,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       .order("ready_since", { ascending: false })
       .returns<Stock[]>(),
     supabase.from("companies").select("id, name").eq("active", true).order("name").returns<{ id: string; name: string }[]>(),
-    supabase.from("brands").select("id, name, company_id").eq("active", true).order("name").returns<{ id: string; name: string; company_id: string }[]>(),
+    supabase
+      .from("brands")
+      .select("id, name, company_id, colours, companies(name)")
+      .eq("active", true)
+      .order("name")
+      .returns<{ id: string; name: string; company_id: string; colours: string[]; companies: { name: string } | null }[]>(),
     supabase
       .from("orders")
       .select("id, order_no, company_id, brand_id")
@@ -59,10 +70,36 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     supabase.from("pickup_bookings").select("id", { count: "exact", head: true }).neq("status", "collected"),
     // Material used automatically over the last 7 days.
     supabase.from("raw_material_movements").select("material_id, quantity").eq("source", "auto").gte("created_at", weekAgo).returns<{ material_id: string; quantity: number }[]>(),
+    supabase.from("brand_ink_rates").select("brand_id, material_id, g_per_sheet").returns<InkRate[]>(),
+    // Ink used over the last 30 days, per brand: printed stillages and sample sheets.
+    supabase.from("print_runs").select("inks, brands(name)").gte("run_date", monthAgo).neq("inks", "{}").returns<InkUse[]>(),
+    supabase.from("sample_sheets").select("inks, brands(name)").gte("sample_date", monthAgo).neq("inks", "{}").returns<InkUse[]>(),
   ]);
-  const onList = (materials ?? []).filter((m) => m.active !== false);
+  const onList = (materials ?? []).filter((m) => m.active !== false && !m.ink_name);
+  const inks = (materials ?? []).filter((m) => m.active !== false && m.ink_name);
   const offList = (materials ?? []).filter((m) => m.active === false);
   const usedWeek = (id: string) => -(autoUse ?? []).filter((u) => u.material_id === id).reduce((t, u) => t + Number(u.quantity), 0);
+  const inkMaterials = (materials ?? []).filter((m) => m.ink_name).map((m) => ({ id: m.id, ink_name: m.ink_name!, active: m.active }));
+  const rates = rateData ?? [];
+  const rateBrands: InkRateBrand[] = (brands ?? []).map((b) => ({
+    id: b.id,
+    label: `${b.name} · ${(b.companies?.name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "")}`,
+    inks: brandInks(b.colours, b.id, inkMaterials, rates),
+  }));
+  // Which brands print each ink, at how many grams a sheet.
+  const inkBrands = (id: string) => rateBrands.filter((b) => b.inks.some((i) => i.materialId === id)).map((b) => ({ name: b.label.split(" · ")[0], g: b.inks.find((i) => i.materialId === id)!.gPerSheet }));
+  const printedBy = inkByBrand((runInks ?? []).map((r) => ({ brand: r.brands?.name ?? "No brand", inks: r.inks })));
+  const sampledBy = inkByBrand((sampleInks ?? []).map((r) => ({ brand: r.brands?.name ?? "No brand", inks: r.inks })));
+  const inkUseBrands = [...new Set([...printedBy.keys(), ...sampledBy.keys()])].sort();
+  const inkLabel = new Map(inkMaterials.map((i) => [i.id, i.ink_name]));
+  // The swatch: the hex on a brand's colour, else a known Pantone's.
+  const brandHex = new Map<string, string>();
+  for (const b of brands ?? []) for (const c of b.colours ?? []) {
+    const hex = parseInk(c).hex;
+    if (hex && !brandHex.has(inkKey(c))) brandHex.set(inkKey(c), hex);
+  }
+  const inkHex = (name: string) => brandHex.get(inkKey(name)) ?? parseInk(name).hex;
+  const INK_COLS = "grid grid-cols-[minmax(0,1.3fr)_110px_110px_110px_minmax(0,1.6fr)_110px] items-center gap-3";
 
   const q = (sp.q ?? "").trim().toLowerCase();
   const rows = (stock ?? []).filter(
@@ -132,7 +169,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             </h2>
             <div className="flex flex-wrap gap-2">
               {canSetMaterials && <MaterialSettingsDialog />}
-              <MaterialDialog materials={onList.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
+              <MaterialDialog materials={[...onList, ...inks].map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-3">
@@ -199,6 +236,113 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               );
             })}
           </div>
+          <div className="border-t-2 border-text px-4 pb-6 pt-5 sm:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="m-0 text-[22px] sm:text-[24px]">Inks</h3>
+                <p className="m-0 text-[12px] opacity-70">
+                  One stock per Pantone or ink, in kg, shared by every brand that prints it. Each printed stillage and sample takes its ink off by itself.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canSetInkRates && <InkRatesDialog brands={rateBrands.filter((b) => b.inks.length > 0)} />}
+                {inks.length > 0 && <MaterialDialog label="Record ink in / out" materials={inks.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />}
+              </div>
+            </div>
+            {inks.length === 0 ? (
+              <p className="m-0 py-3 text-[13px] opacity-60">No inks yet. They appear here as soon as brands have colours (Customers → a brand → colours).</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <div className="min-w-[860px]">
+                  <div className={`${INK_COLS} th-row border-b border-divider py-2`}>
+                    <span>Ink</span>
+                    <span className="text-right">In stock</span>
+                    <span className="text-right">Reorder at</span>
+                    <span className="text-right">Used in 7 days</span>
+                    <span>Brands · grams per sheet</span>
+                    <span />
+                  </div>
+                  {inks.map((m) => {
+                    const onHand = Number(m.on_hand);
+                    const reorder = m.reorder_level == null ? null : Number(m.reorder_level);
+                    const low = onHand < 0 || (reorder != null && onHand <= reorder);
+                    const hex = inkHex(m.ink_name!);
+                    const users = inkBrands(m.id);
+                    return (
+                      <div key={m.id} className={`${INK_COLS} border-b border-divider py-2 text-[13px] ${low ? "bg-accent-100" : ""}`}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            aria-hidden="true"
+                            className="inline-block size-4 shrink-0 rounded-full"
+                            style={{ background: hex ?? "transparent", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent)" }}
+                          />
+                          <b className="truncate">{m.ink_name}</b>
+                        </span>
+                        <span className={`text-right tabular-nums ${low ? "font-extrabold text-accent-800" : ""}`}>
+                          <b>{formatInkStock(onHand)}</b>
+                          {onHand < 0 && <span className="block text-[11px]">a count is due</span>}
+                        </span>
+                        <span className="text-right tabular-nums opacity-80">{reorder != null ? formatInkStock(reorder) : "-"}</span>
+                        <span className="text-right tabular-nums">{usedWeek(m.id) > 0 ? formatInkStock(usedWeek(m.id)) : "-"}</span>
+                        <span className="min-w-0 truncate text-[12px]" title={users.map((u) => `${u.name}${u.g ? ` ${u.g} g` : ""}`).join(" · ")}>
+                          {users.length === 0
+                            ? <span className="opacity-60">no brand now</span>
+                            : users.map((u, i) => (
+                                <span key={u.name}>
+                                  {i > 0 && " · "}
+                                  {u.name} <span className={u.g ? "opacity-70" : "text-accent-800"}>{u.g ? `${u.g} g` : "not set"}</span>
+                                </span>
+                              ))}
+                        </span>
+                        <span className="flex flex-col items-end gap-1">
+                          {me.role === "admin" && <StockCountDialog id={m.id} name={m.ink_name!} unit={m.unit} onHand={onHand} />}
+                          {canSetMaterials && (
+                            <MaterialSettingsDialog
+                              material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: reorder, use_basis: null, use_rate: null, active: true, ink: true }}
+                            />
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <h4 className="m-0 mb-1 mt-6 text-[16px]">Ink used by brand · last 30 days</h4>
+            {inkUseBrands.length === 0 ? (
+              <p className="m-0 py-2 text-[13px] opacity-60">No ink recorded on stillages or sample sheets in the last 30 days.</p>
+            ) : (
+              <div className="border-t border-divider">
+                {inkUseBrands.map((brand) => {
+                  const printed = printedBy.get(brand) ?? new Map<string, number>();
+                  const sampled = sampledBy.get(brand) ?? new Map<string, number>();
+                  const ids = [...new Set([...printed.keys(), ...sampled.keys()])].sort((a, b) => (inkLabel.get(a) ?? "").localeCompare(inkLabel.get(b) ?? ""));
+                  const total = ids.reduce((t, id) => t + (printed.get(id) ?? 0) + (sampled.get(id) ?? 0), 0);
+                  return (
+                    <div key={brand} className="grid gap-x-4 gap-y-1 border-b border-divider py-2.5 text-[13px] sm:grid-cols-[180px_minmax(0,1fr)_110px]">
+                      <b className="truncate">{brand}</b>
+                      <span className="flex flex-wrap gap-x-4 gap-y-1">
+                        {ids.map((id) => (
+                          <span key={id} className="inline-flex items-center gap-1.5">
+                            <span
+                              aria-hidden="true"
+                              className="inline-block size-3 shrink-0 rounded-full"
+                              style={{ background: inkHex(inkLabel.get(id) ?? "") ?? "transparent", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent)" }}
+                            />
+                            {inkLabel.get(id) ?? "Ink"} <b className="tabular-nums">{formatGrams((printed.get(id) ?? 0) + (sampled.get(id) ?? 0))}</b>
+                            {sampled.get(id) ? <span className="text-[11px] opacity-65">({formatGrams(sampled.get(id)!)} samples)</span> : null}
+                          </span>
+                        ))}
+                      </span>
+                      <b className="tabular-nums sm:text-right">{formatGrams(total)}</b>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {canSetMaterials && offList.length > 0 && (
             <p className="m-0 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t-2 border-divider px-4 py-3 text-[12px] sm:px-8">
               <span className="opacity-70">Taken off the list (history kept):</span>

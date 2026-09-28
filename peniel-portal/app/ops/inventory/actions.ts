@@ -75,13 +75,19 @@ export async function setStockStatus(_prev: InvState, fd: FormData): Promise<Inv
 export async function recordMaterial(_prev: InvState, fd: FormData): Promise<InvState> {
   const me = await requireStaff(["admin", "warehouse", "production"]);
   const id = s(fd, "material_id");
-  const qty = Number(s(fd, "quantity").replace(",", "."));
+  const typed = Number(s(fd, "quantity").replace(",", "."));
+  // A material kept in kg (inks) can be typed in grams.
+  const qty = s(fd, "qty_unit") === "g" ? typed / 1000 : typed;
   const dir = s(fd, "direction") === "out" ? -1 : 1;
   const reason = s(fd, "reason");
   if (!UUID.test(id)) return { error: "Choose the material." };
   if (!(qty > 0)) return { error: "Enter the quantity." };
   if (!reason) return { error: "Say why (e.g. delivery received, issued to Line 2)." };
   const supabase = await createClient();
+  if (s(fd, "qty_unit") === "g") {
+    const { data: m } = await supabase.from("raw_materials").select("unit").eq("id", id).maybeSingle<{ unit: string }>();
+    if (m?.unit.toLowerCase() !== "kg") return { error: "Grams only for materials kept in kg." };
+  }
   const { error } = await supabase
     .from("raw_material_movements")
     .insert({ material_id: id, quantity: dir * qty, reason: reason.slice(0, 200), created_by: me.user_id });
@@ -176,13 +182,58 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
   if (basis && rate == null) return { error: "Enter how much is used, or choose “not tracked”." };
   // Unticking "On the list" hides the material (its history stays); a new one is always on the list.
   const active = !UUID.test(id) || fd.get("active") === "on";
-  const row = { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active };
   const supabase = await createClient();
+  // An ink keeps its name and unit (kg); its use comes from each stillage's ink figure.
+  const { data: ink } = UUID.test(id)
+    ? await supabase.from("raw_materials").select("name, ink_name").eq("id", id).maybeSingle<{ name: string; ink_name: string | null }>()
+    : { data: null };
+  const row: Record<string, unknown> = ink?.ink_name
+    ? { reorder_level: reorder, active }
+    : { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active };
   const { error } = UUID.test(id) ? await supabase.from("raw_materials").update(row).eq("id", id) : await supabase.from("raw_materials").insert(row);
   if (error) {
     if (error.code === "23505") return { error: `${name} already exists.` };
     return { error: /row-level|permission/i.test(error.message) ? "Your role can't change raw materials." : "Couldn't save. Please try again." };
   }
   refresh();
+  if (ink?.ink_name) return { ok: active ? "Saved." : `${ink.name} is off the list. Its history stays in the reports.` };
   return { ok: !UUID.test(id) ? `${name} added.` : active ? "Saved. Usage from now on follows the new rate." : `${name} is off the list. Its history stays in the reports.` };
+}
+
+/**
+ * Grams of each ink a sheet of a brand takes (admin, warehouse, production).
+ * `rates` is JSON {"<ink material id>": "0.8"}; an empty figure removes it.
+ */
+export async function saveInkRates(_prev: InvState, fd: FormData): Promise<InvState> {
+  await requireStaff(["admin", "warehouse", "production"]);
+  const brandId = s(fd, "brand_id");
+  if (!UUID.test(brandId)) return { error: "Choose the brand." };
+  let rates: Record<string, string>;
+  try {
+    rates = JSON.parse(s(fd, "rates") || "{}");
+  } catch {
+    return { error: "Couldn't read the figures. Please try again." };
+  }
+  const set: { brand_id: string; material_id: string; g_per_sheet: number }[] = [];
+  const clear: string[] = [];
+  for (const [id, raw] of Object.entries(rates)) {
+    if (!UUID.test(id)) return { error: "Couldn't read the figures. Please try again." };
+    const v = String(raw ?? "").trim().replace(",", ".");
+    if (!v) {
+      clear.push(id);
+      continue;
+    }
+    const g = Number(v);
+    if (!(Number.isFinite(g) && g > 0 && g <= 1000)) return { error: "Grams per sheet: a number above 0 (e.g. 0.8), or leave it empty." };
+    set.push({ brand_id: brandId, material_id: id, g_per_sheet: g });
+  }
+  const supabase = await createClient();
+  if (set.length) {
+    const { error } = await supabase.from("brand_ink_rates").upsert(set, { onConflict: "brand_id,material_id" });
+    if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't change ink figures." : "Couldn't save. Please try again." };
+  }
+  if (clear.length) await supabase.from("brand_ink_rates").delete().eq("brand_id", brandId).in("material_id", clear);
+  refresh();
+  revalidatePath("/ops/production/sheets");
+  return { ok: "Saved. The print and sample forms fill in the ink from these figures." };
 }

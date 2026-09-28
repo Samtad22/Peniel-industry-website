@@ -6,6 +6,7 @@ import {
   receiveStock,
   recordCollection,
   recordMaterial,
+  saveInkRates,
   saveMaterial,
   setMaterialStock,
   setStockStatus,
@@ -15,6 +16,7 @@ import { CustomerWarning } from "@/components/ops/OrderForms";
 import Modal from "@/components/ui/Modal";
 import { Button, FormMessage } from "@/components/ui/form";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
+import { formatGrams, inkFor, type BrandInk } from "@/lib/ink-usage";
 import type { StockStatus } from "@/lib/inventory";
 import { USE_BASIS, type UseBasis } from "@/lib/materials";
 
@@ -148,15 +150,26 @@ export function StockStatusDialog({ id, label, status: initial, reason: initialR
   );
 }
 
-export function MaterialDialog({ materials }: { materials: (Opt & { unit: string })[] }) {
-  const [state, action, pending] = useActionState<InvState, FormData>(recordMaterial, null);
+export function MaterialDialog({ materials, label = "Record material in / out", preset }: { materials: (Opt & { unit: string })[]; label?: string; preset?: string }) {
   return (
-    <Modal title="Record raw material" trigger={(open) => <Button type="button" variant="secondary" onClick={open} className="text-text">Record material in / out</Button>}>
-      {(close) => (
+    <Modal title="Record raw material" trigger={(open) => <Button type="button" variant="secondary" onClick={open} className="text-text">{label}</Button>}>
+      {(close) => <MaterialForm materials={materials} preset={preset} close={close} />}
+    </Modal>
+  );
+}
+
+function MaterialForm({ materials, preset, close }: { materials: (Opt & { unit: string })[]; preset?: string; close: () => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(recordMaterial, null);
+  const [id, setId] = useState(preset ?? materials[0]?.id ?? "");
+  const unit = materials.find((m) => m.id === id)?.unit ?? "";
+  // Kept in kg (inks, compound): type it in kg or g.
+  const inKg = unit.toLowerCase() === "kg";
+  const [qtyUnit, setQtyUnit] = useState<"kg" | "g">("kg");
+  return (
         <form action={action} className="flex flex-col gap-3">
           <div className="field">
             <label htmlFor="rm-mat">Material</label>
-            <select id="rm-mat" name="material_id" required className="input">
+            <select id="rm-mat" name="material_id" required value={id} onChange={(e) => setId(e.target.value)} className="input">
               {materials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>)}
             </select>
           </div>
@@ -169,8 +182,16 @@ export function MaterialDialog({ materials }: { materials: (Opt & { unit: string
               </div>
             </fieldset>
             <div className="field">
-              <label htmlFor="rm-qty">Quantity</label>
-              <input id="rm-qty" name="quantity" inputMode="decimal" required className="input" />
+              <label htmlFor="rm-qty">Quantity{inKg ? "" : unit ? ` (${unit})` : ""}</label>
+              <div className="flex">
+                <input id="rm-qty" name="quantity" inputMode="decimal" required className="input min-w-0 flex-1" />
+                {inKg && (
+                  <select aria-label="Unit" name="qty_unit" value={qtyUnit} onChange={(e) => setQtyUnit(e.target.value as "kg" | "g")} className="input !w-[72px] shrink-0 border-l-0">
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                  </select>
+                )}
+              </div>
             </div>
           </div>
           <div className="field">
@@ -184,8 +205,6 @@ export function MaterialDialog({ materials }: { materials: (Opt & { unit: string
             <Button type="submit" disabled={pending} icon="✓" className="w-[150px]">{pending ? "Saving…" : "Record"}</Button>
           </div>
         </form>
-      )}
-    </Modal>
   );
 }
 
@@ -287,7 +306,7 @@ function StockCountForm({ id, unit, onHand, close }: { id: string; unit: string;
   );
 }
 
-export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active?: boolean };
+export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active?: boolean; ink?: boolean };
 
 /** Add a raw material, or edit it: name, unit, reorder level, and how much is used automatically. */
 export function MaterialSettingsDialog({ material }: { material?: MaterialFields }) {
@@ -311,10 +330,135 @@ export function MaterialSettingsDialog({ material }: { material?: MaterialFields
   );
 }
 
+/** A brand and its inks, with the grams per sheet set so far. */
+export type InkRateBrand = { id: string; label: string; inks: BrandInk[] };
+
+/** Grams of each ink a sheet of a brand takes: fills in the ink on the print and sample forms. */
+export function InkRatesDialog({ brands }: { brands: InkRateBrand[] }) {
+  return (
+    <Modal
+      wide
+      title="Ink per sheet, per brand"
+      trigger={(open) => (
+        <Button type="button" variant="secondary" onClick={open} className="whitespace-nowrap text-text">
+          Ink per sheet
+        </Button>
+      )}
+    >
+      {(close) => <InkRatesForm brands={brands} close={close} />}
+    </Modal>
+  );
+}
+
+function InkRatesForm({ brands, close }: { brands: InkRateBrand[]; close: () => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(saveInkRates, null);
+  const [brandId, setBrandId] = useState(brands[0]?.id ?? "");
+  const brand = brands.find((b) => b.id === brandId);
+  const [rates, setRates] = useState<Record<string, Record<string, string>>>(() =>
+    Object.fromEntries(brands.map((b) => [b.id, Object.fromEntries(b.inks.map((i) => [i.materialId, i.gPerSheet == null ? "" : String(i.gPerSheet)]))])),
+  );
+  const mine = rates[brandId] ?? {};
+  const sheets = 1420;
+  return (
+    <form action={action} className="flex flex-col gap-3.5">
+      <input type="hidden" name="rates" value={JSON.stringify(mine)} />
+      <div className="field">
+        <label htmlFor="ir-brand">Brand</label>
+        <select id="ir-brand" name="brand_id" value={brandId} onChange={(e) => setBrandId(e.target.value)} className="input min-h-11">
+          {brands.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {brand && brand.inks.length === 0 && <p className="m-0 text-[13px] opacity-70">No colours on file for this brand. Add them under Customers.</p>}
+      {brand && brand.inks.length > 0 && (
+        <div className="border-t border-divider">
+          <div className="th-row grid grid-cols-[minmax(0,1fr)_130px_120px] gap-3 border-b border-divider py-2">
+            <span>Ink</span>
+            <span>Grams per sheet</span>
+            <span className="text-right">A stillage of {sheets.toLocaleString("en-US")}</span>
+          </div>
+          {brand.inks.map((i) => {
+            const v = mine[i.materialId] ?? "";
+            const g = Number(v.replace(",", "."));
+            return (
+              <div key={i.materialId} className="grid grid-cols-[minmax(0,1fr)_130px_120px] items-center gap-3 border-b border-divider py-2 text-[13px]">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-4 shrink-0 rounded-full"
+                    style={{ background: i.hex ?? "transparent", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent)" }}
+                  />
+                  <span className="truncate">{i.name}</span>
+                </span>
+                <input
+                  aria-label={`${i.name}: grams per sheet`}
+                  inputMode="decimal"
+                  value={v}
+                  onChange={(e) => setRates((r) => ({ ...r, [brandId]: { ...r[brandId], [i.materialId]: e.target.value } }))}
+                  placeholder="e.g. 0.8"
+                  className="input min-h-10"
+                />
+                <span className="text-right tabular-nums opacity-75">{g > 0 ? formatGrams(inkFor(sheets, g)) : "-"}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="m-0 text-[12px] opacity-70">
+        The print and sample forms fill in the ink from these (sheets × grams per sheet); the printer can change the figure there. The same ink on several brands is one stock.
+      </p>
+      <FormMessage state={state} />
+      <div className="dialog-actions">
+        <Button type="button" variant="secondary" onClick={close}>
+          {state?.ok ? "Done" : "Cancel"}
+        </Button>
+        <Button type="submit" disabled={pending || !brand || brand.inks.length === 0} icon="✓" className="w-[150px]">
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function MaterialSettingsForm({ material, close }: { material?: MaterialFields; close: () => void }) {
   const [state, action, pending] = useActionState<InvState, FormData>(saveMaterial, null);
   const [basis, setBasis] = useState(material?.use_basis ?? "");
   const [unit, setUnit] = useState(material?.unit ?? "");
+  if (material?.ink) {
+    return (
+      <form action={action} className="flex flex-col gap-3">
+        <input type="hidden" name="id" value={material.id} />
+        <input type="hidden" name="name" value={material.name} />
+        <input type="hidden" name="unit" value="kg" />
+        <div className="field">
+          <label htmlFor="ms-reorder">Reorder level in kg (optional)</label>
+          <input id="ms-reorder" name="reorder_level" inputMode="decimal" defaultValue={material.reorder_level ?? ""} placeholder="e.g. 5" className="input" />
+        </div>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" name="active" defaultChecked={material.active !== false} className="size-4 accent-[var(--color-accent)]" />
+          On the list (untick to take it off: its history stays in the reports)
+        </label>
+        <p className="m-0 text-[12px] opacity-70">
+          Ink comes off the stock with each printed stillage and sample: the figure filled in from the grams per sheet (set per brand under &ldquo;Ink per sheet&rdquo;), or what the
+          printer typed.
+        </p>
+        <FormMessage state={state} />
+        <div className="dialog-actions">
+          <Button type="button" variant="secondary" onClick={close}>
+            {state?.ok ? "Done" : "Cancel"}
+          </Button>
+          {!state?.ok && (
+            <Button type="submit" disabled={pending} icon="✓" className="w-[150px]">
+              {pending ? "Saving…" : "Save"}
+            </Button>
+          )}
+        </div>
+      </form>
+    );
+  }
   return (
     <form action={action} className="flex flex-col gap-3">
       {material && <input type="hidden" name="id" value={material.id} />}

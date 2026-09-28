@@ -18,30 +18,44 @@ const addMinutes = (local: string, minutes: number) =>
  * 00 · Base coat (brands that need one): a stillage into the big oven for its
  * white or transparent base coat, before it is printed (internal only).
  */
-export function BaseCoatDialog({ brands, nextNo, nowLocal, lastTemp }: { brands: PrintBrand[]; nextNo: string; nowLocal: string; lastTemp: number | null }) {
+export function BaseCoatDialog({ brands, nextNo, nowLocal, lastTemp, stock }: { brands: PrintBrand[]; nextNo: string; nowLocal: string; lastTemp: number | null; stock?: boolean }) {
   return (
     <Modal
       wide
-      title="00 · Base coat a stillage"
+      title={stock ? "00 · Base coat only, brand later" : "00 · Base coat a stillage"}
       trigger={(open) => (
         <Button type="button" variant="secondary" onClick={open} icon="→" className="w-full whitespace-nowrap text-text">
-          00 · Base coat first (white / transparent)
+          {stock ? "00 · Base coat only (brand later)" : "00 · Base coat first, for a brand"}
         </Button>
       )}
     >
-      {(close) => <BaseCoatForm brands={brands} nextNo={nextNo} nowLocal={nowLocal} lastTemp={lastTemp} close={close} />}
+      {(close) => <BaseCoatForm brands={brands} nextNo={nextNo} nowLocal={nowLocal} lastTemp={lastTemp} close={close} stock={stock} />}
     </Modal>
   );
 }
 
-function BaseCoatForm({ brands, nextNo, nowLocal, lastTemp, close }: { brands: PrintBrand[]; nextNo: string; nowLocal: string; lastTemp: number | null; close: () => void }) {
+function BaseCoatForm({
+  brands,
+  nextNo,
+  nowLocal,
+  lastTemp,
+  close,
+  stock,
+}: {
+  brands: PrintBrand[];
+  nextNo: string;
+  nowLocal: string;
+  lastTemp: number | null;
+  close: () => void;
+  stock?: boolean;
+}) {
   const { oven_minutes: OVEN_MINUTES, stillage_sheets: STILLAGE_SHEETS } = usePlant();
   const [state, action, pending] = useActionState<PrintRunState, FormData>(startBaseCoat, null);
   // Brands that need a base coat first.
   const sorted = [...brands].sort((a, b) => Number(Boolean(b.baseCoat)) - Number(Boolean(a.baseCoat)));
   const [brandId, setBrandId] = useState(sorted[0]?.id ?? "");
   const brand = brands.find((b) => b.id === brandId);
-  const [coat, setCoat] = useState<BaseCoat>(brand?.baseCoat ?? "white");
+  const [coat, setCoat] = useState<BaseCoat>((!stock && brand?.baseCoat) || "white");
   const [startedAt, setStartedAt] = useState(nowLocal);
   const [alreadyOut, setAlreadyOut] = useState(false);
   const [finishedAt, setFinishedAt] = useState(nowLocal);
@@ -51,6 +65,19 @@ function BaseCoatForm({ brands, nextNo, nowLocal, lastTemp, close }: { brands: P
       <div className="flex justify-end">
         <InternalOnly />
       </div>
+      {stock ? (
+        <>
+          <input type="hidden" name="stock" value="1" />
+          <p className="m-0 text-[13px] opacity-75">
+            Plain tinplate through the big oven with a white or transparent base coat, before the brand is known. The stillage waits in base-coated stock; the brand is
+            chosen when it is printed.
+          </p>
+          <Field label="Stillage no." htmlFor="bc-no">
+            <input id="bc-no" name="stillage_no" required maxLength={40} defaultValue={nextNo} className="input min-h-11 sm:max-w-[200px]" />
+          </Field>
+        </>
+      ) : (
+      <>
       <p className="m-0 text-[13px] opacity-75">Before printing, through the big oven. The stillage then waits for the print line.</p>
       <div className="grid gap-3.5 sm:grid-cols-[minmax(0,1fr)_160px]">
         <Field label="Brand" htmlFor="bc-brand">
@@ -78,6 +105,8 @@ function BaseCoatForm({ brands, nextNo, nowLocal, lastTemp, close }: { brands: P
           <input id="bc-no" name="stillage_no" required maxLength={40} defaultValue={nextNo} className="input min-h-11" />
         </Field>
       </div>
+      </>
+      )}
       <fieldset className="field m-0 border-0 p-0">
         <legend className="mb-[5px] p-0 text-[12px] text-text/70">Base coat</legend>
         <div className="seg !flex">
@@ -154,7 +183,7 @@ function BaseCoatForm({ brands, nextNo, nowLocal, lastTemp, close }: { brands: P
           {state?.ok ? "Done" : "Cancel"}
         </Button>
         {!state?.ok && (
-          <Button type="submit" disabled={pending || !brandId} icon="→" className="w-[190px]">
+          <Button type="submit" disabled={pending || (!stock && !brandId)} icon="→" className="w-[190px]">
             {pending ? "Saving…" : alreadyOut ? "Save the base coat" : "Into the oven"}
           </Button>
         )}
