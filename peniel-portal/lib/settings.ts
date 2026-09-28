@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tel: "+251 11 668 9255 / +251 957 238 924",
     linerTypeId: "Contoform 0369",
   },
-  plant: { reject_limit_pct: 0.5, oven_minutes: 30, stillage_sheets: 1_410, press_per_hour: 270_000, shift_hours: 8 },
+  plant: { reject_limit_pct: 0.5, oven_minutes: 30, stillage_sheets: 1_420, press_per_hour: 270_000, shift_hours: 8 },
 };
 
 export const EMAIL_GROUPS: { key: EmailGroup; who: "Customer" | "Staff" | "Admins"; label: string }[] = [
@@ -108,7 +108,7 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): Settings
     plant: {
       reject_limit_pct: num(plant.reject_limit_pct, 0.01, 20, d.plant.reject_limit_pct),
       oven_minutes: Math.round(num(plant.oven_minutes, 1, 240, d.plant.oven_minutes)),
-      stillage_sheets: Math.round(num(plant.stillage_sheets, 100, 3000, d.plant.stillage_sheets)),
+      stillage_sheets: Math.round(num(plant.stillage_sheets, 100, 10_000, d.plant.stillage_sheets)),
       press_per_hour: Math.round(num(plant.press_per_hour, 10_000, 2_000_000, d.plant.press_per_hour)),
       shift_hours: num(plant.shift_hours, 1, 24, d.plant.shift_hours),
     },

@@ -7,9 +7,32 @@
 // Shared by the browser and the server; no imports.
 
 /** Sheets on a stillage to start from; staff type the real count (usually 1,400 to 1,420). */
-export const STILLAGE_SHEETS = 1_410;
+export const STILLAGE_SHEETS = 1_420;
 /** Crowns one printed sheet makes. */
 export const CROWNS_PER_SHEET = 702;
+/** Most sheets on one stillage; more is surely a typo. */
+export const MAX_STILLAGE_SHEETS = 10_000;
+/** Most stillages saved from the print form at once. */
+export const MAX_STILLAGES_AT_ONCE = 30;
+
+/**
+ * The numbers of `count` stillages from the first one: "ST-014", 3 →
+ * ["ST-014", "ST-015", "ST-016"] (zero padding kept). Null when several are
+ * asked for and the number doesn't end in digits.
+ */
+export function stillageNumbers(first: string, count: number): string[] | null {
+  const no = first.trim();
+  if (count <= 1) return [no];
+  const m = /^(.*?)(\d+)$/.exec(no);
+  if (!m) return null;
+  return Array.from({ length: count }, (_, i) => `${m[1]}${String(Number(m[2]) + i).padStart(m[2].length, "0")}`);
+}
+
+/** `total` shared over `n` as evenly as whole numbers allow, the first ones taking the remainder: 10, 3 → [4, 3, 3]. */
+export function splitEvenly(total: number, n: number): number[] {
+  const base = Math.floor(total / n);
+  return Array.from({ length: n }, (_, i) => base + (i < total - base * n ? 1 : 0));
+}
 
 export type PrintRun = {
   id: string;

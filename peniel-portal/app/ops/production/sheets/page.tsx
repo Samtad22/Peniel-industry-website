@@ -53,7 +53,7 @@ const STATUS_STYLE: Record<StillageStatus, string> = {
 
 /**
  * Printed sheets: their own process, not tied to orders. Per stillage (about
- * 1,410 sheets): 00 a white or transparent base coat through the big oven
+ * 1,420 sheets): 00 a white or transparent base coat through the big oven
  * (only brands that need one), 01 the print line (two-unit roller printer with the UV dryer
  * at its end), 02 varnish through the oven (about 30 minutes), 03 lacquer
  * through the oven again. Internal only: customers never see it.
