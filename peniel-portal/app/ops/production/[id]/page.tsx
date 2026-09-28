@@ -36,15 +36,26 @@ export default async function OrderProductionPage({ params }: { params: Promise<
   const supabase = await createClient();
   const today = addisDateISO(new Date());
 
-  const [{ data: o }, entries] = await Promise.all([
+  const [{ data: o }, entries, { data: linkData }] = await Promise.all([
     supabase
       .from("orders")
       .select("id, order_no, quantity, status, confirmed_due_date, revised_due_date, companies(name), brands(name)")
       .eq("id", id)
       .maybeSingle<Order>(),
     loadEntries(supabase, { orderId: id }),
+    // The printed stillages its entries were pressed from.
+    supabase
+      .from("production_entry_stillages")
+      .select("print_run_id, print_runs(stillage_no, used_up_at), production_entries!inner(order_id, entry_date)")
+      .eq("production_entries.order_id", id)
+      .returns<{ print_run_id: string; print_runs: { stillage_no: string | null; used_up_at: string | null } | null; production_entries: { order_id: string; entry_date: string } | null }[]>(),
   ]);
   if (!o) notFound();
+  const usedStillages = [...new Set((linkData ?? []).map((l) => l.print_run_id))].map((rid) => {
+    const mine = (linkData ?? []).filter((l) => l.print_run_id === rid);
+    const dates = mine.map((l) => l.production_entries?.entry_date ?? "").filter(Boolean).sort();
+    return { id: rid, no: mine[0].print_runs?.stillage_no ?? `#${rid.slice(0, 4)}`, entries: mine.length, from: dates[0], to: dates.at(-1), usedUp: mine[0].print_runs?.used_up_at ?? null };
+  }).sort((a, b) => (a.from ?? "").localeCompare(b.from ?? ""));
 
   const canPublish = me.role === "admin" || me.role === "production";
   const quantity = Number(o.quantity);
@@ -147,6 +158,26 @@ export default async function OrderProductionPage({ params }: { params: Promise<
             end={formatDayMonth(daily.at(-1)!.date)}
           />
           <p className="mb-0 mt-2 text-[12px] opacity-60">Grey bars include entries not yet published.</p>
+
+          <div className="mb-2 mt-8">
+            <SectionHead title="Printed sheets pressed">
+              <InternalOnly />
+            </SectionHead>
+          </div>
+          {usedStillages.length === 0 ? (
+            <p className="m-0 text-[13px] opacity-60">No stillages named yet. Each daily entry names the stillages it was pressed from.</p>
+          ) : (
+            <div className="text-[13px]">
+              {usedStillages.map((s) => (
+                <div key={s.id} className="flex justify-between gap-3 border-b border-divider py-2">
+                  <span>
+                    <b className="font-mono">{s.no}</b> · {s.entries} {s.entries === 1 ? "entry" : "entries"} · {s.from === s.to ? formatDate(s.from) : `${formatDayMonth(s.from)} to ${formatDate(s.to)}`}
+                  </span>
+                  <span className={s.usedUp ? "opacity-70" : "font-extrabold"}>{s.usedUp ? `Used up ${formatDayMonth(s.usedUp)}` : "At the press"}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="px-4 py-6 sm:px-8 xl:pl-6">

@@ -31,10 +31,18 @@ export async function savePlant(_prev: SettingsState, fd: FormData): Promise<Set
   const limit = Number(s(fd, "reject_limit_pct").replace(",", "."));
   const oven = Number(s(fd, "oven_minutes"));
   const sheets = Number(s(fd, "stillage_sheets").replace(/[,\s]/g, ""));
+  const perHour = Number(s(fd, "press_per_hour").replace(/[,\s]/g, ""));
+  const shiftHours = Number(s(fd, "shift_hours").replace(",", "."));
   if (!(limit >= 0.01 && limit <= 20)) return { error: "Camera reject limit: a % from 0.01 to 20." };
   if (!(Number.isInteger(oven) && oven >= 1 && oven <= 240)) return { error: "Oven pass: whole minutes, 1 to 240." };
   if (!(Number.isInteger(sheets) && sheets >= 100 && sheets <= 3000)) return { error: "Sheets per stillage: a whole number, 100 to 3,000." };
-  return (await save("plant", { reject_limit_pct: limit, oven_minutes: oven, stillage_sheets: sheets })) ?? { ok: "Saved. Forms and pages use the new values now." };
+  if (!(Number.isInteger(perHour) && perHour >= 10_000 && perHour <= 2_000_000)) return { error: "Press speed: crowns an hour, 10,000 to 2,000,000." };
+  if (!(shiftHours >= 1 && shiftHours <= 24)) return { error: "Shift length: hours, 1 to 24." };
+  return (
+    (await save("plant", { reject_limit_pct: limit, oven_minutes: oven, stillage_sheets: sheets, press_per_hour: perHour, shift_hours: shiftHours })) ?? {
+      ok: "Saved. Forms and pages use the new values now.",
+    }
+  );
 }
 
 /** What the Certificate of Analysis prints. */

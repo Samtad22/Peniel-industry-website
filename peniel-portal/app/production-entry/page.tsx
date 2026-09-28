@@ -8,8 +8,8 @@ import { deleteEntry } from "@/app/ops/production/actions";
 import EntryForm from "@/components/ops/EntryForm";
 import SignOutButton from "@/components/SignOutButton";
 import { requireStaff } from "@/lib/auth";
-import { addisDateISO, formatQty } from "@/lib/format";
-import { loadEntries, loadLines, loadProducibleOrders } from "@/lib/production";
+import { addisDateISO, formatDayMonth, formatQty } from "@/lib/format";
+import { loadEntries, loadLines, loadPressStillages, loadProducibleOrders } from "@/lib/production";
 import { rejectPct } from "@/lib/production-math";
 import { ROLE_LABELS } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -24,10 +24,11 @@ export default async function ProductionEntryPage() {
   const me = await requireStaff(["admin", "production"]);
   const today = addisDateISO(new Date());
   const supabase = await createClient();
-  const [lines, orders, entries] = await Promise.all([
+  const [lines, orders, entries, atPress] = await Promise.all([
     loadLines(supabase),
     loadProducibleOrders(supabase),
     loadEntries(supabase, { from: today, to: today }),
+    loadPressStillages(supabase),
   ]);
 
   const settings = await getSettings();
@@ -63,7 +64,10 @@ export default async function ProductionEntryPage() {
                 label: `${o.order_no} · ${o.company.split(" ")[0]} · ${o.brand} · ${formatQty(o.quantity)}`,
                 quantity: o.quantity,
                 good: o.good,
+                brand_id: o.brand_id,
+                brand: o.brand,
               }))}
+              stillages={atPress.map((s) => ({ id: s.id, label: s.stillage_no, brand_id: s.brand_id, press: s.press, since: formatDayMonth(s.to_press_at), sheets: s.sheets, entries: s.entries }))}
             />
           )}
         </div>

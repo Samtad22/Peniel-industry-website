@@ -46,6 +46,14 @@ export function PlantForm({ plant }: { plant: PlantSettings }) {
           <input id="pl-sheets" name="stillage_sheets" inputMode="numeric" defaultValue={plant.stillage_sheets} className="input min-h-11" />
         </Field>
       </div>
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <Field label="Press speed (crowns an hour, both liners)" htmlFor="pl-speed" hint={`A liner makes half: ${(plant.press_per_hour / 2).toLocaleString("en-US")} an hour.`}>
+          <input id="pl-speed" name="press_per_hour" inputMode="numeric" defaultValue={plant.press_per_hour} className="input min-h-11" />
+        </Field>
+        <Field label="Hours in a shift" htmlFor="pl-shift" hint="For the entry form's capacity check.">
+          <input id="pl-shift" name="shift_hours" inputMode="decimal" defaultValue={plant.shift_hours} className="input min-h-11" />
+        </Field>
+      </div>
       <SaveRow state={state} pending={pending} />
     </form>
   );

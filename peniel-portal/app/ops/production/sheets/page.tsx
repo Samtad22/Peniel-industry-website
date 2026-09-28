@@ -24,7 +24,9 @@ import {
   type StillagePass,
   type StillageStatus,
 } from "@/lib/print-runs";
-import { loadProducibleOrders } from "@/lib/production";
+import { loadPressStillages, loadProducibleOrders } from "@/lib/production";
+import ConfirmForm from "@/components/ui/ConfirmForm";
+import { setStillageUsedUp } from "@/app/ops/production/sheets/actions";
 import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -67,7 +69,7 @@ export default async function PrintedSheetsPage() {
   const nowLocal = addisLocalNow();
   const supabase = await createClient();
 
-  const [{ data: runData }, { data: brandData }, { data: pressData }, openOrders] = await Promise.all([
+  const [{ data: runData }, { data: brandData }, { data: pressData }, openOrders, atPress] = await Promise.all([
     supabase
       .from("print_runs")
       .select("id, brand_id, stillage_no, run_date, shift, colours, sheets_printed, sheets_spoiled, crowns_per_sheet, coil_lot, notes, printed, base_sheets, to_press_at, press_id, created_at, brands(name, companies(name))")
@@ -81,10 +83,17 @@ export default async function PrintedSheetsPage() {
     // The presses a stillage can go to (installed ones).
     supabase.from("machines").select("id, name, status").eq("category", "press").is("parent_id", null).neq("status", "on_order").order("sort_order").returns<{ id: string; name: string; status: string }[]>(),
     loadProducibleOrders(supabase),
+    loadPressStillages(supabase),
   ]);
   const presses = (pressData ?? []).sort((a, b) => Number(b.status === "running") - Number(a.status === "running"));
   const pressName = new Map((pressData ?? []).map((p) => [p.id, p.name]));
   const runs = runData ?? [];
+  // Stillages that fed production can't go back to stock (no "undo" for them).
+  const atPressIds = runs.filter((r) => r.to_press_at).map((r) => r.id);
+  const { data: linkData } = atPressIds.length
+    ? await supabase.from("production_entry_stillages").select("print_run_id").in("print_run_id", atPressIds).returns<{ print_run_id: string }[]>()
+    : { data: [] as { print_run_id: string }[] };
+  const fedProduction = new Set((linkData ?? []).map((l) => l.print_run_id));
   const { data: passData } = runs.length
     ? await supabase
         .from("stillage_passes")
@@ -356,6 +365,33 @@ export default async function PrintedSheetsPage() {
             {inStock.length > 15 && <p className="m-0 pt-2 text-[12px] opacity-60">+ {inStock.length - 15} more.</p>}
           </div>
         )}
+        <div className="mt-6">
+          <h3 className="m-0 mb-1 text-[16px]">At the presses</h3>
+          <p className="m-0 mb-1 text-[12px] opacity-70">
+            Sent to a press and not used up yet. The daily entry picks from these; tick &quot;all sheets used&quot; there, or mark one used up here.
+          </p>
+          {atPress.length === 0 && <p className="m-0 py-2 text-[13px] opacity-60">None at the presses.</p>}
+          {atPress.map((x) => (
+            <div key={x.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-divider py-2.5">
+              <span className="min-w-0">
+                <b className="font-mono text-[15px]">{x.stillage_no}</b>
+                <span className="block truncate text-[13px] opacity-75">
+                  {x.brand} · {x.sheets.toLocaleString("en-US")} sheets · at {x.press} since {formatDayMonth(x.to_press_at)} {hhmm(x.to_press_at)} ·{" "}
+                  {x.entries ? `used in ${x.entries} ${x.entries === 1 ? "entry" : "entries"}` : "not used yet"}
+                </span>
+              </span>
+              {canEnter && (
+                <ConfirmForm
+                  action={setStillageUsedUp}
+                  fields={{ id: x.id, used: "1" }}
+                  message={`Stillage ${x.stillage_no}: all sheets used? It leaves the daily entry's list.`}
+                  label="Used up ✓"
+                  className="btn btn-secondary min-h-10 whitespace-nowrap text-text"
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="px-4 pb-6 pt-6 sm:px-8">
@@ -411,7 +447,7 @@ export default async function PrintedSheetsPage() {
                   <span className={`px-[7px] py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em] ${STATUS_STYLE[x.status]}`} title={x.r.to_press_at ? `${pressName.get(x.r.press_id ?? "") ?? "Press"} · ${formatDayMonth(x.r.to_press_at)} ${hhmm(x.r.to_press_at)}` : undefined}>
                     {x.status === "at_press" && x.r.press_id ? `To ${pressName.get(x.r.press_id) ?? "the press"}` : STILLAGE_STATUS_LABEL[x.status]}
                   </span>
-                  {canEnter && x.status === "at_press" && <UndoToPressButton id={x.r.id} label={x.label} />}
+                  {canEnter && x.status === "at_press" && !fedProduction.has(x.r.id) && <UndoToPressButton id={x.r.id} label={x.label} />}
                   {canDelete && !x.varnish && <DeletePrintRunButton id={x.r.id} />}
                 </span>
               </div>

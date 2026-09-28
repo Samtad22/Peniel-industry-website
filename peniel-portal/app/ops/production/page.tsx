@@ -1,4 +1,5 @@
 import { getSettings } from "@/lib/settings-server";
+import { linerPerHour } from "@/lib/settings";
 import type { Metadata } from "next";
 import Link from "next/link";
 import CrownGauge from "@/components/ops/CrownGauge";
@@ -28,7 +29,8 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-d
  * coat & print line's runs. Everything here is internal.
  */
 export default async function ProductionPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const REJECT_LIMIT_PCT = (await getSettings()).plant.reject_limit_pct;
+  const plant = (await getSettings()).plant;
+  const REJECT_LIMIT_PCT = plant.reject_limit_pct;
   const me = await requireStaff(opsRolesFor("production"));
   const { range: r } = await searchParams;
   const range = r === "week" ? "week" : "today";
@@ -65,6 +67,12 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
   const avg = worked.length ? (worked.reduce((s, v) => s + v, 0) / worked.length) * days : 0;
   const ofAvg = avg ? Math.round((100 * produced) / avg) : null;
 
+  // Capacity: each running liner makes half its press's speed, around the clock.
+  const perLinerDay = linerPerHour(plant) * 24;
+  const runningLiners = lines.filter((l) => l.status === "running").length;
+  const capacity = runningLiners * perLinerDay * days;
+  const ofCapacity = capacity ? Math.round((100 * produced) / capacity) : null;
+
   const sheets = printTotals(runs.filter((x) => x.run_date >= from));
   const days12 = lastDays(today, 12);
   const lineCards = [
@@ -72,7 +80,6 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
       const mine = entries.filter((e) => e.line === l.name);
       const perDay = days12.map((d) => mine.filter((e) => e.entry_date === d).reduce((s, e) => s + e.produced, 0));
       const out = mine.filter((e) => e.entry_date >= from).reduce((s, e) => s + e.produced, 0);
-      const best = Math.max(1, ...perDay) * days;
       const running = [...new Set(mine.filter((e) => e.entry_date >= from).map((e) => e.order_no))];
       const machineDown = l.status === "down";
       return {
@@ -81,9 +88,10 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
         status: machineDown ? "Down" : l.status === "idle" ? "Idle" : out ? "Running" : "No entries",
         value: formatQty(out),
         unit: range === "week" ? "crowns · 7 days" : "crowns today",
-        pct: (100 * out) / best,
+        // Against what the liner can make in the period.
+        pct: (100 * out) / (perLinerDay * days),
         bars: perDay,
-        note: running.length ? running.join(" · ") : range === "week" ? "Nothing logged this week" : "Nothing logged today",
+        note: `${running.length ? running.join(" · ") : range === "week" ? "Nothing logged this week" : "Nothing logged today"} · ${Math.round((100 * out) / (perLinerDay * days))}% of ${formatQty(perLinerDay * days)} capacity`,
         down: machineDown,
       };
     }),
@@ -169,6 +177,11 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
             <span>{ofAvg == null ? "No earlier output to compare" : `${ofAvg}% of the usual ${range === "week" ? "week" : "day"}`}</span>
             <span>{avg ? `usual ${formatQty(avg)} · ${inRange.length} entries` : `${inRange.length} entries`}</span>
           </div>
+          {capacity > 0 && (
+            <div className="mt-1 text-[13px] opacity-75">
+              {ofCapacity}% of capacity: {formatQty(capacity)} ({runningLiners} liner{runningLiners === 1 ? "" : "s"} running × {formatQty(linerPerHour(plant))} an hour, 24 h{range === "week" ? " × 7 days" : ""})
+            </div>
+          )}
         </div>
         <div className="border-neutral-800 px-6 py-6 max-xl:border-t-2 xl:border-l-2">
           <h6 className="m-0 opacity-60">Camera reject rate</h6>

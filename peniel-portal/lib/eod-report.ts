@@ -22,6 +22,8 @@ export type EodInput = {
   passesOut: { stage: "base_coat" | "varnish" | "lacquer"; sheets_spoiled: number }[];
   /** Stillages sent to the presses on the day. */
   toPress: number;
+  /** Stillages used up at the presses on the day. */
+  usedUp?: number;
   /** Finished stillages in printed-sheet stock now. */
   sheetStock: number;
   /** Oven passes with no "out" time yet, whatever day they went in. */
@@ -110,6 +112,7 @@ export function buildEodReport(d: EodInput): EodReport {
   }
 
   if (d.toPress) sheets.push(`Sent to the presses: ${plural(d.toPress, "stillage")}.`);
+  if (d.usedUp) sheets.push(`Used up at the presses: ${plural(d.usedUp, "stillage")}.`);
   sheets.push(`In stock now: ${plural(d.sheetStock, "finished stillage")}.`);
 
   // ---- Quality ----

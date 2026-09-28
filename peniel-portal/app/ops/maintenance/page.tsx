@@ -21,6 +21,8 @@ import {
 } from "@/lib/maintenance";
 import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
+import { linerPerHour } from "@/lib/settings";
+import { getSettings } from "@/lib/settings-server";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Maintenance" };
@@ -70,6 +72,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   ]);
   const machines = machineData ?? [];
   const byId = new Map(machines.map((m) => [m.id, m]));
+  const plant = (await getSettings()).plant;
   // Every log in the last year, plus any older job still open.
   const logs = [...(logData ?? []), ...(openData ?? []).filter((o) => !(logData ?? []).some((l) => l.id === o.id))];
   const open = openData ?? [];
@@ -85,14 +88,15 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   const section = MACHINE_SECTIONS.find((s) => s.category === sp.s)?.category as MachineCategory | undefined;
   const recent = logs.filter((l) => !section || byId.get(l.machine_id)?.category === section).slice(0, 40);
   const presses = machines.filter((m) => m.category === "press" && !m.parent_id);
-  // Output per liner (a press: its liners), and a rough rate to put downtime in crowns:
-  // crowns per hour over the days it produced, around the clock.
+  // Output per liner (a press: its liners), and its speed to put downtime in crowns:
+  // a press makes plant.press_per_hour with both liners, a liner half of that.
   const outputOf = (id: string) => {
     const ids = new Set([id, ...machines.filter((c) => c.parent_id === id).map((c) => c.id)]);
     const rows = (outputData ?? []).filter((e) => e.production_lines?.machine_id && ids.has(e.production_lines.machine_id));
     const crowns = rows.reduce((s, e) => s + Number(e.produced_qty), 0);
     const days = new Set(rows.map((e) => e.entry_date)).size;
-    return { crowns, perHour: days ? crowns / (days * 24) : 0 };
+    const m = byId.get(id);
+    return { crowns, days, perHour: m?.parent_id ? linerPerHour(plant) : plant.press_per_hour };
   };
 
   return (
