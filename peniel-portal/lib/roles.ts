@@ -30,6 +30,7 @@ export type OpsArea =
   | "messages"
   | "maintenance"
   | "reports"
+  | "calculator"
   | "settings";
 
 /** Sidebar groups (OpsRail in the design): daily work, the plant, and records. */
@@ -54,6 +55,7 @@ export const OPS_NAV: { area: OpsArea; href: string; label: string; short: strin
   { area: "documents", href: "/ops/documents", label: "Documents", short: "Docs", no: "08", group: "records", roles: ["admin", "sales", "quality", "warehouse"] },
   { area: "customers", href: "/ops/customers", label: "Customers", short: "Customers", no: "09", group: "records", roles: ["admin", "sales"] },
   { area: "reports", href: "/ops/reports", label: "Reports", short: "Reports", no: "13", group: "records", roles: ["admin"] },
+  { area: "calculator", href: "/ops/calculator", label: "Calculator", short: "Calc", no: "14", group: "records", roles: ["admin"] },
   { area: "settings", href: "/ops/settings", label: "Settings", short: "Settings", no: "12", group: "records", roles: ["admin"] },
 ];
 
