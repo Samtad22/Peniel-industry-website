@@ -4,7 +4,7 @@ import { supabaseAnonKey, supabaseUrl } from "./env";
 
 /** Paths reachable without signing in. */
 // /api/cron: called by Vercel Cron with no session; each route checks CRON_SECRET itself.
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm", "/api/cron"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/confirm", "/api/cron", "/privacy", "/terms"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { LegalLinks } from "@/components/LegalPage";
 import SignOutButton from "@/components/SignOutButton";
 import { initials } from "@/lib/roles";
 import PortalNavLinks from "./PortalNavLinks";
@@ -46,6 +47,9 @@ export default function CustomerShell({
         </Link>
       </header>
       <main>{children}</main>
+      <footer className="border-t-2 border-divider px-4 py-4 sm:px-10">
+        <LegalLinks />
+      </footer>
     </div>
   );
 }

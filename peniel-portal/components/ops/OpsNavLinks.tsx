@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  Calculator,
   ClipboardList,
   Factory,
   FileText,
@@ -41,6 +42,7 @@ const ICONS: Record<OpsArea, LucideIcon> = {
   documents: FileText,
   customers: Building2,
   reports: ClipboardList,
+  calculator: Calculator,
   settings: SlidersVertical,
 };
 

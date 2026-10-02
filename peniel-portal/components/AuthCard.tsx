@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 /**
  * Sign-in layout — design screen 1a (Peniel Customer Portal): the form on
@@ -26,7 +27,17 @@ export default function AuthCard({
           {description && <p className="m-0 text-[14px] opacity-75">{description}</p>}
           {children}
         </div>
-        <div className="text-[12px] opacity-55">Bole Lemi Industrial Park · +251 11 668 9255</div>
+        <div className="flex flex-col gap-1.5 text-[12px]">
+          <span className="opacity-55">Bole Lemi Industrial Park · +251 11 668 9255</span>
+          <span className="flex gap-4">
+            <Link href="/privacy" className="text-text/70">
+              Privacy notice
+            </Link>
+            <Link href="/terms" className="text-text/70">
+              Terms of use
+            </Link>
+          </span>
+        </div>
       </div>
       <div className="relative hidden bg-accent lg:block" aria-hidden="true">
         <div
