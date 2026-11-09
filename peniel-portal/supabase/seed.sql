@@ -55,7 +55,7 @@ insert into public.raw_materials (name, unit, on_hand, reorder_level) values
   ('Lacquer',                  'L',         520,    200)
 on conflict (name) do nothing;
 -- Varnish, Polybag and Box come from the migrations (20261020000001); the
--- shipments of migration 20261109000001 add PVC-free liner compound and more.
+-- shipments of migration 20261109000002 add PVC-free liner compound and more.
 update public.raw_materials set on_hand = 480,  reorder_level = 200  where name = 'Varnish';
 update public.raw_materials set on_hand = 6000, reorder_level = 2000 where name = 'Polybag';
 update public.raw_materials set on_hand = 6000, reorder_level = 2000 where name = 'Box';

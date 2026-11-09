@@ -62,7 +62,19 @@ export const yieldOfStillages = (stillages: number, p: Plant, sheetsEach = p.sti
 /** A material's usage: per sheet (of a step), per oven pass, per 1,000 crowns, per box, or ink grams per sheet. */
 export type Basis = UseBasis | "ink";
 
-const SHEET_BASES: Basis[] = ["sheet_in", "sheet_printed", "base_coat_sheet", "varnish_sheet", "lacquer_sheet", "ink"];
+const SHEET_BASES: Basis[] = ["sheet_in", "sheet_printed", "base_coat_sheet", "white_base_coat_sheet", "transparent_base_coat_sheet", "varnish_sheet", "lacquer_sheet", "ink"];
+
+/**
+ * Whether a material counts for a brand's sheets: the white base coat only
+ * for brands with the white coat, the transparent only for the transparent,
+ * anything used on every base coat only for brands with one.
+ */
+export function usedForBrand(basis: string | null, baseCoat: "white" | "transparent" | null | undefined): boolean {
+  if (basis === "white_base_coat_sheet") return baseCoat === "white";
+  if (basis === "transparent_base_coat_sheet") return baseCoat === "transparent";
+  if (basis === "base_coat_sheet") return baseCoat === "white" || baseCoat === "transparent";
+  return true;
+}
 
 /**
  * What an amount of a material makes, from its rate (in the material's unit

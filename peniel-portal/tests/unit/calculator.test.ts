@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { convertWeight, formatAmount, formatHours, needFor, num, yieldOfCrowns, yieldOfMaterial, yieldOfStillages } from "../../lib/calculator.ts";
+import { convertWeight, formatAmount, formatHours, needFor, num, usedForBrand, yieldOfCrowns, yieldOfMaterial, yieldOfStillages } from "../../lib/calculator.ts";
 
 const plant = { stillage_sheets: 1420, press_per_hour: 270_000, shift_hours: 8 };
 
@@ -56,4 +56,15 @@ test("figures read naturally", () => {
   assert.equal(formatAmount(1500, "kg"), "1,500 kg (1.5 t)");
   assert.equal(formatAmount(0.25, "kg"), "250 g");
   assert.equal(formatAmount(14.2, "L"), "14.2 L");
+});
+
+test("base coats count only for a brand with that coat", () => {
+  assert.equal(usedForBrand("white_base_coat_sheet", "white"), true);
+  assert.equal(usedForBrand("white_base_coat_sheet", "transparent"), false);
+  assert.equal(usedForBrand("transparent_base_coat_sheet", "transparent"), true);
+  assert.equal(usedForBrand("transparent_base_coat_sheet", null), false);
+  assert.equal(usedForBrand("base_coat_sheet", "white"), true);
+  assert.equal(usedForBrand("base_coat_sheet", undefined), false);
+  assert.equal(usedForBrand("sheet_in", null), true);
+  assert.equal(usedForBrand(null, null), true);
 });

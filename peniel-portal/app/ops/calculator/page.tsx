@@ -23,7 +23,7 @@ export default async function CalculatorPage() {
   const supabase = await createClient();
   const [{ data: mats }, { data: brandData }, { data: rates }] = await Promise.all([
     supabase.from("raw_materials").select("id, name, unit, on_hand, use_basis, use_rate, active, ink_name").eq("active", true).order("name").returns<Row[]>(),
-    supabase.from("brands").select("id, name, colours, companies(name)").eq("active", true).order("name").returns<{ id: string; name: string; colours: string[]; companies: { name: string } | null }[]>(),
+    supabase.from("brands").select("id, name, colours, base_coat, companies(name)").eq("active", true).order("name").returns<{ id: string; name: string; colours: string[]; base_coat: "white" | "transparent" | null; companies: { name: string } | null }[]>(),
     supabase.from("brand_ink_rates").select("brand_id, material_id, g_per_sheet").returns<InkRate[]>(),
   ]);
   const rows = mats ?? [];
@@ -34,6 +34,7 @@ export default async function CalculatorPage() {
   const brands: CalcBrand[] = (brandData ?? []).map((b) => ({
     id: b.id,
     label: `${b.name} · ${(b.companies?.name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "")}`,
+    baseCoat: b.base_coat,
     inks: brandInks(b.colours, b.id, inks, rates ?? []).map((i) => ({ ...i, onHandKg: Number(rows.find((m) => m.id === i.materialId)?.on_hand ?? 0) })),
   }));
 
