@@ -2,7 +2,7 @@ import DashboardView, { type CapacityLine, type DashboardData, type StockCapacit
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
 import { plannedPerDay } from "@/lib/settings";
-import { coatShareFrom, dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow, type CoatShare } from "@/lib/stock-capacity";
+import { coatShareFrom, dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -203,12 +203,10 @@ export default async function OpsDashboard() {
   const { data: poOrders } = openPos.length
     ? await supabase
         .from("orders")
-        .select("id, company_id, po_number, quantity, status, companies(name), brands(base_coat)")
+        .select("id, company_id, po_number, quantity, status, companies(name)")
         .in("po_number", [...new Set(confirmed.map((o) => o.po_number))])
         .not("status", "in", "(submitted,cancelled,rejected)")
-        .returns<
-          { id: string; company_id: string; po_number: string; quantity: number; status: OrderStatus; companies: { name: string } | null; brands: { base_coat: string | null } | null }[]
-        >()
+        .returns<{ id: string; company_id: string; po_number: string; quantity: number; status: OrderStatus; companies: { name: string } | null }[]>()
     : { data: [] };
   const lines = (poOrders ?? []).filter((o) => openPos.includes(`${o.company_id}|${o.po_number}`));
   const { data: delData } = lines.length
@@ -241,9 +239,7 @@ export default async function OpsDashboard() {
     .slice(0, 8);
   const volumeTotals = volume.reduce((t, v) => ({ ordered: t.ordered + v.ordered, delivered: t.delivered + v.delivered, left: t.left + v.remaining + v.hold }), { ordered: 0, delivered: 0, left: 0 });
 
-  // What is still to make, by the brand's base coat: how the pace splits between the coats.
-  const coatShare = coatShareFrom(lines.map((o) => ({ coat: o.brands?.base_coat ?? null, crowns: Number(o.quantity) - (deliveredBy.get(o.id) ?? 0) })));
-  const capacity = await loadCapacity(supabase, today, can("inventory"), coatShare);
+  const capacity = await loadCapacity(supabase, today, can("inventory"));
   const data: DashboardData = {
     hello: `${greeting(now).toUpperCase()}, ${first.toUpperCase()} · ${helloFmt.format(now).replace("Sept", "Sep").toUpperCase()}`,
     headline,
@@ -271,18 +267,17 @@ export default async function OpsDashboard() {
  * hours x output % x working days. With no press running: good crowns
  * produced over the last 30 days, else crowns delivered over the last 60.
  * Each sheet gets one base coat, white or transparent (by brand): each coat
- * lasts at its share of the pace, from what the open orders still need of
- * it; with no open orders, at its own use over the last 30 days.
+ * lasts at its share of the pace, the share of the sheets printed over the
+ * last 60 days whose brand has that coat. Never from the POs.
  */
 async function loadCapacity(
   supabase: Awaited<ReturnType<typeof createClient>>,
   today: string,
   canInventory: boolean,
-  coatShare: CoatShare | null,
 ): Promise<{ view: StockCapacityView; pace: number | null }> {
   const since30 = addisDateISO(new Date(), -30);
   const since60 = addisDateISO(new Date(), -60);
-  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }] = await Promise.all([
+  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }, { data: printed }] = await Promise.all([
     getSettings(),
     supabase
       .from("raw_materials")
@@ -301,7 +296,17 @@ async function loadCapacity(
     supabase.from("order_deliveries").select("quantity").eq("kind", "delivery").gte("delivered_on", since60).returns<{ quantity: number }[]>(),
     // The presses (not their liners) and whether they run.
     supabase.from("machines").select("status").eq("category", "press").is("parent_id", null).eq("active", true).returns<{ status: string }[]>(),
+    // The sheets printed over the last 60 days and their brand's coat: how the pace splits between the coats.
+    supabase
+      .from("print_runs")
+      .select("sheets_printed, sheets_spoiled, base_sheets, brands(base_coat)")
+      .not("brand_id", "is", null)
+      .gte("run_date", since60)
+      .returns<{ sheets_printed: number; sheets_spoiled: number; base_sheets: number | null; brands: { base_coat: string | null } | null }[]>(),
   ]);
+  const coatShare = coatShareFrom(
+    (printed ?? []).map((r) => ({ coat: r.brands?.base_coat ?? null, crowns: Number(r.base_sheets ?? Number(r.sheets_printed) + Number(r.sheets_spoiled)) })),
+  );
   const usedBy = new Map<string, number>();
   for (const u of used ?? []) usedBy.set(u.material_id, (usedBy.get(u.material_id) ?? 0) - Number(u.quantity));
 
@@ -354,8 +359,9 @@ async function loadCapacity(
       note:
         [
           SCOPE_NOTE[r.scope],
-          r.share != null && r.perDayFrom === "share" ? `${Math.round(r.share * 100)}% of the crowns still to make` : undefined,
+          r.share != null && r.perDayFrom === "share" ? `${Math.round(r.share * 100)}% of the sheets printed in the last 60 days` : undefined,
           r.perDay != null && r.perDay > 0 ? `uses ${formatAmount(r.perDay, r.unit)} a day${r.perDayFrom === "use" ? " (its own use, last 30 days)" : ""}` : undefined,
+          r.scope !== "all" && r.perDay == null ? "date once printing is logged" : undefined,
         ]
           .filter(Boolean)
           .join(" · ") || undefined,

@@ -63,9 +63,9 @@ export type CoatShare = { white: number; transparent: number };
 /**
  * `pace`: crowns made a day, the plant's plan (null or 0: none); `usageDays`:
  * the days `used_recently` covers; `coatShare`: the part of the pace that
- * gets each base coat. Materials in every crown last at the pace; a base
- * coat at its share of the pace, else at its own recent use. A material's
- * own use also stands in when there is no pace.
+ * gets each base coat (from what was printed, never from the POs).
+ * Materials in every crown last at the pace, or at their own recent use when
+ * there is no pace; a base coat at its share of the pace, else no date.
  */
 export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace: number | null, usageDays = 30, coatShare: CoatShare | null = null): Capacity {
   const rows: CapacityRow[] = [];
@@ -96,8 +96,8 @@ export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace:
       // Each sheet gets one coat: the coat lasts at its share of the pace.
       perDay = needFor(pace * share, basis, rate, plant);
       perDayFrom = "share";
-    } else if (used > 0 && usageDays > 0) {
-      // Base coats go on some brands only: the overall pace would overstate their use.
+    } else if (scope === "all" && used > 0 && usageDays > 0) {
+      // No pace: the material's own recent use.
       perDay = used / usageDays;
       perDayFrom = "use";
     }
@@ -133,8 +133,8 @@ function coatShareOf(scope: CapacityScope, s: CoatShare | null): number | undefi
 }
 
 /**
- * The share of each base coat from what is still to make, per brand coat
- * (crowns). Null when nothing is left to make.
+ * The share of each base coat from what was printed, per brand coat (sheets
+ * or crowns, any one unit). Null when nothing was printed.
  */
 export function coatShareFrom(left: { coat: string | null; crowns: number }[]): CoatShare | null {
   let total = 0;
