@@ -35,8 +35,9 @@ const ink = async (name: string) => (await pool.query("select id, on_hand::float
 const tinplate = async () => Number((await pool.query("select on_hand from public.raw_materials where name = 'Tinplate sheet 0.23 mm'")).rows[0].on_hand);
 
 test("every brand colour is an ink on the list, once, in kg", async () => {
-  // The UV inks received by invoice (migration 20261109000002) are on the list too: see shipments.test.ts.
-  const inks = await pool.query("select name, unit, ink_name from public.raw_materials where ink_name is not null and ink_name not like '%UV-%' order by ink_name");
+  // The UV inks received by invoice (20261109000002) and the supplier inks of the consumption baseline
+  // (20261117000005) are on the list too: see shipments.test.ts and consumption-baseline.test.ts.
+  const inks = await pool.query("select name, unit, ink_name from public.raw_materials where ink_name is not null and ink_name not like '%UV-%' and ink_name !~ '^(Black 5001|Blue 3401|Green UV60|Red 2401|Red 6614|Silver UV47|Silver connecting material|Transparent White|Yellow 1401|Yellow 1408)$' order by ink_name");
   assert.deepEqual(
     inks.rows.map((r) => [r.ink_name, r.unit]),
     [

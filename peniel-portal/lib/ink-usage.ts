@@ -83,7 +83,10 @@ export const inkKey = (colour: string): string => parseInk(colour).name.toUpperC
 export type InkMaterial = { id: string; ink_name: string; active?: boolean };
 export type InkRate = { brand_id: string; material_id: string; g_per_sheet: number | string };
 
-/** A brand's colours as inks on the list (in the brand's order, once each), with its grams per sheet. */
+/**
+ * A brand's inks: its colours as inks on the list (in the brand's order, once
+ * each), then any other ink given grams per sheet for it; with the grams.
+ */
 export function brandInks(colours: string[] | null | undefined, brandId: string, inks: InkMaterial[], rates: InkRate[]): BrandInk[] {
   const byKey = new Map(inks.filter((i) => i.active !== false).map((i) => [inkKey(i.ink_name), i]));
   const seen = new Set<string>();
@@ -94,6 +97,16 @@ export function brandInks(colours: string[] | null | undefined, brandId: string,
     seen.add(m.id);
     const rate = rates.find((r) => r.brand_id === brandId && r.material_id === m.id);
     out.push({ materialId: m.id, name: parseInk(c).name, hex: parseInk(c).hex, gPerSheet: rate ? Number(rate.g_per_sheet) : null });
+  }
+  // Inks given grams per sheet for this brand that aren't among its colours
+  // (e.g. a supplier ink such as "Red 6614"), after the colours.
+  const byId = new Map(inks.filter((i) => i.active !== false).map((i) => [i.id, i]));
+  for (const r of rates) {
+    if (r.brand_id !== brandId || seen.has(r.material_id)) continue;
+    const m = byId.get(r.material_id);
+    if (!m) continue;
+    seen.add(m.id);
+    out.push({ materialId: m.id, name: parseInk(m.ink_name).name, hex: parseInk(m.ink_name).hex, gPerSheet: Number(r.g_per_sheet) });
   }
   return out;
 }

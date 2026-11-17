@@ -335,7 +335,7 @@ export function MaterialSettingsDialog({ material }: { material?: MaterialFields
 export type InkRateBrand = { id: string; label: string; inks: BrandInk[] };
 
 /** Grams of each ink a sheet of a brand takes: fills in the ink on the print and sample forms. */
-export function InkRatesDialog({ brands }: { brands: InkRateBrand[] }) {
+export function InkRatesDialog({ brands, allInks }: { brands: InkRateBrand[]; allInks: { id: string; name: string }[] }) {
   return (
     <Modal
       wide
@@ -346,19 +346,26 @@ export function InkRatesDialog({ brands }: { brands: InkRateBrand[] }) {
         </Button>
       )}
     >
-      {(close) => <InkRatesForm brands={brands} close={close} />}
+      {(close) => <InkRatesForm brands={brands} allInks={allInks} close={close} />}
     </Modal>
   );
 }
 
-function InkRatesForm({ brands, close }: { brands: InkRateBrand[]; close: () => void }) {
+function InkRatesForm({ brands, allInks, close }: { brands: InkRateBrand[]; allInks: { id: string; name: string }[]; close: () => void }) {
   const [state, action, pending] = useActionState<InvState, FormData>(saveInkRates, null);
   const [brandId, setBrandId] = useState(brands[0]?.id ?? "");
   const brand = brands.find((b) => b.id === brandId);
   const [rates, setRates] = useState<Record<string, Record<string, string>>>(() =>
     Object.fromEntries(brands.map((b) => [b.id, Object.fromEntries(b.inks.map((i) => [i.materialId, i.gPerSheet == null ? "" : String(i.gPerSheet)]))])),
   );
+  // Inks added to a brand here (any ink on the list, e.g. a supplier's "Red 6614").
+  const [added, setAdded] = useState<Record<string, string[]>>({});
   const mine = rates[brandId] ?? {};
+  const rows: { materialId: string; name: string; hex: string | null }[] = [
+    ...(brand?.inks ?? []),
+    ...(added[brandId] ?? []).map((id) => ({ materialId: id, name: allInks.find((i) => i.id === id)?.name ?? "", hex: null })),
+  ];
+  const addable = allInks.filter((i) => !rows.some((r) => r.materialId === i.id));
   const sheets = 1420;
   return (
     <form action={action} className="flex flex-col gap-3.5">
@@ -373,15 +380,15 @@ function InkRatesForm({ brands, close }: { brands: InkRateBrand[]; close: () => 
           ))}
         </select>
       </div>
-      {brand && brand.inks.length === 0 && <p className="m-0 text-[13px] opacity-70">No colours on file for this brand. Add them under Customers.</p>}
-      {brand && brand.inks.length > 0 && (
+      {brand && rows.length === 0 && <p className="m-0 text-[13px] opacity-70">No inks for this brand yet: add them below.</p>}
+      {brand && rows.length > 0 && (
         <div className="border-t border-divider">
           <div className="th-row grid grid-cols-[minmax(0,1fr)_130px_120px] gap-3 border-b border-divider py-2">
             <span>Ink</span>
             <span>Grams per sheet</span>
             <span className="text-right">A stillage of {sheets.toLocaleString("en-US")}</span>
           </div>
-          {brand.inks.map((i) => {
+          {rows.map((i) => {
             const v = mine[i.materialId] ?? "";
             const g = Number(v.replace(",", "."));
             return (
@@ -408,15 +415,36 @@ function InkRatesForm({ brands, close }: { brands: InkRateBrand[]; close: () => 
           })}
         </div>
       )}
+      {brand && addable.length > 0 && (
+        <div className="field">
+          <label htmlFor="ir-add">Add an ink to {brand.label.split(" · ")[0]}</label>
+          <select
+            id="ir-add"
+            value=""
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id) setAdded((a) => ({ ...a, [brandId]: [...(a[brandId] ?? []), id] }));
+            }}
+            className="input min-h-11"
+          >
+            <option value="">Choose an ink on the list…</option>
+            {addable.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <p className="m-0 text-[12px] opacity-70">
-        The print and sample forms fill in the ink from these (sheets × grams per sheet); the printer can change the figure there. The same ink on several brands is one stock.
+        Leave an ink&apos;s grams empty to take it off the brand (its colours stay). The print and sample forms fill in the ink from these (sheets × grams per sheet); the printer can change the figure there. The same ink on several brands is one stock.
       </p>
       <FormMessage state={state} />
       <div className="dialog-actions">
         <Button type="button" variant="secondary" onClick={close}>
           {state?.ok ? "Done" : "Cancel"}
         </Button>
-        <Button type="submit" disabled={pending || !brand || brand.inks.length === 0} icon="✓" className="w-[150px]">
+        <Button type="submit" disabled={pending || !brand || rows.length === 0} icon="✓" className="w-[150px]">
           {pending ? "Saving…" : "Save"}
         </Button>
       </div>

@@ -246,7 +246,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {canSetInkRates && <InkRatesDialog brands={rateBrands.filter((b) => b.inks.length > 0)} />}
+                {canSetInkRates && <InkRatesDialog brands={rateBrands} allInks={inks.map((m) => ({ id: m.id, name: m.ink_name! }))} />}
                 {inks.length > 0 && <MaterialDialog label="Record ink in / out" materials={inks.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />}
               </div>
             </div>

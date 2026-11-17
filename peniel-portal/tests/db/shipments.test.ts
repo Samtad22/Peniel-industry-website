@@ -33,7 +33,8 @@ test("each line goes to the right material, in its unit", async () => {
   const plain = { active: true, ink_name: null, use_basis: null };
   assert.deepEqual(await received("Transparent base coat"), { ...plain, unit: "kg", use_basis: "transparent_base_coat_sheet", qty: 1800, lines: 1 });
   assert.deepEqual(await received("White base coat"), { ...plain, unit: "kg", use_basis: "white_base_coat_sheet", qty: 7500, lines: 2 });
-  assert.deepEqual(await received("CTP plate developer"), { ...plain, unit: "L", qty: 960, lines: 2 });
+  // Usage rates from the consumption baseline (20261117000005) are on some of these.
+  assert.deepEqual(await received("CTP plate developer"), { ...plain, use_basis: "sheet_printed", unit: "L", qty: 960, lines: 2 });
   // Two blankets: Japanese and Chinese.
   assert.deepEqual(await received("Printing blanket (Japanese)"), { ...plain, unit: "pcs", qty: 30, lines: 1 });
   assert.deepEqual(await received("Printing blanket (Chinese)"), { ...plain, unit: "pcs", qty: 20, lines: 1 });
@@ -50,11 +51,11 @@ test("each line goes to the right material, in its unit", async () => {
     (await pool.query("select reason from public.raw_material_movements where reason like 'Received: invoice PK/26020-1 of 20 Jul 2026, line 2 (%'")).rows[0].reason,
     "Received: invoice PK/26020-1 of 20 Jul 2026, line 2 (USD 860.00/t, 304.074 t, 147 pallets x 1,390 sheets)",
   );
-  assert.deepEqual(await received("Adhesive lacquer"), { ...plain, unit: "kg", qty: 6000, lines: 1 });
+  assert.deepEqual(await received("Adhesive lacquer"), { ...plain, use_basis: "lacquer_sheet", unit: "kg", qty: 6000, lines: 1 });
 });
 
 test("kg and L are the same: Varnish in litres takes the kg as they are", async () => {
-  assert.deepEqual(await received("Varnish"), { active: true, ink_name: null, use_basis: null, unit: "L", qty: 6000, lines: 1 });
+  assert.deepEqual(await received("Varnish"), { active: true, ink_name: null, use_basis: "varnish_sheet", unit: "L", qty: 6000, lines: 1 });
   assert.equal(await received("Over print varnish"), undefined, "no second varnish");
   const { rows } = await pool.query("select reason from public.raw_material_movements where reason like 'Received: invoice PK/26019-2 of 15 Sep 2026, line 2 (%'");
   assert.equal(rows[0].reason, "Received: invoice PK/26019-2 of 15 Sep 2026, line 2 (USD 3.30/kg, 6,000 kg = 6,000 L)");
