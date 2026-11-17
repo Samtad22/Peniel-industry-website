@@ -1,5 +1,6 @@
 "use client";
 
+import { separationsText, type Separation } from "@/lib/separations";
 import { useActionState, useState, useTransition } from "react";
 import {
   addArtworkOnFile,
@@ -39,6 +40,11 @@ export type BrandFields = {
   base_coat?: "white" | "transparent" | null;
   /** "v2 approved" / "No approved artwork". */
   artwork: string;
+  /** Prepress (internal): the Customer Artwork Catalogue code, CTP plates and colour separations. */
+  design_code?: string | null;
+  design_note?: string | null;
+  plates?: number | null;
+  separations?: Separation[];
 };
 
 /** "+ New customer" / "Edit details" (admin). */
@@ -149,6 +155,23 @@ function BrandForm({ companyId, brand, close }: { companyId: string; brand?: Bra
           </select>
         </Field>
         <InkEditor initial={parseInks(brand?.colours)} />
+        <fieldset className="m-0 flex flex-col gap-3 border-2 border-divider p-3">
+          <legend className="px-1 text-[12px] font-bold">CTP plates and colour separations (internal, prepress)</legend>
+          <div className="grid gap-3 sm:grid-cols-[140px_110px_minmax(0,1fr)]">
+            <Field label="Design code" htmlFor="br-code">
+              <input id="br-code" name="design_code" maxLength={20} defaultValue={brand?.design_code ?? ""} placeholder="e.g. HEI-01" className="input min-h-11" />
+            </Field>
+            <Field label="CTP plates" htmlFor="br-plates">
+              <input id="br-plates" name="plates" inputMode="numeric" maxLength={2} defaultValue={brand?.plates ?? ""} placeholder="e.g. 4" className="input min-h-11" />
+            </Field>
+            <Field label="About the design" htmlFor="br-note">
+              <input id="br-note" name="design_note" maxLength={120} defaultValue={brand?.design_note ?? ""} placeholder="e.g. Original lager crown" className="input min-h-11" />
+            </Field>
+          </div>
+          <Field label="Colour separations, in print order" htmlFor="br-seps" hint={'One a line: name | spec, e.g. "Heineken Green | C85 M0 Y100 K30"'}>
+            <textarea id="br-seps" name="separations" rows={4} defaultValue={separationsText(brand?.separations ?? [])} className="input font-mono text-[13px]" />
+          </Field>
+        </fieldset>
         <FormMessage state={state} />
         <div className="dialog-actions">
           {brand && (

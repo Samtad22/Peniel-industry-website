@@ -1,3 +1,4 @@
+import SeparationChips from "@/components/ops/SeparationChips";
 import Link from "next/link";
 import Crown, { crownSrc, InkSwatches } from "@/components/ui/Crown";
 import { BrandDialog, CompanyDialog, type BrandFields, type CompanyFields } from "./CustomerForms";
@@ -124,6 +125,7 @@ export default function CustomersView({
                       <InkSwatches colours={b.fields.colours} compact />
                     </span>
                     <span className="text-[12px]">{b.artwork}</span>
+                    <SeparationChips designCode={b.fields.design_code} plates={b.fields.plates} separations={b.fields.separations ?? []} compact />
                     {canEditBrands && <BrandDialog companyId={selected.id} brand={b.fields} triggerLabel="Edit" variant="link" />}
                   </div>
                 ))}

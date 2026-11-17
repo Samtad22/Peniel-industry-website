@@ -32,13 +32,23 @@ import ConfirmForm from "@/components/ui/ConfirmForm";
 import { setStillageUsedUp } from "@/app/ops/production/sheets/actions";
 import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
+import { separationsOf } from "@/lib/separations";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Printed sheets" };
 
 type RunRow = Omit<PrintRun, "brand_id"> & { brand_id: string | null; inks: InkGrams | null; created_at: string; brands: { name: string; companies: { name: string } | null } | null };
 type SampleRow = { id: string; sample_date: string; shift: string | null; purpose: SamplePurpose; sheets: number; inks: InkGrams | null; notes: string | null; brands: { name: string } | null };
-type BrandRow = { id: string; name: string; colours: string[]; base_coat: "white" | "transparent" | null; companies: { name: string } | null };
+type BrandRow = {
+  id: string;
+  name: string;
+  colours: string[];
+  base_coat: "white" | "transparent" | null;
+  design_code: string | null;
+  plates: number | null;
+  separations: unknown;
+  companies: { name: string } | null;
+};
 
 const shortCompany = (name: string | undefined | null) => (name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "");
 const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Addis_Ababa" });
@@ -85,7 +95,7 @@ export default async function PrintedSheetsPage() {
       .order("created_at", { ascending: false })
       .limit(1000)
       .returns<RunRow[]>(),
-    supabase.from("brands").select("id, name, colours, base_coat, companies(name)").eq("active", true).order("name").returns<BrandRow[]>(),
+    supabase.from("brands").select("id, name, colours, base_coat, design_code, plates, separations, companies(name)").eq("active", true).order("name").returns<BrandRow[]>(),
     // The presses a stillage can go to (installed ones).
     supabase.from("machines").select("id, name, status").eq("category", "press").is("parent_id", null).neq("status", "on_order").order("sort_order").returns<{ id: string; name: string; status: string }[]>(),
     loadProducibleOrders(supabase),
@@ -168,6 +178,9 @@ export default async function PrintedSheetsPage() {
       colours: b.colours ?? [],
       baseCoat: b.base_coat,
       inks: brandInks(b.colours, b.id, inkMaterials, rateData ?? []),
+      designCode: b.design_code,
+      plates: b.plates,
+      separations: separationsOf(b.separations),
     }))
     .sort((a, b) => Number(b.id === lastBrand) - Number(a.id === lastBrand));
   const materials = (stage: OvenStage) => [...new Set(passes.filter((p) => p.stage === stage).reverse().map((p) => p.material).filter((m): m is string => Boolean(m)))].slice(0, 20);
