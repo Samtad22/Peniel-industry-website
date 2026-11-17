@@ -6,7 +6,7 @@ import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO, formatDayMonth, formatQty } from "@/lib/format";
 import type { OrderStatus } from "@/lib/order-status";
-import { batchKey, CROWNS_PER_CARTON } from "@/lib/produced-goods";
+import { batchKey, CROWNS_PER_CARTON, leftToMake } from "@/lib/produced-goods";
 import { addDays } from "@/lib/production-math";
 import { opsRolesFor } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -52,6 +52,15 @@ export default async function ProducedGoodsPage() {
       .returns<GoodsRow[]>(),
   ]);
   const ordersAll = orderData ?? [];
+  // Deliveries of these orders (return exchanges don't count): what is left to make.
+  const { data: delData } = ordersAll.length
+    ? await supabase
+        .from("order_deliveries")
+        .select("order_id, delivered_on, quantity")
+        .eq("kind", "delivery")
+        .in("order_id", ordersAll.map((o) => o.id))
+        .returns<{ order_id: string; delivered_on: string | null; quantity: number }[]>()
+    : { data: [] };
   const inspections = inspData ?? [];
   const goods = goodsData ?? [];
   const orderById = new Map(ordersAll.map((o) => [o.id, o]));
@@ -64,11 +73,23 @@ export default async function ProducedGoodsPage() {
   }
   const inspectionFor = (orderId: string, batch: string) => inspections.find((i) => i.order_id === orderId && batchKey(i.batch_no) === batchKey(batch));
 
-  const orders: GoodsOrder[] = ordersAll.map((o) => ({
-    id: o.id,
-    label: `${o.order_no} · ${shortCompany(o.companies?.name)} · ${o.brands?.name ?? ""} · ${formatQty(o.quantity)}`,
-    batches: inspections.filter((i) => i.order_id === o.id).map((i) => ({ batch_no: i.batch_no, certificate: i.result === "released" })),
-  }));
+  // Each order with what is still left to make (not the whole PO): open ones first, most left first.
+  const orders: GoodsOrder[] = ordersAll
+    .map((o) => {
+      const l = leftToMake(
+        Number(o.quantity),
+        (delData ?? []).filter((d) => d.order_id === o.id),
+        goods.filter((g) => g.order_id === o.id),
+      );
+      return {
+        id: o.id,
+        label: `${o.order_no} · ${shortCompany(o.companies?.name)} · ${o.brands?.name ?? ""} · ${l.left > 0 ? `${formatQty(l.left)} left of ${formatQty(l.ordered)}` : `complete (${formatQty(l.ordered)})`}`,
+        ordered: l.ordered,
+        left: l.left,
+        batches: inspections.filter((i) => i.order_id === o.id).map((i) => ({ batch_no: i.batch_no, certificate: i.result === "released" })),
+      };
+    })
+    .sort((a, b) => Number(b.left > 0) - Number(a.left > 0) || b.left - a.left);
 
   // Batches, newest first, with their entries.
   const batches: { key: string; orderId: string; batch: string; total: number; entries: GoodsRow[] }[] = [];

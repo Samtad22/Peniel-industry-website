@@ -21,3 +21,24 @@ export function parseGoodsQuantity(raw: string, unit: "crowns" | "cartons"): num
 
 /** Batch numbers match without regard to case or spaces at the ends (as the certificate does). */
 export const batchKey = (batch: string) => batch.trim().toLowerCase();
+
+/**
+ * What is still left to make on an order: ordered less what is already made.
+ * Made = the crowns delivered before produced goods were first recorded for
+ * the order (made before the portal counted them), plus every produced-goods
+ * entry; never less than all that was delivered (crowns delivered were made,
+ * even if their production wasn't entered). Return exchanges don't count.
+ */
+export function leftToMake(
+  ordered: number,
+  deliveries: { delivered_on: string | null; quantity: number }[],
+  produced: { produced_on: string; quantity: number }[],
+): { ordered: number; delivered: number; produced: number; made: number; left: number } {
+  const sum = (xs: { quantity: number }[]) => xs.reduce((t, x) => t + Math.max(0, Number(x.quantity) || 0), 0);
+  const delivered = sum(deliveries);
+  const made_ = sum(produced);
+  const first = produced.reduce<string | null>((m, p) => (m == null || p.produced_on < m ? p.produced_on : m), null);
+  const before = first == null ? delivered : sum(deliveries.filter((d) => d.delivered_on == null || d.delivered_on < first));
+  const made = Math.max(delivered, before + made_);
+  return { ordered, delivered, produced: made_, made, left: Math.max(0, ordered - made) };
+}
