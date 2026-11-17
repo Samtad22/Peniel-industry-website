@@ -15,9 +15,11 @@
 --     rest come in barrels of 200 kg = 200 L. A material kept in L takes the
 --     kg as they are (the movement says "1 kg = 1 L"); one kept in barrels
 --     or drums takes kg / 200.
---   * Tinplate is kept in sheets: one pallet holds 1,390 sheets (v_per_pallet;
---     pallets from the packing lists: PK/26017 144 pallets, 299.989 t;
---     PK/26020-1 147 pallets, 304.074 t). A stock count corrects the rest.
+--   * Tinplate is kept in sheets. PK/26017: the exact count from the mill's
+--     inspection certificate, pallet by pallet (144 pallets, 299.989 t:
+--     117 x 1,390, 19 x 1,380, 7 x 1,400 and 1 x 528 = 199,178 sheets).
+--     PK/26020-1 (147 pallets, 304.074 t): 1,390 sheets a pallet
+--     (v_per_pallet) until its certificate gives the exact count.
 --   * Liner compound in tonnes is kg (52 t = 52,000 kg). Cartons and
 --     corrugated boxes are the Box (one box of 10,000 crowns).
 --
@@ -71,7 +73,7 @@ begin
   for l in
     select * from (values
       -- invoice,      date,          line, name,                                unit,     qty,  pallets, price,          ink name,                      usage basis,                    other names (lower case, letters and digits only)
-      ('PK/26017',   '08 Jul 2026',  1, 'Tinplate sheet 0.23 mm',               'sheets',  null, 144, 'USD 750.00/t, 299.989 t', null,           null,                           array['tinplatesheet023mm', 'tinplatesheet', 'tinplatesheets', 'tinplate', 'nonprintedsheet', 'tinfreesteelsheet']),
+      ('PK/26017',   '08 Jul 2026',  1, 'Tinplate sheet 0.23 mm',               'sheets', 199178, null, 'USD 750.00/t, 299.989 t, 144 pallets: 117 x 1,390, 19 x 1,380, 7 x 1,400, 1 x 528 sheets', null, null,                           array['tinplatesheet023mm', 'tinplatesheet', 'tinplatesheets', 'tinplate', 'nonprintedsheet', 'tinfreesteelsheet']),
       ('PK/26017',   '08 Jul 2026',  2, 'Box',                                  'boxes',  17500, null, 'USD 0.80/pc',    null,                           null,                           array['box', 'boxes', 'carton', 'cartons', 'corrugatedbox', 'corrugatedboxes']),
       ('PK/26020-1', '20 Jul 2026',  1, 'PVC-free liner compound',              'kg',     52000, null, 'USD 2,430/t',    null,                           null,                           array['pvcfreelinercompound', 'pvcfreecompound', 'pvcfree', 'linercompound']),
       ('PK/26020-1', '20 Jul 2026',  2, 'Tinplate sheet 0.23 mm',               'sheets',  null, 147, 'USD 860.00/t, 304.074 t', null,           null,                           array['tinplatesheet023mm', 'tinplatesheet', 'tinplatesheets', 'tinplate', 'nonprintedsheet', 'tinfreesteelsheet']),

@@ -40,11 +40,15 @@ test("each line goes to the right material, in its unit", async () => {
   assert.deepEqual(await received("PVC-free liner compound"), { ...plain, unit: "kg", qty: 52000, lines: 1 });
   // Cartons and corrugated boxes are the Box already on the list (in "boxes").
   assert.deepEqual(await received("Box"), { ...plain, use_basis: "box", unit: "boxes", qty: 32200, lines: 2 });
-  // Tinplate by the pallet: 144 + 147 pallets of 1,390 sheets.
-  assert.deepEqual(await received("Tinplate sheet 0.23 mm"), { ...plain, unit: "sheets", qty: 291 * 1390, lines: 2 });
+  // Tinplate: PK/26017 counted pallet by pallet (mill certificate), PK/26020-1 at 1,390 a pallet.
+  assert.deepEqual(await received("Tinplate sheet 0.23 mm"), { ...plain, unit: "sheets", qty: 199_178 + 147 * 1390, lines: 2 });
   assert.equal(
     (await pool.query("select reason from public.raw_material_movements where reason like 'Received: invoice PK/26017 of 08 Jul 2026, line 1 (%'")).rows[0].reason,
-    "Received: invoice PK/26017 of 08 Jul 2026, line 1 (USD 750.00/t, 299.989 t, 144 pallets x 1,390 sheets)",
+    "Received: invoice PK/26017 of 08 Jul 2026, line 1 (USD 750.00/t, 299.989 t, 144 pallets: 117 x 1,390, 19 x 1,380, 7 x 1,400, 1 x 528 sheets)",
+  );
+  assert.equal(
+    (await pool.query("select reason from public.raw_material_movements where reason like 'Received: invoice PK/26020-1 of 20 Jul 2026, line 2 (%'")).rows[0].reason,
+    "Received: invoice PK/26020-1 of 20 Jul 2026, line 2 (USD 860.00/t, 304.074 t, 147 pallets x 1,390 sheets)",
   );
   assert.deepEqual(await received("Adhesive lacquer"), { ...plain, unit: "kg", qty: 6000, lines: 1 });
 });
@@ -72,6 +76,30 @@ test("adds to the stock on hand; running it again adds nothing", async () => {
   await rerun();
   const again = (await pool.query("select name, on_hand::float as on_hand from public.raw_materials order by name")).rows;
   assert.deepEqual(again, before);
+});
+
+test("PK/26017 tinplate recorded at 1,390 a pallet is corrected to the certificate's count", async () => {
+  const CORRECTION = new URL("../../supabase/migrations/20261117000002_tinplate_pk26017_count.sql", import.meta.url);
+  const base = "Received: invoice PK/26017 of 08 Jul 2026, line 1 (";
+  const exact = await onHand("Tinplate sheet 0.23 mm");
+  // As the live database had it: the first version's line, 144 x 1,390.
+  const { rows } = await pool.query("select material_id, created_at from public.raw_material_movements where left(reason, length($1)) = $1", [base]);
+  await pool.query("delete from public.raw_material_movements where left(reason, length($1)) = $1", [base]);
+  await pool.query("insert into public.raw_material_movements (material_id, quantity, reason, created_at) values ($1, 200160, $2, $3)", [
+    rows[0].material_id,
+    base + "USD 750.00/t, 299.989 t, 144 pallets x 1,390 sheets)",
+    rows[0].created_at,
+  ]);
+  assert.equal(await onHand("Tinplate sheet 0.23 mm"), exact + 982);
+  // Re-running the shipments adds nothing (the line is there); the correction fixes it, once.
+  await rerun();
+  await pool.query(readFileSync(CORRECTION, "utf8"));
+  await pool.query(readFileSync(CORRECTION, "utf8"));
+  assert.equal(await onHand("Tinplate sheet 0.23 mm"), exact);
+  const after = await pool.query("select quantity::float as q, reason, created_at from public.raw_material_movements where left(reason, length($1)) = $1", [base]);
+  assert.equal(after.rows.length, 1);
+  assert.equal(after.rows[0].q, 199178);
+  assert.deepEqual(after.rows[0].created_at, rows[0].created_at, "keeps the delivery's date");
 });
 
 test("a material kept in barrels takes kg / 200", async () => {
