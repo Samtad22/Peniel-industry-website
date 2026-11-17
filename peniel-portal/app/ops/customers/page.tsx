@@ -1,3 +1,4 @@
+import { separationsOf } from "@/lib/separations";
 import CustomersView, { type CompanyDetail, type CompanyListItem } from "@/components/ops/CustomersView";
 import type { UserRow } from "@/components/ops/UsersTable";
 import { requireStaff } from "@/lib/auth";
@@ -27,6 +28,10 @@ type BrandRow = {
   colours: string[];
   crown_image_path: string | null;
   base_coat: "white" | "transparent" | null;
+  design_code: string | null;
+  design_note: string | null;
+  plates: number | null;
+  separations: unknown;
   current: { version: number } | null;
 };
 
@@ -44,7 +49,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       .returns<CompanyRow[]>(),
     supabase
       .from("brands")
-      .select("id, company_id, name, size, liner, finish, colours, crown_image_path, base_coat, current:artwork_versions!brands_current_artwork_fk(version)")
+      .select("id, company_id, name, size, liner, finish, colours, crown_image_path, base_coat, design_code, design_note, plates, separations, current:artwork_versions!brands_current_artwork_fk(version)")
       .eq("active", true)
       .order("name")
       .returns<BrandRow[]>(),
@@ -94,6 +99,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               colours: b.colours,
               crown_image_path: b.crown_image_path,
               base_coat: b.base_coat,
+              design_code: b.design_code,
+              design_note: b.design_note,
+              plates: b.plates,
+              separations: separationsOf(b.separations),
               artwork: b.current ? `v${b.current.version} approved` : "No approved artwork",
             },
           })),

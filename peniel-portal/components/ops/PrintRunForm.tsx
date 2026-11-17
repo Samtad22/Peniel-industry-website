@@ -11,10 +11,22 @@ import { inkKey, type BrandInk } from "@/lib/ink-usage";
 import { parseInk } from "@/lib/inks";
 import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, MAX_OVEN_AT_ONCE, MAX_STILLAGES_AT_ONCE, stillageNumbers, wholeNumber, type BaseCoat } from "@/lib/print-runs";
 import { StillagePicker } from "@/components/ops/OvenPass";
+import SeparationChips from "@/components/ops/SeparationChips";
+import type { Separation } from "@/lib/separations";
 import { SHIFTS } from "@/lib/production-math";
 
 /** A brand whose design can be printed, with its colours and their inks (grams per sheet). */
-export type PrintBrand = { id: string; label: string; colours: string[]; baseCoat?: BaseCoat | null; inks?: BrandInk[] };
+export type PrintBrand = {
+  id: string;
+  label: string;
+  colours: string[];
+  baseCoat?: BaseCoat | null;
+  inks?: BrandInk[];
+  /** Prepress: the catalogue code, CTP plates and colour separations. */
+  designCode?: string | null;
+  plates?: number | null;
+  separations?: Separation[];
+};
 
 /** A base-coated stillage waiting for the print line, to tick when printing several. */
 export type CoatedStillage = { id: string; label: string; brandId: string | null; sheets: number; coat: BaseCoat | null; detail: string };
@@ -227,6 +239,12 @@ export default function PrintRunForm({
         </p>
       )}
 
+      {brand && ((brand.separations?.length ?? 0) > 0 || brand.plates) ? (
+        <div className="border-l-[3px] border-text bg-surface px-3 py-2">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[.08em] opacity-60">CTP plates · colour separations</span>
+          <SeparationChips designCode={brand.designCode} plates={brand.plates} separations={brand.separations ?? []} />
+        </div>
+      ) : null}
       {brand && (
         <fieldset className="field m-0 border-0 p-0" key={brand.id}>
           <legend className="mb-[5px] p-0 text-[12px] text-text/70">Colours printed</legend>

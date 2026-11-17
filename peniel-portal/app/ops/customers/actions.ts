@@ -1,5 +1,6 @@
 "use server";
 
+import { MAX_SEPARATIONS, parseSeparationsText } from "@/lib/separations";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
@@ -81,6 +82,11 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
   if (!name) return { error: "Enter the brand name." };
   if (liner !== "PVC-free" && liner !== "PVC") return { error: "Choose the liner." };
 
+  const platesRaw = str(fd, "plates", 3);
+  const platesIn = platesRaw ? Number(platesRaw) : null;
+  if (platesIn != null && !(Number.isInteger(platesIn) && platesIn >= 1 && platesIn <= MAX_SEPARATIONS)) return { error: `CTP plates: a whole number from 1 to ${MAX_SEPARATIONS}, or leave it empty.` };
+
+  const seps = parseSeparationsText(String(fd.get("separations") ?? ""));
   const hexes = fd.getAll("ink_hex").map(String);
   const colours = fd
     .getAll("ink_name")
@@ -96,6 +102,12 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
     colours,
     // Internal: sheets get this coat in the big oven before printing.
     base_coat: ["white", "transparent"].includes(str(fd, "base_coat", 20)) ? str(fd, "base_coat", 20) : null,
+    // Internal, prepress: catalogue code, CTP plates, colour separations.
+    design_code: str(fd, "design_code", 20).toUpperCase() || null,
+    design_note: str(fd, "design_note", 120) || null,
+    // Plates: as typed, else one per separation.
+    plates: platesIn ?? (seps.length || null),
+    separations: seps,
   };
 
   const supabase = await createClient();
