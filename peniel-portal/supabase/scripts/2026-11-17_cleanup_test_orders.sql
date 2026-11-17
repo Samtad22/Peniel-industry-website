@@ -18,6 +18,9 @@
 -- and the activity log (which keeps a "deleted" row for each order).
 -- Order numbers start again at PN-26-0001.
 --
+-- Safe: once the real POs are in (the import ran), it does nothing, so the
+-- real orders can never be removed by running it again.
+--
 -- The result at the end shows what was removed.
 -- ============================================================================
 
@@ -28,6 +31,12 @@ do $$
 declare
   n int;
 begin
+  -- The real orders are in: nothing to clean up, never touch them.
+  if exists (select 1 from public.orders o where o.internal_notes like 'Imported from the Order and Delivery sheet%') then
+    insert into cleanup_report values ('Skipped: the real orders are already in', 0);
+    return;
+  end if;
+
   -- Unlink what stays.
   update public.print_runs set order_id = null where order_id is not null;
   update public.raw_material_movements set order_id = null where order_id is not null;
