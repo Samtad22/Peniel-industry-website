@@ -35,3 +35,11 @@ test("each email kind belongs to its group", () => {
   assert.equal(emailGroupOf("certificate_issued"), "coa_pdf");
   assert.equal(emailGroupOf("test"), null);
 });
+
+test("planned crowns a day: presses x speed x hours x output x working days", async () => {
+  const { plannedPerDay, DEFAULT_SETTINGS } = await import("../../lib/settings.ts");
+  // 1 press x 270,000 an hour x 2 shifts of 8 h x 75% x 6/7 days.
+  assert.equal(Math.round(plannedPerDay(DEFAULT_SETTINGS.plant, 1)), Math.round((270_000 * 16 * 0.75 * 6) / 7));
+  assert.equal(plannedPerDay(DEFAULT_SETTINGS.plant, 0), 0);
+  assert.equal(Math.round(plannedPerDay({ ...DEFAULT_SETTINGS.plant, output_pct: 100, working_days_per_week: 7 }, 2)), 2 * 270_000 * 16);
+});

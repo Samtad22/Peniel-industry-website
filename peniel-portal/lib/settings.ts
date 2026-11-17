@@ -12,6 +12,12 @@ export type PlantSettings = {
   press_per_hour: number;
   /** Hours in a shift. */
   shift_hours: number;
+  /** Shifts worked a day (2 = 16 hours). */
+  shifts_per_day: number;
+  /** Days worked a week. */
+  working_days_per_week: number;
+  /** Good crowns as a % of the press speed over a shift (stops, changeovers, waste). */
+  output_pct: number;
 };
 
 /** Each press has two liners; a liner makes half the press's rate. */
@@ -19,6 +25,13 @@ export const LINERS_PER_PRESS = 2;
 export const linerPerHour = (p: PlantSettings) => p.press_per_hour / LINERS_PER_PRESS;
 /** Crowns one liner can make in a shift. */
 export const linerPerShift = (p: PlantSettings) => linerPerHour(p) * p.shift_hours;
+
+/**
+ * Good crowns the plant makes a day on average (working and rest days alike):
+ * presses x press speed x hours a day x output % x working days / 7.
+ */
+export const plannedPerDay = (p: PlantSettings, presses: number) =>
+  Math.max(0, presses) * p.press_per_hour * p.shift_hours * p.shifts_per_day * (p.output_pct / 100) * (p.working_days_per_week / 7);
 
 export type CoaSettings = { company: string; documentNo: string; revision: string; tel: string; linerTypeId: string };
 
@@ -52,7 +65,16 @@ export const DEFAULT_SETTINGS: Settings = {
     tel: "+251 11 668 9255 / +251 957 238 924",
     linerTypeId: "Contoform 0369",
   },
-  plant: { reject_limit_pct: 0.5, oven_minutes: 30, stillage_sheets: 1_420, press_per_hour: 270_000, shift_hours: 8 },
+  plant: {
+    reject_limit_pct: 0.5,
+    oven_minutes: 30,
+    stillage_sheets: 1_420,
+    press_per_hour: 270_000,
+    shift_hours: 8,
+    shifts_per_day: 2,
+    working_days_per_week: 6,
+    output_pct: 75,
+  },
 };
 
 export const EMAIL_GROUPS: { key: EmailGroup; who: "Customer" | "Staff" | "Admins"; label: string }[] = [
@@ -114,6 +136,9 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): Settings
       stillage_sheets: Math.round(num(plant.stillage_sheets, 100, 10_000, d.plant.stillage_sheets)),
       press_per_hour: Math.round(num(plant.press_per_hour, 10_000, 2_000_000, d.plant.press_per_hour)),
       shift_hours: num(plant.shift_hours, 1, 24, d.plant.shift_hours),
+      shifts_per_day: Math.round(num(plant.shifts_per_day, 1, 3, d.plant.shifts_per_day)),
+      working_days_per_week: Math.round(num(plant.working_days_per_week, 1, 7, d.plant.working_days_per_week)),
+      output_pct: num(plant.output_pct, 10, 100, d.plant.output_pct),
     },
   };
 }

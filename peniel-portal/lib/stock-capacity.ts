@@ -56,9 +56,10 @@ const SCOPE: Record<string, CapacityScope> = {
 };
 
 /**
- * `pace`: crowns made a day (null or 0: no estimate from it); `usageDays`:
- * the days `used_recently` covers. A material's own recent use wins over
- * the pace (it already reflects the brand mix, e.g. base coats).
+ * `pace`: crowns made a day, the plant's plan (null or 0: none); `usageDays`:
+ * the days `used_recently` covers. Materials in every crown last at the pace;
+ * a base coat (only some brands) at its own recent use. A material's own use
+ * also stands in when there is no pace.
  */
 export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace: number | null, usageDays = 30): Capacity {
   const rows: CapacityRow[] = [];
@@ -81,13 +82,13 @@ export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace:
     const used = Number(m.used_recently ?? 0);
     let perDay: number | null = null;
     let perDayFrom: CapacityRow["perDayFrom"] = null;
-    if (used > 0 && usageDays > 0) {
-      perDay = used / usageDays;
-      perDayFrom = "use";
-    } else if (scope === "all" && pace && pace > 0) {
-      // Base coats go on some brands only: the overall pace would overstate their use.
+    if (scope === "all" && pace && pace > 0) {
       perDay = needFor(pace, basis, rate, plant);
       perDayFrom = "pace";
+    } else if (used > 0 && usageDays > 0) {
+      // Base coats go on some brands only: the overall pace would overstate their use.
+      perDay = used / usageDays;
+      perDayFrom = "use";
     }
     const reorder = m.reorder_level == null ? null : Number(m.reorder_level);
     const row: CapacityRow = {
