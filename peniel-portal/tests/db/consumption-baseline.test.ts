@@ -23,8 +23,9 @@ const brandRates = async (brandId: string) =>
 test("per-sheet usage rates go on the items the invoices were recorded on, in their unit", async () => {
   assert.deepEqual(await material("Varnish"), { unit: "L", use_basis: "varnish_sheet", rate: 0.015 });
   assert.deepEqual(await material("Adhesive lacquer"), { unit: "kg", use_basis: "lacquer_sheet", rate: 0.015 });
-  assert.deepEqual(await material("White base coat"), { unit: "kg", use_basis: "white_base_coat_sheet", rate: 0.02515 });
-  assert.deepEqual(await material("Transparent base coat"), { unit: "kg", use_basis: "transparent_base_coat_sheet", rate: 0.0076 });
+  // The base coats: Peniel's barrel figures since 20261117000009 (were 25.15 g and 7.6 g).
+  assert.deepEqual(await material("White base coat"), { unit: "kg", use_basis: "white_base_coat_sheet", rate: 0.0275 });
+  assert.deepEqual(await material("Transparent base coat"), { unit: "kg", use_basis: "transparent_base_coat_sheet", rate: 0.00714 });
   assert.deepEqual(await material("Fountain solution (alcohol-free)"), { unit: "L", use_basis: "sheet_printed", rate: 0.00075 });
   assert.deepEqual(await material("Multifunctional washing water"), { unit: "L", use_basis: "sheet_printed", rate: 0.0011 });
   assert.deepEqual(await material("Specific car wash water"), { unit: "L", use_basis: "sheet_printed", rate: 0.0032 });
