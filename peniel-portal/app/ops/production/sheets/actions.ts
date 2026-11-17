@@ -11,11 +11,14 @@ import {
   crownsFromSheets,
   formatSpoiledPct,
   MAX_STILLAGE_SHEETS,
+  MAX_OVEN_AT_ONCE,
   MAX_STILLAGES_AT_ONCE,
   minutesBetween,
   OVEN_STAGE_LABEL,
   splitEvenly,
   stillageNumbers,
+  stillagesFromTotal,
+  coatOfPass,
   wholeNumber,
   type BaseCoat,
   type OvenStage,
@@ -87,37 +90,69 @@ export async function savePrintRun(_prev: PrintRunState, fd: FormData): Promise<
   if (!inks) return { error: "Ink used: type a number for each ink (e.g. 850 g or 1.2 kg)." };
 
   const supabase = await createClient();
-  // A base-coated stillage waiting for the print line: print that one.
-  const existing = s("id");
-  if (UUID.test(existing)) {
-    if (count !== 1) return { error: "A base-coated stillage is printed one at a time." };
-    const { data: row, error } = await supabase
-      .from("print_runs")
-      .update({
-        // Base-coated stock gets its brand now; a brand's own stillage keeps it.
-        brand_id: brandId,
-        inks,
-        run_date: date,
-        shift,
-        colours,
-        sheets_printed: printed,
-        sheets_spoiled: spoiled,
-        crowns_per_sheet: CROWNS_PER_SHEET,
-        coil_lot: s("coil_lot").slice(0, 60) || null,
-        notes: s("notes").slice(0, 1000) || null,
-        printed: true,
-      })
-      .eq("id", existing)
-      .eq("printed", false)
-      .select("stillage_no")
-      .maybeSingle<{ stillage_no: string | null }>();
-    if (error) {
-      if (/base coat out of the oven/i.test(error.message)) return { error: "Take the base coat out of the oven before printing this stillage." };
-      return { error: saveError(error.message) };
+  // Base-coated stillages waiting for the print line (one, or several ticked): print those.
+  const existing = idsOf(fd, "id");
+  if (existing.length) {
+    if (existing.length > MAX_OVEN_AT_ONCE) return { error: `Up to ${MAX_OVEN_AT_ONCE} stillages at a time.` };
+    if (existing.length > 1 && printed === 0) return { error: "Enter the good sheets on each stillage." };
+    const [{ data: rows }, { data: bases }, { data: brand }] = await Promise.all([
+      supabase.from("print_runs").select("id, stillage_no, brand_id, printed").in("id", existing).returns<{ id: string; stillage_no: string | null; brand_id: string | null; printed: boolean }[]>(),
+      supabase.from("stillage_passes").select("print_run_id, material, finished_at").eq("stage", "base_coat").in("print_run_id", existing).returns<{ print_run_id: string; material: string | null; finished_at: string | null }[]>(),
+      supabase.from("brands").select("name, base_coat").eq("id", brandId).maybeSingle<{ name: string; base_coat: BaseCoat | null }>(),
+    ]);
+    if (!rows || rows.length !== existing.length) return { error: "A stillage wasn't found. Refresh the page." };
+    const label = (r: { id: string; stillage_no: string | null }) => r.stillage_no ?? `#${r.id.slice(0, 4)}`;
+    const done = rows.filter((r) => r.printed);
+    if (done.length) return { error: `Already printed: ${done.map(label).join(", ")}. Refresh the page.` };
+    const other = rows.filter((r) => r.brand_id && r.brand_id !== brandId);
+    if (other.length) return { error: `Base coated for another brand: ${other.map(label).join(", ")}.` };
+    const inOven = rows.filter((r) => bases?.some((b) => b.print_run_id === r.id && !b.finished_at));
+    if (inOven.length) return { error: `Take the base coat out of the oven first: ${inOven.map(label).join(", ")}.` };
+    // Each sheet gets one coat: the stillage's coat must be the brand's, unless confirmed.
+    const coatOf = new Map((bases ?? []).map((b) => [b.print_run_id, coatOfPass(b.material)]));
+    const wrong = brand?.base_coat ? rows.filter((r) => coatOf.get(r.id) && coatOf.get(r.id) !== brand.base_coat) : [];
+    if (wrong.length && s("coat_ok") !== "1")
+      return {
+        error: `${wrong.map(label).join(", ")} ${wrong.length === 1 ? "has" : "have"} the ${BASE_COAT_LABEL[coatOf.get(wrong[0].id)!].toLowerCase()}; ${brand?.name} gets the ${BASE_COAT_LABEL[brand!.base_coat!].toLowerCase()}. Tick "Print anyway" if that is right.`,
+      };
+    const order = existing.map((id) => rows.find((r) => r.id === id)!);
+    const spoiledEach = splitEvenly(spoiled, order.length);
+    const inksEach = splitInks(inks, order.length);
+    for (const [i, r] of order.entries()) {
+      const { data: row, error } = await supabase
+        .from("print_runs")
+        .update({
+          // Base-coated stock gets its brand now; a brand's own stillage keeps it.
+          brand_id: brandId,
+          inks: inksEach[i],
+          run_date: date,
+          shift,
+          colours,
+          sheets_printed: printed,
+          sheets_spoiled: spoiledEach[i],
+          crowns_per_sheet: CROWNS_PER_SHEET,
+          coil_lot: s("coil_lot").slice(0, 60) || null,
+          notes: s("notes").slice(0, 1000) || null,
+          printed: true,
+        })
+        .eq("id", r.id)
+        .eq("printed", false)
+        .select("id")
+        .maybeSingle<{ id: string }>();
+      if (error || !row) {
+        refresh();
+        const why = error && /base coat out of the oven/i.test(error.message) ? `Take the base coat out of the oven before printing ${label(r)}.` : error ? saveError(error.message) : `${label(r)} is already printed. Refresh the page.`;
+        return { error: i ? `${i} of ${order.length} saved. ${why}` : why };
+      }
     }
-    if (!row) return { error: "That stillage is already printed. Refresh the page." };
     refresh();
-    return { ok: `Stillage ${row.stillage_no ?? ""} printed: ${printed.toLocaleString("en-US")} good sheets, ${spoiled.toLocaleString("en-US")} spoiled (${formatSpoiledPct(printed, spoiled)}). Next: varnish.` };
+    const good = printed * order.length;
+    return {
+      ok:
+        order.length === 1
+          ? `Stillage ${label(order[0])} printed: ${n(printed)} good sheets, ${n(spoiled)} spoiled (${formatSpoiledPct(printed, spoiled)}). Next: varnish.`
+          : `${order.length} base-coated stillages printed (${order.map(label).join(", ")}): ${n(good)} good sheets, ${n(spoiled)} spoiled (${formatSpoiledPct(good, spoiled)}). Next: varnish.`,
+    };
   }
 
   // One row per stillage, all saved together or none.
@@ -161,9 +196,12 @@ export async function deletePrintRun(fd: FormData): Promise<void> {
 }
 
 /**
- * 00 base coat (brands that need one): a new stillage goes into the big oven
- * for its white or transparent base coat, before printing. With an out time
- * as well, the whole pass is logged at once.
+ * 00 base coat: new stillages go into the big oven for their white or
+ * transparent base coat, before printing. Several at once: a number of
+ * stillages of so many sheets each, or a day's total of sheets cut into
+ * stillages of so many sheets (the last one takes what is left). Numbered on
+ * from the first stillage number. With an out time as well, the whole pass
+ * is logged at once.
  */
 export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
   await requireStaff([...WRITERS]);
@@ -172,7 +210,10 @@ export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise
   const stillage = s("stillage_no").slice(0, 40);
   const coat = s("coat") as BaseCoat;
   const shift = s("shift");
-  const sheets = wholeNumber(s("base_sheets"));
+  const perStillage = wholeNumber(s("base_sheets"));
+  const byTotal = s("amount") === "total";
+  const total = wholeNumber(s("total_sheets"));
+  const count = byTotal ? 0 : s("stillages") ? wholeNumber(s("stillages")) : 1;
   const startedAt = addisLocalToIso(s("started_at"));
   const finishedAt = s("finished_at") ? addisLocalToIso(s("finished_at")) : null;
   const tempRaw = s("oven_temp_c").replace(",", ".");
@@ -185,53 +226,75 @@ export async function startBaseCoat(_prev: PrintRunState, fd: FormData): Promise
   if (!stillage) return { error: "Enter the stillage number." };
   if (!(coat in BASE_COAT_LABEL)) return { error: "Choose white or transparent." };
   if (!SHIFTS.includes(shift as (typeof SHIFTS)[number])) return { error: "Choose the shift." };
-  if (!Number.isFinite(sheets) || sheets < 1 || sheets > MAX_STILLAGE) return { error: `Sheets: enter the sheets on the stillage (up to ${MAX_STILLAGE.toLocaleString("en-US")}).` };
-  if (!startedAt) return { error: "Enter when the stillage went into the oven." };
-  if (s("finished_at") && !finishedAt) return { error: "Enter when it came out, or leave it empty while it's in the oven." };
-  if (finishedAt && finishedAt < startedAt) return { error: "It can't come out before it went in." };
-  if (new Date(startedAt).getTime() > Date.now() + 5 * 60_000) return { error: "The time it went in is in the future." };
+  if (!Number.isFinite(perStillage) || perStillage < 1 || perStillage > MAX_STILLAGE)
+    return { error: `Sheets a stillage: enter the sheets on one stillage (up to ${MAX_STILLAGE.toLocaleString("en-US")}).` };
+  let sizes: number[];
+  if (byTotal) {
+    if (!Number.isFinite(total) || total < 1) return { error: "Total sheets: enter the sheets base coated." };
+    sizes = stillagesFromTotal(total, perStillage);
+    if (sizes.length > MAX_OVEN_AT_ONCE) return { error: `That makes ${sizes.length} stillages; up to ${MAX_OVEN_AT_ONCE} at a time.` };
+  } else {
+    if (!Number.isFinite(count) || count < 1 || count > MAX_OVEN_AT_ONCE) return { error: `Stillages: 1 to ${MAX_OVEN_AT_ONCE} at a time.` };
+    sizes = Array.from({ length: count }, () => perStillage);
+  }
+  const numbers = stillageNumbers(stillage, sizes.length);
+  if (!numbers) return { error: "To save several stillages, end the first stillage number with a number (e.g. ST-014)." };
+  const sheets = sizes.reduce((t, x) => t + x, 0);
+  if (!startedAt) return { error: "Enter when the stillages went into the oven." };
+  if (s("finished_at") && !finishedAt) return { error: "Enter when they came out, or leave it empty while they're in the oven." };
+  if (finishedAt && finishedAt < startedAt) return { error: "They can't come out before they went in." };
+  if (new Date(startedAt).getTime() > Date.now() + 5 * 60_000) return { error: "The time they went in is in the future." };
   if (temp != null && (!Number.isFinite(temp) || temp < 0 || temp > 400)) return { error: "Oven temperature: enter °C, from 0 to 400." };
   if (!Number.isFinite(spoiled) || spoiled > sheets) return { error: "Spoiled sheets: enter a whole number, no more than the sheets." };
+  // Spoiled sheets shared over the stillages, never more than a stillage holds.
+  const spoiledEach = splitEvenly(spoiled, sizes.length).map((x, i) => Math.min(x, sizes[i]));
 
   const supabase = await createClient();
-  const { data: run, error } = await supabase
+  const { data: runs, error } = await supabase
     .from("print_runs")
-    .insert({
-      brand_id: stock ? null : brandId,
-      stillage_no: stillage,
-      run_date: s("started_at").slice(0, 10),
-      shift,
-      colours: [],
-      sheets_printed: 0,
-      sheets_spoiled: 0,
-      crowns_per_sheet: CROWNS_PER_SHEET,
-      printed: false,
-      base_sheets: sheets,
-      notes: s("notes").slice(0, 1000) || null,
-    })
-    .select("id")
-    .single<{ id: string }>();
-  if (error || !run) return { error: /row-level|permission/i.test(error?.message ?? "") ? "Your role can't record printed sheets." : "Couldn't save the stillage. Please try again." };
-  const { error: passErr } = await supabase.from("stillage_passes").insert({
-    print_run_id: run.id,
-    stage: "base_coat",
-    material: BASE_COAT_LABEL[coat],
-    oven_temp_c: temp,
-    started_at: startedAt,
-    finished_at: finishedAt,
-    sheets_spoiled: spoiled,
-  });
+    .insert(
+      numbers.map((no, i) => ({
+        brand_id: stock ? null : brandId,
+        stillage_no: no,
+        run_date: s("started_at").slice(0, 10),
+        shift,
+        colours: [],
+        sheets_printed: 0,
+        sheets_spoiled: 0,
+        crowns_per_sheet: CROWNS_PER_SHEET,
+        printed: false,
+        base_sheets: sizes[i],
+        notes: s("notes").slice(0, 1000) || null,
+      })),
+    )
+    .select("id, stillage_no")
+    .returns<{ id: string; stillage_no: string }[]>();
+  if (error || !runs || runs.length !== numbers.length)
+    return { error: /row-level|permission/i.test(error?.message ?? "") ? "Your role can't record printed sheets." : "Couldn't save the stillages. Please try again." };
+  const idOf = new Map(runs.map((r) => [r.stillage_no, r.id]));
+  const { error: passErr } = await supabase.from("stillage_passes").insert(
+    numbers.map((no, i) => ({
+      print_run_id: idOf.get(no),
+      stage: "base_coat",
+      material: BASE_COAT_LABEL[coat],
+      oven_temp_c: temp,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      sheets_spoiled: spoiledEach[i],
+    })),
+  );
   if (passErr) {
-    await supabase.from("print_runs").delete().eq("id", run.id);
+    await supabase.from("print_runs").delete().in("id", runs.map((r) => r.id));
     return { error: "Couldn't save the base coat. Please try again." };
   }
   refresh();
+  const which = numbers.length === 1 ? `Stillage ${numbers[0]}` : `${numbers.length} stillages (${numbers[0]} to ${numbers[numbers.length - 1]}, ${n(sheets)} sheets)`;
   return {
     ok: finishedAt
       ? stock
-        ? `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. It waits in base-coated stock; the brand is chosen when it's printed.`
-        : `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. Next: print it (it's under "Waiting for printing").`
-      : `Stillage ${stillage}: ${BASE_COAT_LABEL[coat].toLowerCase()} in the oven since ${s("started_at").slice(11)}.`,
+        ? `${which}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. Waiting in base-coated stock; the brand is chosen when printed.`
+        : `${which}: ${BASE_COAT_LABEL[coat].toLowerCase()} logged. Next: print (under "Waiting for printing").`
+      : `${which}: ${BASE_COAT_LABEL[coat].toLowerCase()} in the oven since ${s("started_at").slice(11)}.`,
   };
 }
 
@@ -284,14 +347,18 @@ export async function deleteSampleSheets(fd: FormData): Promise<void> {
 
 const STAGE_LABEL = OVEN_STAGE_LABEL;
 
+/** The ids sent for a field (one or several), each once. */
+const idsOf = (fd: FormData, key: string) => [...new Set(fd.getAll(key).map((v) => String(v).trim()))].filter((v) => UUID.test(v));
+
 /**
- * A stillage into the oven for varnish or lacquer. With an out time as well,
- * the whole pass is logged at once (it already came out).
+ * Stillages into the oven for varnish or lacquer: one, or several together
+ * (ticked). With an out time as well, the whole pass is logged at once; the
+ * spoiled sheets are shared over the stillages.
  */
 export async function startPass(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
   await requireStaff([...WRITERS]);
   const s = (k: string) => String(fd.get(k) ?? "").trim();
-  const runId = s("print_run_id");
+  const runIds = idsOf(fd, "print_run_id");
   const stage = s("stage") as OvenStage;
   const startedAt = addisLocalToIso(s("started_at"));
   const finishedAt = s("finished_at") ? addisLocalToIso(s("finished_at")) : null;
@@ -299,62 +366,83 @@ export async function startPass(_prev: PrintRunState, fd: FormData): Promise<Pri
   const temp = tempRaw ? Number(tempRaw) : null;
   const spoiled = wholeNumber(s("sheets_spoiled"));
 
-  if (!UUID.test(runId)) return { error: "Choose the stillage." };
+  if (runIds.length === 0) return { error: "Tick the stillages going into the oven." };
+  if (runIds.length > MAX_OVEN_AT_ONCE) return { error: `Up to ${MAX_OVEN_AT_ONCE} stillages at a time.` };
   if (stage !== "varnish" && stage !== "lacquer") return { error: "Choose varnish or lacquer." };
-  if (!startedAt) return { error: "Enter when the stillage went into the oven." };
-  if (s("finished_at") && !finishedAt) return { error: "Enter when it came out, or leave it empty while it's in the oven." };
-  if (finishedAt && finishedAt < startedAt) return { error: "It can't come out before it went in." };
-  if (new Date(startedAt).getTime() > Date.now() + 5 * 60_000) return { error: "The time it went in is in the future." };
+  if (!startedAt) return { error: "Enter when the stillages went into the oven." };
+  if (s("finished_at") && !finishedAt) return { error: "Enter when they came out, or leave it empty while they're in the oven." };
+  if (finishedAt && finishedAt < startedAt) return { error: "They can't come out before they went in." };
+  if (new Date(startedAt).getTime() > Date.now() + 5 * 60_000) return { error: "The time they went in is in the future." };
   if (temp != null && (!Number.isFinite(temp) || temp < 0 || temp > 400)) return { error: "Oven temperature: enter °C, from 0 to 400." };
-  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE) return { error: "Spoiled sheets: enter a whole number." };
+  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE * runIds.length) return { error: "Spoiled sheets: enter a whole number." };
+  const spoiledEach = splitEvenly(spoiled, runIds.length);
 
   const supabase = await createClient();
-  const { error } = await supabase.from("stillage_passes").insert({
-    print_run_id: runId,
-    stage,
-    material: s("material").slice(0, 100) || null,
-    oven_temp_c: temp,
-    started_at: startedAt,
-    finished_at: finishedAt,
-    sheets_spoiled: spoiled,
-    notes: s("notes").slice(0, 1000) || null,
-  });
+  // All together or none.
+  const { error } = await supabase.from("stillage_passes").insert(
+    runIds.map((id, i) => ({
+      print_run_id: id,
+      stage,
+      material: s("material").slice(0, 100) || null,
+      oven_temp_c: temp,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      sheets_spoiled: spoiledEach[i],
+      notes: s("notes").slice(0, 1000) || null,
+    })),
+  );
   if (error) {
-    if (error.code === "23505") return { error: `This stillage already has its ${stage}.` };
-    if (/before lacquer/i.test(error.message)) return { error: "Varnish this stillage (and take it out of the oven) before lacquer." };
+    const which = runIds.length === 1 ? "This stillage" : "One of these stillages";
+    if (error.code === "23505") return { error: `${which} already has its ${stage}. Refresh the page.` };
+    if (/before lacquer/i.test(error.message)) return { error: `${which} isn't varnished yet (or is still in the oven). Lacquer comes after the varnish.` };
     return { error: /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save. Please try again." };
   }
   refresh();
+  const who = runIds.length === 1 ? "" : ` (${runIds.length} stillages)`;
   return {
     ok: finishedAt
-      ? `${STAGE_LABEL[stage]} logged: ${minutesBetween(startedAt, finishedAt)} min in the oven.`
-      : `${STAGE_LABEL[stage]}: in the oven since ${s("started_at").slice(11)}.`,
+      ? `${STAGE_LABEL[stage]} logged${who}: ${minutesBetween(startedAt, finishedAt)} min in the oven.`
+      : `${STAGE_LABEL[stage]}${who}: in the oven since ${s("started_at").slice(11)}.`,
   };
 }
 
-/** The stillage came out of the oven. */
+/** Stillages out of the oven: one, or several together (ticked); spoiled sheets shared over them. */
 export async function finishPass(_prev: PrintRunState, fd: FormData): Promise<PrintRunState> {
   await requireStaff([...WRITERS]);
   const s = (k: string) => String(fd.get(k) ?? "").trim();
-  const passId = s("pass_id");
+  const passIds = idsOf(fd, "pass_id");
   const finishedAt = addisLocalToIso(s("finished_at"));
   const spoiled = wholeNumber(s("sheets_spoiled"));
-  if (!UUID.test(passId)) return { error: "Pass not found." };
-  if (!finishedAt) return { error: "Enter when it came out of the oven." };
-  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE) return { error: "Spoiled sheets: enter a whole number." };
+  if (passIds.length === 0) return { error: "Tick the stillages that came out." };
+  if (passIds.length > MAX_OVEN_AT_ONCE) return { error: `Up to ${MAX_OVEN_AT_ONCE} stillages at a time.` };
+  if (!finishedAt) return { error: "Enter when they came out of the oven." };
+  if (!Number.isFinite(spoiled) || spoiled > MAX_STILLAGE * passIds.length) return { error: "Spoiled sheets: enter a whole number." };
 
   const supabase = await createClient();
-  const { data: pass } = await supabase.from("stillage_passes").select("started_at, stage").eq("id", passId).maybeSingle<{ started_at: string; stage: OvenStage }>();
-  if (!pass) return { error: "Pass not found." };
-  if (new Date(finishedAt) < new Date(pass.started_at)) return { error: "It can't come out before it went in." };
-  const note = s("notes").slice(0, 1000);
-  const { error } = await supabase
+  const { data: passes } = await supabase
     .from("stillage_passes")
-    .update({ finished_at: finishedAt, sheets_spoiled: spoiled, ...(note ? { notes: note } : {}) })
-    .eq("id", passId);
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save. Please try again." };
+    .select("id, started_at, stage, finished_at")
+    .in("id", passIds)
+    .returns<{ id: string; started_at: string; stage: OvenStage; finished_at: string | null }[]>();
+  if (!passes || passes.length !== passIds.length) return { error: "A pass wasn't found. Refresh the page." };
+  if (passes.some((p) => new Date(finishedAt) < new Date(p.started_at))) return { error: "They can't come out before they went in." };
+  const note = s("notes").slice(0, 1000);
+  const spoiledEach = splitEvenly(spoiled, passIds.length);
+  for (const [i, id] of passIds.entries()) {
+    const { error } = await supabase
+      .from("stillage_passes")
+      .update({ finished_at: finishedAt, sheets_spoiled: spoiledEach[i], ...(note ? { notes: note } : {}) })
+      .eq("id", id);
+    if (error) {
+      refresh();
+      const msg = /row-level|permission/i.test(error.message) ? "Your role can't record printed sheets." : "Couldn't save. Please try again.";
+      return { error: i ? `${i} of ${passIds.length} saved. ${msg}` : msg };
+    }
+  }
   refresh();
-  return { ok: `${STAGE_LABEL[pass.stage]} out of the oven after ${minutesBetween(pass.started_at, finishedAt)} min.` };
+  const first = passes[0];
+  if (passIds.length === 1) return { ok: `${STAGE_LABEL[first.stage]} out of the oven after ${minutesBetween(first.started_at, finishedAt)} min.` };
+  return { ok: `${passIds.length} stillages out of the oven.` };
 }
 
 /** Remove an oven pass entered by mistake (the lacquer first, if there is one). */

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, printTotals, splitEvenly, spoiledPct, STILLAGE_SHEETS, stillageNumbers, wholeNumber } from "../../lib/print-runs.ts";
+import { coatOfPass, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, printTotals, splitEvenly, spoiledPct, STILLAGE_SHEETS, stillageNumbers, stillagesFromTotal, wholeNumber } from "../../lib/print-runs.ts";
 
 test("spoiled sheets as a share of all sheets through the line", () => {
   assert.equal(spoiledPct(12_000, 150), 1.23);
@@ -62,4 +62,21 @@ test("a stillage moves printed → varnish oven → varnished → lacquer oven �
   assert.equal(nextStillageNo(["ST-021", "ST-009", null, "odd"]), "ST-022");
   assert.equal(nextStillageNo(["7"]), "8");
   assert.equal(nextStillageNo([]), "ST-001");
+});
+
+test("a day's total of base coat becomes stillages, the last one taking what is left", () => {
+  assert.deepEqual(stillagesFromTotal(5000, 1400), [1400, 1400, 1400, 800]);
+  assert.deepEqual(stillagesFromTotal(4200, 1400), [1400, 1400, 1400]);
+  assert.deepEqual(stillagesFromTotal(900, 1400), [900]);
+  assert.equal(stillagesFromTotal(21_000, 1400).length, 15);
+  assert.deepEqual(stillagesFromTotal(0, 1400), []);
+  assert.deepEqual(stillagesFromTotal(1000, 0), []);
+  assert.deepEqual(stillagesFromTotal(1000.5, 1400), []);
+});
+
+test("the coat a base coat pass recorded", () => {
+  assert.equal(coatOfPass("White base coat"), "white");
+  assert.equal(coatOfPass("Transparent base coat"), "transparent");
+  assert.equal(coatOfPass(null), null);
+  assert.equal(coatOfPass("Base coat"), null);
 });

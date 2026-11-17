@@ -1,10 +1,10 @@
 import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
-import { BaseCoatDialog, PrintItDialog, ToPressDialog, UndoToPressButton } from "@/components/ops/BaseCoat";
+import { BaseCoatDialog, PrintItDialog, PrintSeveralDialog, ToPressDialog, UndoToPressButton } from "@/components/ops/BaseCoat";
 import OpsHeader from "@/components/ops/OpsHeader";
 import { KpiStrip, SectionHead } from "@/components/ops/OpsKit";
-import { DeletePassButton, IntoOvenDialog, OutOfOvenDialog, OvenTimer } from "@/components/ops/OvenPass";
-import PrintRunForm, { DeletePrintRunButton, type PrintBrand } from "@/components/ops/PrintRunForm";
+import { DeletePassButton, IntoOvenBatchDialog, IntoOvenDialog, OutOfOvenBatchDialog, OutOfOvenDialog, OvenTimer, type StillageChoice } from "@/components/ops/OvenPass";
+import PrintRunForm, { DeletePrintRunButton, type CoatedStillage, type PrintBrand } from "@/components/ops/PrintRunForm";
 import { DeleteSampleButton, SampleSheetsDialog } from "@/components/ops/SampleSheets";
 import { InkSwatches } from "@/components/ui/Crown";
 import { brandInks, formatGrams, SAMPLE_PURPOSE, type InkGrams, type InkMaterial, type InkRate, type SamplePurpose } from "@/lib/ink-usage";
@@ -21,6 +21,7 @@ import {
   nextStillageNo,
   STILLAGE_STATUS_LABEL,
   stillageStatus,
+  coatOfPass,
   type OvenStage,
   type PrintRun,
   type StillagePass,
@@ -42,6 +43,8 @@ type BrandRow = { id: string; name: string; colours: string[]; base_coat: "white
 const shortCompany = (name: string | undefined | null) => (name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "");
 const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Africa/Addis_Ababa" });
 const hhmm = (iso: string) => timeFmt.format(new Date(iso));
+
+const STAGE_NAME: Record<OvenStage, string> = { base_coat: "Base coat", varnish: "Varnish", lacquer: "Lacquer" };
 
 const STATUS_STYLE: Record<StillageStatus, string> = {
   base_oven: "bg-accent text-bg",
@@ -140,6 +143,15 @@ export default async function PrintedSheetsPage() {
   const waitingPrint = at("base_coated").filter((x) => x.r.brand_id).reverse();
   const coatedStock = at("base_coated").filter((x) => !x.r.brand_id).reverse();
   const coatedBy = (coat: string) => coatedStock.filter((x) => (x.base?.material ?? "").toLowerCase().includes(coat));
+  // Base-coated stillages out of the oven, to tick when printing several (oldest first).
+  const coatedChoices: CoatedStillage[] = [...coatedStock, ...waitingPrint].map((x) => ({
+    id: x.r.id,
+    label: x.label,
+    brandId: x.r.brand_id ?? null,
+    sheets: x.good,
+    coat: coatOfPass(x.base?.material),
+    detail: `${x.r.brands?.name ?? "No brand yet"} · ${x.base?.material ?? "base coat"} · ${x.good.toLocaleString("en-US")} sheets${x.base?.finished_at ? ` · out ${formatDayMonth(x.base.finished_at)}` : ""}`,
+  }));
   const waitingVarnish = at("printed").reverse();
   const waitingLacquer = at("varnished").reverse();
   const finishedToday = stillages.filter((x) => x.status === "finished" && x.lacquer?.finished_at && addisDateISO(new Date(x.lacquer.finished_at)) === today);
@@ -248,7 +260,21 @@ export default async function PrintedSheetsPage() {
 
         <section className="flex min-w-0 flex-col gap-7 border-b-2 border-divider px-4 py-6 sm:px-8">
           <div>
-            <SectionHead title="In the oven" aside={`usually ${OVEN_MINUTES} min a pass`} />
+            <SectionHead title="In the oven" aside={`usually ${OVEN_MINUTES} min a pass`}>
+              {canEnter && inOven.length > 1 && (
+                <OutOfOvenBatchDialog
+                  nowLocal={nowLocal}
+                  choices={inOven.map((x): StillageChoice => {
+                    const pass = (x.status === "lacquer_oven" ? x.lacquer : x.status === "base_oven" ? x.base : x.varnish)!;
+                    return {
+                      id: pass.id,
+                      label: x.label,
+                      detail: `${pass.stage === "base_coat" ? (pass.material ?? "Base coat") : STAGE_NAME[pass.stage]} · ${x.r.brands?.name ?? "no brand yet"} · ${x.good.toLocaleString("en-US")} sheets · in at ${hhmm(pass.started_at)}`,
+                    };
+                  })}
+                />
+              )}
+            </SectionHead>
             {inOven.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">Nothing in the oven.</p>}
             {inOven.map((x) => {
               const pass = (x.status === "lacquer_oven" ? x.lacquer : x.status === "base_oven" ? x.base : x.varnish)!;
@@ -279,7 +305,9 @@ export default async function PrintedSheetsPage() {
             <SectionHead
               title="00 · Base-coated stock"
               aside={`brand later · ${coatedStock.length} stillage${coatedStock.length === 1 ? "" : "s"} · ${sum(coatedStock, (x) => x.good).toLocaleString("en-US")} sheets`}
-            />
+            >
+              {canEnter && coatedStock.length > 0 && coatedChoices.length > 1 && <PrintSeveralDialog today={today} brands={formBrands} stillages={coatedChoices} />}
+            </SectionHead>
             {coatedStock.length === 0 ? (
               <p className="m-0 py-3 text-[13px] opacity-60">None. &ldquo;00 · Base coat only (brand later)&rdquo; puts plain sheets through the oven before the brand is known.</p>
             ) : (
@@ -300,7 +328,7 @@ export default async function PrintedSheetsPage() {
                         {x.base?.finished_at ? ` out ${formatDayMonth(x.base.finished_at)} ${hhmm(x.base.finished_at)}` : ""}
                       </span>
                     </span>
-                    {canEnter && <PrintItDialog today={today} brands={formBrands} stillage={{ id: x.r.id, brandId: "", stillageNo: x.label, sheets: x.good || null }} />}
+                    {canEnter && <PrintItDialog today={today} brands={formBrands} stillage={{ id: x.r.id, brandId: "", stillageNo: x.label, sheets: x.good || null, coat: coatOfPass(x.base?.material) }} />}
                   </div>
                 ))}
                 {coatedStock.length > 12 && <p className="m-0 pt-2 text-[12px] opacity-60">+ {coatedStock.length - 12} more, oldest first above.</p>}
@@ -310,7 +338,9 @@ export default async function PrintedSheetsPage() {
 
           {waitingPrint.length > 0 && (
             <div>
-              <SectionHead title="01 · Waiting for printing" aside={`${waitingPrint.length} base-coated`} />
+              <SectionHead title="01 · Waiting for printing" aside={`${waitingPrint.length} base-coated`}>
+                {canEnter && coatedStock.length === 0 && coatedChoices.length > 1 && <PrintSeveralDialog today={today} brands={formBrands} stillages={coatedChoices} />}
+              </SectionHead>
               {waitingPrint.slice(0, 12).map((x, i) => (
                 <div key={x.r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-divider py-2.5 sm:grid-cols-[minmax(0,1fr)_190px]">
                   <span className="min-w-0">
@@ -321,7 +351,7 @@ export default async function PrintedSheetsPage() {
                     </span>
                   </span>
                   {canEnter && (
-                    <PrintItDialog today={today} brands={formBrands} stillage={{ id: x.r.id, brandId: x.r.brand_id ?? "", stillageNo: x.label, sheets: x.good || null }} primary={i === 0} />
+                    <PrintItDialog today={today} brands={formBrands} stillage={{ id: x.r.id, brandId: x.r.brand_id ?? "", stillageNo: x.label, sheets: x.good || null, coat: coatOfPass(x.base?.material) }} primary={i === 0} />
                   )}
                 </div>
               ))}
@@ -335,7 +365,25 @@ export default async function PrintedSheetsPage() {
             ] as const
           ).map(([title, no, list, stage]) => (
             <div key={stage}>
-              <SectionHead title={`${no} · ${title}`} aside={`${list.length} stillage${list.length === 1 ? "" : "s"}`} />
+              <SectionHead title={`${no} · ${title}`} aside={`${list.length} stillage${list.length === 1 ? "" : "s"}`}>
+                {canEnter && list.length > 1 && (
+                  <IntoOvenBatchDialog
+                    stage={stage}
+                    nowLocal={nowLocal}
+                    materials={materials(stage)}
+                    lastTemp={lastTemp(stage)}
+                    choices={list.map(
+                      (x): StillageChoice => ({
+                        id: x.r.id,
+                        label: x.label,
+                        detail: `${x.r.brands?.name ?? "No brand yet"} · ${x.good.toLocaleString("en-US")} sheets · ${
+                          stage === "varnish" ? `printed ${formatDayMonth(x.r.run_date)}` : `varnish out ${formatDayMonth(x.varnish!.finished_at)}`
+                        }`,
+                      }),
+                    )}
+                  />
+                )}
+              </SectionHead>
               {list.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">None waiting.</p>}
               {list.slice(0, 12).map((x, i) => (
                 <div key={x.r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-divider py-2.5 sm:grid-cols-[minmax(0,1fr)_190px]">
