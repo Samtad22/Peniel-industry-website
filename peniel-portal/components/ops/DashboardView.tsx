@@ -16,7 +16,25 @@ export type DashboardData = {
   week: { day: string; date: string; today: boolean; chips: { label: string; href: string; kind: "due" | "pickup" | "hold" }[] }[];
   weekSummary: string;
   volume: { name: string; total: number; stock: number; open: number; hold: number }[];
+  /** What the raw material in stock can make, and how long it lasts (null: not shown to this role). */
+  capacity: StockCapacityView | null;
 };
+
+/** The dashboard's "Production from stock" section, ready to show. */
+export type StockCapacityView = {
+  /** "4.5M crowns" and the material that runs out first; null when no material has a rate. */
+  crowns: string | null;
+  limitedBy: string | null;
+  /** "about 2 months, to 14 Jan 2027" at the pace, or null. */
+  lasts: string | null;
+  /** "1.2M crowns a day: your deliveries over the last 60 days". */
+  pace: string;
+  rows: CapacityLine[];
+  coatRows: CapacityLine[];
+  noRate: string[];
+  inventoryHref: string | null;
+};
+export type CapacityLine = { name: string; stock: string; crowns: string; lasts: string; reorder: string; urgent: boolean; first: boolean; note?: string };
 
 const TAG: Record<QueueKind, { label: string; className: string }> = {
   confirm: { label: "Confirm order", className: "bg-accent text-bg" },
@@ -180,6 +198,86 @@ export default function DashboardView({ d }: { d: DashboardData }) {
           </section>
         </div>
       </div>
+      {d.capacity && <ProductionFromStock c={d.capacity} />}
     </>
+  );
+}
+
+/**
+ * What the raw material in stock can make: the material that runs out first
+ * sets the figure; each material's crowns, how long it lasts at the pace, and
+ * when it reaches its reorder level. Internal.
+ */
+function ProductionFromStock({ c }: { c: StockCapacityView }) {
+  const COLS = "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)] items-baseline gap-3";
+  const line = (r: CapacityLine) => (
+    <div key={r.name} className={`${COLS} border-b border-divider py-2 text-[13px] ${r.urgent ? "bg-accent-100" : ""}`}>
+      <span className="min-w-0">
+        <b className={r.first ? "text-accent-700" : undefined}>{r.name}</b>
+        {r.first && <span className="ml-2 bg-text px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em] text-bg">Runs out first</span>}
+        {r.note && <span className="block text-[11px] opacity-60">{r.note}</span>}
+      </span>
+      <span className="text-right tabular-nums opacity-80">{r.stock}</span>
+      <b className="text-right tabular-nums">{r.crowns}</b>
+      <span className="text-right">{r.lasts}</span>
+      <span className={`text-right ${r.urgent ? "font-extrabold text-accent-800" : ""}`}>{r.reorder}</span>
+    </div>
+  );
+  return (
+    <section className="border-t-2 border-divider px-4 pb-10 pt-7 sm:px-8">
+      <SectionHead title="Production from stock" aside="what the raw material on hand can make" />
+      {c.crowns ? (
+        <div className="flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-divider py-5">
+          <div>
+            <span className="font-mono text-[11px] font-semibold tracking-[.1em] opacity-60">YOU CAN MAKE</span>
+            <div className="text-[56px] font-extrabold leading-[.9] tracking-[-.05em] sm:text-[80px]">{c.crowns}</div>
+            <span className="text-[13px]">crowns with the stock on hand · {c.limitedBy} runs out first</span>
+          </div>
+          <div className="max-w-[420px] text-[14px]">
+            {c.lasts ? (
+              <>
+                That&apos;s <b>{c.lasts}</b> of production.
+              </>
+            ) : (
+              "No pace yet to say how long that lasts."
+            )}
+            <span className="block text-[12px] opacity-65">At {c.pace}.</span>
+          </div>
+        </div>
+      ) : (
+        <p className="m-0 border-b border-divider py-4 text-[14px] opacity-70">No raw material has a usage rate yet: set them in Inventory to see what the stock can make.</p>
+      )}
+      {c.rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className={`${COLS} th-row border-b border-divider py-2`}>
+              <span>Material</span>
+              <span className="text-right">In stock</span>
+              <span className="text-right">Makes</span>
+              <span className="text-right">Lasts</span>
+              <span className="text-right">Reorder</span>
+            </div>
+            {c.rows.map(line)}
+            {c.coatRows.length > 0 && (
+              <>
+                <h6 className="mb-0 mt-4 opacity-60">Base coats · only for brands with that coat, so they don&apos;t set the figure above</h6>
+                {c.coatRows.map(line)}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {c.noRate.length > 0 && (
+        <p className="m-0 mt-3 text-[12px] opacity-70">
+          Not counted, no usage rate: {c.noRate.join(", ")}.{" "}
+          {c.inventoryHref && (
+            <Link href={c.inventoryHref} className="text-text">
+              Set rates in Inventory →
+            </Link>
+          )}
+        </p>
+      )}
+      <p className="m-0 mt-2 text-[12px] opacity-60">Inks depend on the brand: see the Calculator.</p>
+    </section>
   );
 }

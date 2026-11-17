@@ -38,11 +38,12 @@ test("each line goes to the right material, in its unit", async () => {
   // Two blankets: Japanese and Chinese.
   assert.deepEqual(await received("Printing blanket (Japanese)"), { ...plain, unit: "pcs", qty: 30, lines: 1 });
   assert.deepEqual(await received("Printing blanket (Chinese)"), { ...plain, unit: "pcs", qty: 20, lines: 1 });
-  assert.deepEqual(await received("PVC-free liner compound"), { ...plain, unit: "kg", qty: 52000, lines: 1 });
+  // Usage rates where none was set (20261117000008).
+  assert.deepEqual(await received("PVC-free liner compound"), { ...plain, use_basis: "thousand_crowns", unit: "kg", qty: 52000, lines: 1 });
   // Cartons and corrugated boxes are the Box already on the list (in "boxes").
   assert.deepEqual(await received("Box"), { ...plain, use_basis: "box", unit: "boxes", qty: 32200, lines: 2 });
   // Tinplate: PK/26017 counted pallet by pallet (mill certificate), PK/26020-1 at 1,390 a pallet.
-  assert.deepEqual(await received("Tinplate sheet 0.23 mm"), { ...plain, unit: "sheets", qty: 199_178 + 147 * 1390, lines: 2 });
+  assert.deepEqual(await received("Tinplate sheet 0.23 mm"), { ...plain, use_basis: "sheet_in", unit: "sheets", qty: 199_178 + 147 * 1390, lines: 2 });
   assert.equal(
     (await pool.query("select reason from public.raw_material_movements where reason like 'Received: invoice PK/26017 of 08 Jul 2026, line 1 (%'")).rows[0].reason,
     "Received: invoice PK/26017 of 08 Jul 2026, line 1 (USD 750.00/t, 299.989 t, 144 pallets: 117 x 1,390, 19 x 1,380, 7 x 1,400, 1 x 528 sheets)",
