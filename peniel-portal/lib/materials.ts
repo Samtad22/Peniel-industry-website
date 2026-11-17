@@ -3,12 +3,24 @@
 // one usage rate on one basis; logging sheets, oven passes and production
 // entries then records the material used. Internal only. No imports.
 
-export type UseBasis = "sheet_in" | "sheet_printed" | "base_coat_sheet" | "varnish_sheet" | "lacquer_sheet" | "oven_pass" | "thousand_crowns" | "box";
+export type UseBasis =
+  | "sheet_in"
+  | "sheet_printed"
+  | "base_coat_sheet"
+  | "white_base_coat_sheet"
+  | "transparent_base_coat_sheet"
+  | "varnish_sheet"
+  | "lacquer_sheet"
+  | "oven_pass"
+  | "thousand_crowns"
+  | "box";
 
 export const USE_BASIS: Record<UseBasis, { label: string; per: string }> = {
   sheet_in: { label: "Per sheet into the line (e.g. tinplate)", per: "sheet into the line" },
   sheet_printed: { label: "Per sheet printed", per: "sheet printed" },
-  base_coat_sheet: { label: "Per sheet base-coated (white / transparent coat)", per: "sheet base-coated" },
+  white_base_coat_sheet: { label: "Per sheet given the WHITE base coat (e.g. white base coat)", per: "sheet white base-coated" },
+  transparent_base_coat_sheet: { label: "Per sheet given the TRANSPARENT base coat (e.g. transparent base coat)", per: "sheet transparent base-coated" },
+  base_coat_sheet: { label: "Per sheet base-coated, white or transparent (used on both)", per: "sheet base-coated" },
   varnish_sheet: { label: "Per sheet varnished (e.g. varnish)", per: "sheet varnished" },
   lacquer_sheet: { label: "Per sheet lacquered (e.g. lacquer)", per: "sheet lacquered" },
   oven_pass: { label: "Per pass through the big oven (e.g. LPG)", per: "oven pass" },

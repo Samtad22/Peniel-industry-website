@@ -32,5 +32,6 @@ test("each email kind belongs to its group", () => {
   assert.equal(emailGroupOf("proof_approved"), "staff_artwork");
   assert.equal(emailGroupOf("proof_sent"), "customer_artwork");
   assert.equal(emailGroupOf("eod_report"), "reports");
+  assert.equal(emailGroupOf("certificate_issued"), "coa_pdf");
   assert.equal(emailGroupOf("test"), null);
 });

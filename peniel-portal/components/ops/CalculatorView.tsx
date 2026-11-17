@@ -16,6 +16,7 @@ import {
   yieldOfCrowns,
   yieldOfMaterial,
   yieldOfStillages,
+  usedForBrand,
   type Basis,
   type Plant,
   type WeightUnit,
@@ -25,7 +26,7 @@ import { formatGrams, type BrandInk } from "@/lib/ink-usage";
 import { USE_BASIS, type UseBasis } from "@/lib/materials";
 
 export type CalcMaterial = { id: string; name: string; unit: string; onHand: number; basis: string | null; rate: number | null };
-export type CalcBrand = { id: string; label: string; inks: (BrandInk & { onHandKg: number })[] };
+export type CalcBrand = { id: string; label: string; baseCoat: "white" | "transparent" | null; inks: (BrandInk & { onHandKg: number })[] };
 
 const UNITS = Object.keys(WEIGHT) as WeightUnit[];
 const isKg = (unit: string) => unit.trim().toLowerCase() === "kg";
@@ -252,7 +253,9 @@ function Consumption({ plant, materials, brands }: { plant: Plant; materials: Ca
   const crowns = Number.isNaN(v) ? 0 : mode === "crowns" ? v : mode === "sheets" ? v * CROWNS_PER_SHEET : v * plant.stillage_sheets * CROWNS_PER_SHEET;
   const y = yieldOfCrowns(crowns, plant);
   const brand = brands.find((b) => b.id === brandId);
-  const tracked = materials.filter((m) => m.basis && m.rate && m.rate > 0);
+  // The base coats count only for a brand with that coat (white and transparent go on different products).
+  const tracked = materials.filter((m) => m.basis && m.rate && m.rate > 0 && usedForBrand(m.basis, brand?.baseCoat));
+  const coatLeftOut = materials.some((m) => m.basis && m.rate && m.rate > 0 && !usedForBrand(m.basis, brand?.baseCoat));
   const untracked = materials.filter((m) => !(m.basis && m.rate && m.rate > 0));
   const rows = [
     ...tracked.map((m) => {
@@ -287,7 +290,7 @@ function Consumption({ plant, materials, brands }: { plant: Plant; materials: Ca
           </select>
         </div>
         <div className="field">
-          <label htmlFor="cs-brand">Brand (for its inks)</label>
+          <label htmlFor="cs-brand">Brand (for its inks and base coat)</label>
           <select id="cs-brand" value={brandId} onChange={(e) => setBrandId(e.target.value)} className="input !min-h-[52px] text-[15px]">
             <option value="">No inks</option>
             {brands.map((b) => (
@@ -308,6 +311,13 @@ function Consumption({ plant, materials, brands }: { plant: Plant; materials: Ca
             <span className="text-right">In stock</span>
             <span className="text-right">Left after</span>
           </div>
+          {coatLeftOut && (
+            <p className="m-0 border-b border-divider py-2 text-[12px] opacity-70">
+              {brand?.baseCoat
+                ? `Only the ${brand.baseCoat} base coat counts for this brand.`
+                : "Base coat left out: choose a brand with a white or transparent base coat to include it."}
+            </p>
+          )}
           {rows.length === 0 && <p className="m-0 py-3 text-[13px] opacity-60">No usage rates set yet (Inventory → a material&apos;s Settings, and Ink per sheet).</p>}
           {rows.map((r) => (
             <div key={r.key} className={`${COLS} border-b border-divider py-2 text-[13px] ${r.left < 0 ? "bg-accent-100" : ""}`}>

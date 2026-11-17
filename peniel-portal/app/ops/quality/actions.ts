@@ -65,6 +65,8 @@ export async function saveInspection(_prev: QcState, fd: FormData): Promise<QcSt
       result,
       customer_reason: result === "on_hold" ? reason : reason || "",
       internal_notes: s("internal_notes"),
+      // Printed on the certificate; empty = the one in Settings.
+      liner_type_id: s("liner_type_id").slice(0, 60),
       published: fd.get("published") === "on",
     },
   });

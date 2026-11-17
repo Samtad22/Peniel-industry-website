@@ -24,6 +24,8 @@ export async function sendEmails(
   recipients: string[],
   content: EmailContent,
   meta: { kind: string; companyId?: string | null; entityId?: string | null },
+  /** Files sent with the email (content in base64), e.g. a certificate PDF. */
+  attachments: { filename: string; content: string }[] = [],
 ): Promise<void> {
   const to = [...new Set(recipients.map((r) => r.trim().toLowerCase()).filter((r) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r)))];
   if (to.length === 0) return;
@@ -41,7 +43,7 @@ export async function sendEmails(
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [recipient], subject: content.subject, html, text }),
+          body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [recipient], subject: content.subject, html, text, ...(attachments.length ? { attachments } : {}) }),
         });
         if (res.ok) status = "sent";
         else {

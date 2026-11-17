@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpsHeader from "@/components/ops/OpsHeader";
-import { InkRatesDialog, MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockCountDialog, StockStatusDialog, type InkRateBrand } from "@/components/ops/InventoryForms";
+import { DeleteMaterialDialog, InkRatesDialog, MaterialDialog, MaterialSettingsDialog, ReceiveStockDialog, StockCountDialog, StockStatusDialog, type InkRateBrand } from "@/components/ops/InventoryForms";
 import { brandInks, formatGrams, formatInkStock, inkByBrand, inkKey, type InkGrams, type InkRate } from "@/lib/ink-usage";
 import { parseInk } from "@/lib/inks";
 import { Pill } from "@/components/ui/StatusBadge";
@@ -230,6 +230,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: true }}
                         />
                       )}
+                      {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.name} />}
                     </span>
                   </div>
                 </div>
@@ -245,7 +246,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {canSetInkRates && <InkRatesDialog brands={rateBrands.filter((b) => b.inks.length > 0)} />}
+                {canSetInkRates && <InkRatesDialog brands={rateBrands} allInks={inks.map((m) => ({ id: m.id, name: m.ink_name! }))} />}
                 {inks.length > 0 && <MaterialDialog label="Record ink in / out" materials={inks.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />}
               </div>
             </div>
@@ -301,6 +302,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                               material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: reorder, use_basis: null, use_rate: null, active: true, ink: true }}
                             />
                           )}
+                          {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.ink_name!} ink />}
                         </span>
                       </div>
                     );
@@ -352,6 +354,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <MaterialSettingsDialog
                     material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: false }}
                   />
+                  {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.ink_name ?? m.name} ink={Boolean(m.ink_name)} />}
                 </span>
               ))}
             </p>

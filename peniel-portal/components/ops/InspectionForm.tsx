@@ -25,6 +25,8 @@ export type InspectionInitial = {
   customer_reason: string;
   internal_notes: string;
   published: boolean;
+  /** The liner type ID printed on the certificate. */
+  liner_type_id: string;
 };
 
 
@@ -40,7 +42,8 @@ export default function InspectionForm({
   canDelete = false,
 }: {
   initial: InspectionInitial;
-  orders: { id: string; label: string }[];
+  /** `liner`: the liner type ID a new inspection of the order's brand starts with. */
+  orders: { id: string; label: string; liner: string }[];
   defectTypes: { code: string; customer_label: string }[];
   presets: Preset[];
   canEdit: boolean;
@@ -56,6 +59,9 @@ export default function InspectionForm({
   const [reason, setReason] = useState(initial.customer_reason);
   const [batch, setBatch] = useState(initial.batch_no);
   const [at, setAt] = useState(initial.inspected_at);
+  const [liner, setLiner] = useState(initial.liner_type_id);
+  // Until it's typed in, the liner follows the order's brand.
+  const [linerTyped, setLinerTyped] = useState(Boolean(initial.id));
 
   const total = Object.values(defects).reduce((s, v) => s + num(v), 0);
   const size = num(sample);
@@ -80,7 +86,17 @@ export default function InspectionForm({
           </div>
           <div className="field">
             <label htmlFor="qc-order">Order</label>
-            <select id="qc-order" name="order_id" required defaultValue={initial.order_id} className="input">
+            <select
+              id="qc-order"
+              name="order_id"
+              required
+              defaultValue={initial.order_id}
+              onChange={(e) => {
+                const o = orders.find((x) => x.id === e.target.value);
+                if (o && !linerTyped) setLiner(o.liner);
+              }}
+              className="input"
+            >
               <option value="">Choose an order</option>
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -97,6 +113,25 @@ export default function InspectionForm({
             <label htmlFor="qc-at">Inspected</label>
             <input id="qc-at" name="inspected_at" type="datetime-local" required value={at} onChange={(e) => setAt(e.target.value)} className="input" />
           </div>
+        </div>
+        <div className="field max-w-[420px]">
+          <label htmlFor="qc-liner" className="!flex justify-between gap-2">
+            Liner type ID (on the certificate)
+            <CustomerSees />
+          </label>
+          <input
+            id="qc-liner"
+            name="liner_type_id"
+            maxLength={60}
+            value={liner}
+            onChange={(e) => {
+              setLiner(e.target.value);
+              setLinerTyped(true);
+            }}
+            placeholder={orders.find((o) => o.id === initial.order_id)?.liner ?? "e.g. Actega Svelon 855"}
+            className="input"
+          />
+          <span className="mt-1 block text-[12px] opacity-65">Starts at this brand&apos;s last one (else Settings); empty prints the Settings one. Changing it after signing clears the signature.</span>
         </div>
 
         <div>

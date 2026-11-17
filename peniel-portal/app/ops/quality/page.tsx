@@ -1,9 +1,10 @@
 import { getSettings } from "@/lib/settings-server";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { setInspectionPublished } from "@/app/ops/quality/actions";
+import { deleteInspection, setInspectionPublished } from "@/app/ops/quality/actions";
 import { OpsTopBar } from "@/components/ops/OpsHeader";
 import { DeleteSortingButton, SortingDialog } from "@/components/ops/SortingForms";
+import ConfirmForm from "@/components/ui/ConfirmForm";
 import { Pill } from "@/components/ui/StatusBadge";
 import { CustomerSees, InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -45,6 +46,8 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
   const { f: rawF, saved, deleted } = await searchParams;
   const f = rawF === "held" || rawF === "unpublished" ? rawF : "all";
   const canEdit = me.role === "admin" || me.role === "quality";
+  // Only admin deletes inspections and sorting reports (the database enforces the same).
+  const canDelete = me.role === "admin";
   const today = addisDateISO(new Date());
   const supabase = await createClient();
 
@@ -220,7 +223,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
             <CustomerSees>Each customer sees only their own published batches</CustomerSees>
           </div>
         </div>
-        <BatchTable rows={rows} f={f} canEdit={canEdit} heldCount={held.length} unpublishedCount={all.filter((r) => !r.published).length} rejectLimit={REJECT_LIMIT_PCT} />
+        <BatchTable rows={rows} f={f} canEdit={canEdit} canDelete={canDelete} heldCount={held.length} unpublishedCount={all.filter((r) => !r.published).length} rejectLimit={REJECT_LIMIT_PCT} />
       </div>
 
       <div id="sorting" className="border-b-2 border-divider px-4 pb-8 pt-6 sm:px-8">
@@ -294,7 +297,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
                       <span className={x.waste_cartons ? "font-extrabold text-accent-700" : undefined}>{x.waste_cartons}</span>
                       <span>{formatWastePct(x.passed_cartons, x.waste_cartons)}</span>
                       <span className="truncate">{x.reported_by ?? "-"}</span>
-                      {canEdit ? <DeleteSortingButton id={x.id} /> : <span />}
+                      {canDelete ? <DeleteSortingButton id={x.id} /> : <span />}
                     </div>
                   );
                 })}
@@ -358,6 +361,7 @@ function BatchTable({
   rows,
   f,
   canEdit,
+  canDelete,
   heldCount,
   unpublishedCount,
   rejectLimit: REJECT_LIMIT_PCT,
@@ -365,11 +369,12 @@ function BatchTable({
   rows: Row[];
   f: keyof typeof FILTERS;
   canEdit: boolean;
+  canDelete: boolean;
   heldCount: number;
   unpublishedCount: number;
   rejectLimit: number;
 }) {
-  const COLS = "grid grid-cols-[96px_minmax(0,1fr)_96px_64px_64px_104px_130px] items-center gap-2.5";
+  const COLS = "grid grid-cols-[96px_minmax(0,1fr)_96px_64px_64px_104px_180px] items-center gap-2.5";
   const count: Record<keyof typeof FILTERS, number | null> = { all: null, held: heldCount, unpublished: unpublishedCount };
   return (
     <div className="min-w-0 px-4 py-6 sm:px-8">
@@ -423,6 +428,7 @@ function BatchTable({
                 <span>
                   <Pill style={pill.style}>{pill.label}</Pill>
                 </span>
+                <span className="flex items-center gap-3">
                 {canEdit ? (
                   <form action={setInspectionPublished} className="flex items-center gap-2 text-[12px]">
                     <input type="hidden" name="id" value={r.id} />
@@ -441,6 +447,20 @@ function BatchTable({
                 ) : (
                   <span className="text-[12px]">{r.published ? "Live" : "Draft"}</span>
                 )}
+                {canDelete && (
+                  <ConfirmForm
+                    action={deleteInspection}
+                    fields={{ id: r.id }}
+                    message={
+                      r.published
+                        ? `Delete the inspection of batch ${r.batch_no}? It is published: the customer will no longer see this batch, its defects or its certificate.`
+                        : `Delete the inspection of batch ${r.batch_no}? Use this when it was entered by mistake.`
+                    }
+                    label="Delete"
+                    title={`Delete the inspection of batch ${r.batch_no}`}
+                  />
+                )}
+                </span>
               </div>
             );
           })}

@@ -143,6 +143,9 @@ export default async function ProductionPage({ searchParams }: { searchParams: P
         <Link href="/ops/production/sheets" className="btn border-2 border-neutral-600 !text-bg hover:bg-white/10">
           Printed sheets
         </Link>
+        <Link href="/ops/production/goods" className="btn border-2 border-neutral-600 !text-bg hover:bg-white/10">
+          Produced goods
+        </Link>
         {canEnter && (
           <Link href="/production-entry" className="btn btn-primary">
             + Daily entry

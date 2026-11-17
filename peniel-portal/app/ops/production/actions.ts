@@ -76,7 +76,8 @@ export async function deleteEntry(fd: FormData): Promise<void> {
   const id = String(fd.get("id") ?? "");
   if (!UUID.test(id)) return;
   const supabase = await createClient();
-  await supabase.from("production_entries").delete().eq("id", id).eq("published", false);
+  // Admin deletes published entries too (the customer's output goes down by it).
+  await supabase.from("production_entries").delete().eq("id", id);
   refresh();
 }
 

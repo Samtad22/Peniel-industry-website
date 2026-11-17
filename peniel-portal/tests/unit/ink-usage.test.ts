@@ -68,6 +68,27 @@ test("a brand's colours matched to the inks on the list, with its rates", () => 
   assert.equal(brandInks(["PANTONE 485 C"], "b3", inks, rates)[0].gPerSheet, null);
 });
 
+test("an ink given grams per sheet for a brand is one of its inks, after its colours", () => {
+  const SUPPLIER = "33333333-3333-4333-8333-333333333333";
+  const inks = [
+    { id: RED, ink_name: "PANTONE 485 C" },
+    { id: SUPPLIER, ink_name: "Red 6614" },
+    { id: BLACK, ink_name: "Black", active: false },
+  ];
+  const rates = [
+    { brand_id: "b1", material_id: SUPPLIER, g_per_sheet: 0.425 },
+    { brand_id: "b1", material_id: RED, g_per_sheet: 0.8 },
+    { brand_id: "b1", material_id: BLACK, g_per_sheet: 1 },
+    { brand_id: "b2", material_id: SUPPLIER, g_per_sheet: 2 },
+  ];
+  assert.deepEqual(brandInks(["PANTONE 485 C"], "b1", inks, rates), [
+    { materialId: RED, name: "PANTONE 485 C", hex: "#DA291C", gPerSheet: 0.8 },
+    { materialId: SUPPLIER, name: "Red 6614", hex: null, gPerSheet: 0.425 },
+  ]);
+  // No colours on file: the rated inks alone (an ink off the list is left out).
+  assert.deepEqual(brandInks([], "b2", inks, rates).map((i) => i.name), ["Red 6614"]);
+});
+
 test("ink used, added up by brand", () => {
   const by = inkByBrand([
     { brand: "Habesha", inks: { [RED]: 1000 } },

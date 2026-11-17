@@ -31,7 +31,8 @@ export type EmailGroup =
   | "staff_artwork"
   | "staff_pickups"
   | "staff_messages"
-  | "reports";
+  | "reports"
+  | "coa_pdf";
 
 export type Settings = {
   emails_off: EmailGroup[];
@@ -64,6 +65,7 @@ export const EMAIL_GROUPS: { key: EmailGroup; who: "Customer" | "Staff" | "Admin
   { key: "staff_pickups", who: "Staff", label: "Pickup requested (warehouse and admin)" },
   { key: "staff_messages", who: "Staff", label: "New customer message" },
   { key: "reports", who: "Admins", label: "End-of-day report every evening, monthly summary on the 1st" },
+  { key: "coa_pdf", who: "Admins", label: "Certificate of Analysis PDF when one is issued (to the report recipients)" },
 ];
 
 /** Which group an email kind (lib/notify.ts, notification_log.kind) belongs to; null = always sent (e.g. a test). */
@@ -77,6 +79,7 @@ export function emailGroupOf(kind: string): EmailGroup | null {
   if (kind === "pickup_requested") return "staff_pickups";
   if (kind === "message_to_staff") return "staff_messages";
   if (kind === "eod_report" || kind === "month_report") return "reports";
+  if (kind === "certificate_issued") return "coa_pdf";
   return null;
 }
 

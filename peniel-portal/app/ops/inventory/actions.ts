@@ -237,3 +237,25 @@ export async function saveInkRates(_prev: InvState, fd: FormData): Promise<InvSt
   revalidatePath("/ops/production/sheets");
   return { ok: "Saved. The print and sample forms fill in the ink from these figures." };
 }
+
+/** Admin: delete an item (raw material or ink) for good, with its whole history. */
+export async function deleteMaterial(_prev: InvState, fd: FormData): Promise<InvState> {
+  await requireStaff(["admin"]);
+  const id = s(fd, "material_id");
+  if (!UUID.test(id)) return { error: "Choose the item." };
+  if (fd.get("confirm") !== "on") return { error: "Tick the box to confirm." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_delete_material", { p_id: id });
+  if (error) {
+    if (error.code === "42501") return { error: "Only admin deletes Inventory items." };
+    if (error.code === "P0002") return { error: "That item is already gone." };
+    return { error: "Couldn't delete it. Nothing was changed." };
+  }
+  const r = data as { name: string; movements: number; stillages: number; samples: number };
+  refresh();
+  revalidatePath("/ops/production", "layout");
+  revalidatePath("/ops/calculator");
+  const moves = r.movements ? ` and its ${r.movements.toLocaleString("en-US")} stock movement${r.movements === 1 ? "" : "s"}` : "";
+  const used = r.stillages + r.samples ? ` Taken out of the ink used on ${r.stillages + r.samples} stillage and sample record${r.stillages + r.samples === 1 ? "" : "s"}.` : "";
+  return { ok: `${r.name}${moves} deleted.${used}` };
+}
