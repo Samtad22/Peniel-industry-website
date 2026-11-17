@@ -2,7 +2,7 @@ import DashboardView, { type CapacityLine, type DashboardData, type StockCapacit
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
 import { plannedPerDay } from "@/lib/settings";
-import { dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
+import { coatShareFrom, dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow, type CoatShare } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -203,10 +203,12 @@ export default async function OpsDashboard() {
   const { data: poOrders } = openPos.length
     ? await supabase
         .from("orders")
-        .select("id, company_id, po_number, quantity, status, companies(name)")
+        .select("id, company_id, po_number, quantity, status, companies(name), brands(base_coat)")
         .in("po_number", [...new Set(confirmed.map((o) => o.po_number))])
         .not("status", "in", "(submitted,cancelled,rejected)")
-        .returns<{ id: string; company_id: string; po_number: string; quantity: number; status: OrderStatus; companies: { name: string } | null }[]>()
+        .returns<
+          { id: string; company_id: string; po_number: string; quantity: number; status: OrderStatus; companies: { name: string } | null; brands: { base_coat: string | null } | null }[]
+        >()
     : { data: [] };
   const lines = (poOrders ?? []).filter((o) => openPos.includes(`${o.company_id}|${o.po_number}`));
   const { data: delData } = lines.length
@@ -239,7 +241,9 @@ export default async function OpsDashboard() {
     .slice(0, 8);
   const volumeTotals = volume.reduce((t, v) => ({ ordered: t.ordered + v.ordered, delivered: t.delivered + v.delivered, left: t.left + v.remaining + v.hold }), { ordered: 0, delivered: 0, left: 0 });
 
-  const capacity = await loadCapacity(supabase, today, can("inventory"));
+  // What is still to make, by the brand's base coat: how the pace splits between the coats.
+  const coatShare = coatShareFrom(lines.map((o) => ({ coat: o.brands?.base_coat ?? null, crowns: Number(o.quantity) - (deliveredBy.get(o.id) ?? 0) })));
+  const capacity = await loadCapacity(supabase, today, can("inventory"), coatShare);
   const data: DashboardData = {
     hello: `${greeting(now).toUpperCase()}, ${first.toUpperCase()} · ${helloFmt.format(now).replace("Sept", "Sep").toUpperCase()}`,
     headline,
@@ -266,12 +270,15 @@ export default async function OpsDashboard() {
  * plant's plan (Settings → Plant): presses running x press speed x shifts x
  * hours x output % x working days. With no press running: good crowns
  * produced over the last 30 days, else crowns delivered over the last 60.
- * Base coats (only some brands) last at their own use over the last 30 days.
+ * Each sheet gets one base coat, white or transparent (by brand): each coat
+ * lasts at its share of the pace, from what the open orders still need of
+ * it; with no open orders, at its own use over the last 30 days.
  */
 async function loadCapacity(
   supabase: Awaited<ReturnType<typeof createClient>>,
   today: string,
   canInventory: boolean,
+  coatShare: CoatShare | null,
 ): Promise<{ view: StockCapacityView; pace: number | null }> {
   const since30 = addisDateISO(new Date(), -30);
   const since60 = addisDateISO(new Date(), -60);
@@ -318,11 +325,12 @@ async function loadCapacity(
     { stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours },
     pace,
     30,
+    coatShare,
   );
   const SCOPE_NOTE: Record<CapacityRow["scope"], string | undefined> = {
     all: undefined,
-    white_base_coat: "Brands with the white base coat",
-    transparent_base_coat: "Brands with the transparent base coat",
+    white_base_coat: "Brands with the white base coat (all but Coca-Cola and Habesha)",
+    transparent_base_coat: "Brands with the transparent base coat (Coca-Cola and Habesha)",
     base_coat: "Brands with a base coat",
   };
   const line = (r: CapacityRow, first: boolean): CapacityLine => {
@@ -343,7 +351,14 @@ async function loadCapacity(
               : `In ${daysLabel(r.daysToReorder)}${reorderDate ? ` · ${formatDate(reorderDate)}` : ""}`,
       urgent: r.reorderLevel != null && (r.onHand <= r.reorderLevel || (r.daysToReorder != null && r.daysToReorder < 14)),
       first,
-      note: [SCOPE_NOTE[r.scope], r.perDayFrom === "use" ? "lasts: from its own use in the last 30 days" : undefined].filter(Boolean).join(" · ") || undefined,
+      note:
+        [
+          SCOPE_NOTE[r.scope],
+          r.share != null && r.perDayFrom === "share" ? `${Math.round(r.share * 100)}% of the crowns still to make` : undefined,
+          r.perDay != null && r.perDay > 0 ? `uses ${formatAmount(r.perDay, r.unit)} a day${r.perDayFrom === "use" ? " (its own use, last 30 days)" : ""}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
     };
   };
   const b = c.bottleneck;

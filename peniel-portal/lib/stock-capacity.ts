@@ -31,8 +31,10 @@ export type CapacityRow = {
   crowns: number;
   /** Used a day (its unit): from its own recent use, else from the pace. Null: no estimate. */
   perDay: number | null;
-  /** Where perDay comes from. */
-  perDayFrom: "use" | "pace" | null;
+  /** Where perDay comes from: its own recent use, the pace, or the pace's share for that coat. */
+  perDayFrom: "use" | "pace" | "share" | null;
+  /** Base coats: the share of the pace that gets this coat (0 to 1). */
+  share?: number;
   /** Days until the reorder level (0 = at or below it) and until it runs out. Null: no estimate. */
   daysToReorder: number | null;
   daysToEmpty: number | null;
@@ -55,13 +57,17 @@ const SCOPE: Record<string, CapacityScope> = {
   base_coat_sheet: "base_coat",
 };
 
+/** The share of the crowns made that get each base coat (0 to 1 each; together at most 1). */
+export type CoatShare = { white: number; transparent: number };
+
 /**
  * `pace`: crowns made a day, the plant's plan (null or 0: none); `usageDays`:
- * the days `used_recently` covers. Materials in every crown last at the pace;
- * a base coat (only some brands) at its own recent use. A material's own use
- * also stands in when there is no pace.
+ * the days `used_recently` covers; `coatShare`: the part of the pace that
+ * gets each base coat. Materials in every crown last at the pace; a base
+ * coat at its share of the pace, else at its own recent use. A material's
+ * own use also stands in when there is no pace.
  */
-export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace: number | null, usageDays = 30): Capacity {
+export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace: number | null, usageDays = 30, coatShare: CoatShare | null = null): Capacity {
   const rows: CapacityRow[] = [];
   const coatRows: CapacityRow[] = [];
   const noRate: Capacity["noRate"] = [];
@@ -82,9 +88,14 @@ export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace:
     const used = Number(m.used_recently ?? 0);
     let perDay: number | null = null;
     let perDayFrom: CapacityRow["perDayFrom"] = null;
+    const share = scope === "all" ? undefined : coatShareOf(scope, coatShare);
     if (scope === "all" && pace && pace > 0) {
       perDay = needFor(pace, basis, rate, plant);
       perDayFrom = "pace";
+    } else if (share != null && share > 0 && pace && pace > 0) {
+      // Each sheet gets one coat: the coat lasts at its share of the pace.
+      perDay = needFor(pace * share, basis, rate, plant);
+      perDayFrom = "share";
     } else if (used > 0 && usageDays > 0) {
       // Base coats go on some brands only: the overall pace would overstate their use.
       perDay = used / usageDays;
@@ -101,6 +112,7 @@ export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace:
       crowns: y.crowns,
       perDay,
       perDayFrom,
+      ...(share != null ? { share } : {}),
       daysToEmpty: perDay && perDay > 0 ? onHand / perDay : null,
       daysToReorder: perDay && perDay > 0 && reorder != null ? Math.max(0, (onHand - reorder) / perDay) : null,
     };
@@ -109,6 +121,32 @@ export function stockCapacity(materials: CapacityMaterial[], plant: Plant, pace:
   rows.sort((a, b) => a.crowns - b.crowns);
   coatRows.sort((a, b) => a.crowns - b.crowns);
   return { rows, coatRows, bottleneck: rows[0] ?? null, noRate };
+}
+
+function coatShareOf(scope: CapacityScope, s: CoatShare | null): number | undefined {
+  if (!s) return undefined;
+  const clamp = (x: number) => Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0));
+  if (scope === "white_base_coat") return clamp(s.white);
+  if (scope === "transparent_base_coat") return clamp(s.transparent);
+  if (scope === "base_coat") return clamp(s.white + s.transparent);
+  return undefined;
+}
+
+/**
+ * The share of each base coat from what is still to make, per brand coat
+ * (crowns). Null when nothing is left to make.
+ */
+export function coatShareFrom(left: { coat: string | null; crowns: number }[]): CoatShare | null {
+  let total = 0;
+  let white = 0;
+  let transparent = 0;
+  for (const l of left) {
+    const c = Math.max(0, Number(l.crowns) || 0);
+    total += c;
+    if (l.coat === "white") white += c;
+    else if (l.coat === "transparent") transparent += c;
+  }
+  return total > 0 ? { white: white / total, transparent: transparent / total } : null;
 }
 
 /** 0.4 → "today", 12.3 → "12 days", 95 → "about 3 months". */

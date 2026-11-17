@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dateIn, daysLabel, stockCapacity } from "../../lib/stock-capacity.ts";
+import { coatShareFrom, dateIn, daysLabel, stockCapacity } from "../../lib/stock-capacity.ts";
 
 const plant = { stillage_sheets: 1420, press_per_hour: 270_000, shift_hours: 8 };
 const m = (o: Partial<Parameters<typeof stockCapacity>[0][number]> & { name: string }) => ({
@@ -101,4 +101,43 @@ test("the dashboard's eight materials, found by their usual names", async () => 
   // Lacquer: the one with a usage rate. Thinner and CTP developer: not shown.
   assert.deepEqual(picked.map((x) => x.name), ["Varnish", "Adhesive lacquer", "White base coat", "PVC-free liner compound", "Tinplate sheet 0.23 mm", "Polybag", "Box"]);
   assert.deepEqual(missing, ["Transparent base coat"]);
+});
+
+test("each sheet gets one base coat: each coat lasts at its share of the pace", () => {
+  // Still to make: 60M white (e.g. Dashen, Heineken), 40M transparent (Coca-Cola, Habesha).
+  const share = coatShareFrom([
+    { coat: "white", crowns: 60_000_000 },
+    { coat: "transparent", crowns: 40_000_000 },
+    { coat: null, crowns: 0 },
+    { coat: "white", crowns: -5 },
+  ]);
+  assert.deepEqual(share, { white: 0.6, transparent: 0.4 });
+  assert.equal(coatShareFrom([]), null);
+  const c = stockCapacity(
+    [
+      // 7,500 kg at 27.5 g a sheet = 272,727 sheets.
+      m({ name: "White base coat", on_hand: 7500, use_basis: "white_base_coat_sheet", use_rate: 0.0275, used_recently: 1 }),
+      // 1,800 kg at 7.14 g a sheet = 252,101 sheets.
+      m({ name: "Transparent base coat", on_hand: 1800, use_basis: "transparent_base_coat_sheet", use_rate: 0.00714 }),
+    ],
+    plant,
+    // 702,000 crowns a day = 1,000 sheets a day.
+    702_000,
+    30,
+    share,
+  );
+  const by = Object.fromEntries(c.coatRows.map((r) => [r.name, r]));
+  // White: 600 sheets a day x 27.5 g = 16.5 kg a day; 7,500 / 16.5 = 454.5 days.
+  assert.equal(by["White base coat"].perDayFrom, "share");
+  assert.equal(by["White base coat"].share, 0.6);
+  assert.ok(Math.abs(by["White base coat"].perDay! - 16.5) < 1e-9);
+  assert.ok(Math.abs(by["White base coat"].daysToEmpty! - 7500 / 16.5) < 1e-9);
+  // Transparent: 400 sheets a day x 7.14 g = 2.856 kg a day.
+  assert.ok(Math.abs(by["Transparent base coat"].perDay! - 2.856) < 1e-9);
+  // Still apart from the materials in every crown.
+  assert.equal(c.rows.length, 0);
+  // No share known: own recent use (1 kg in 30 days) as before.
+  const own = stockCapacity([m({ name: "White base coat", on_hand: 7500, use_basis: "white_base_coat_sheet", use_rate: 0.0275, used_recently: 30 })], plant, 702_000, 30, null);
+  assert.equal(own.coatRows[0].perDayFrom, "use");
+  assert.equal(own.coatRows[0].perDay, 1);
 });
