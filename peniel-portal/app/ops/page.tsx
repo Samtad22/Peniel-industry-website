@@ -1,8 +1,11 @@
-import DashboardView, { type DashboardData } from "@/components/ops/DashboardView";
+import DashboardView, { type CapacityLine, type DashboardData, type StockCapacityView } from "@/components/ops/DashboardView";
+import { formatAmount } from "@/lib/calculator";
+import { getSettings } from "@/lib/settings-server";
+import { dateIn, daysLabel, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { addisDateISO, formatDayMonth, formatQty, greeting, timeAgo } from "@/lib/format";
+import { addisDateISO, formatDate, formatDayMonth, formatQty, greeting, timeAgo } from "@/lib/format";
 import { OPEN_STATUSES, type OrderStatus } from "@/lib/order-status";
 import { OPS_NAV, type OpsArea } from "@/lib/roles";
 
@@ -218,7 +221,93 @@ export default async function OpsDashboard() {
     week,
     weekSummary: `${due7.length} due · ${formatQty(dueQty)} crowns`,
     volume,
+    capacity: await loadCapacity(supabase, today, can("inventory")),
   };
 
   return <DashboardView d={data} />;
+}
+
+/**
+ * "Production from stock": what the raw material on hand can make, the
+ * material that runs out first, and how long it lasts. The pace: each
+ * material's own use over the last 30 days where there is any; else good
+ * crowns produced over the last 30 days; else crowns delivered over the
+ * last 60 days.
+ */
+async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, today: string, canInventory: boolean): Promise<StockCapacityView> {
+  const since30 = addisDateISO(new Date(), -30);
+  const since60 = addisDateISO(new Date(), -60);
+  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }] = await Promise.all([
+    getSettings(),
+    supabase
+      .from("raw_materials")
+      .select("id, name, unit, on_hand, reorder_level, use_basis, use_rate")
+      .eq("active", true)
+      .is("ink_name", null)
+      .order("name")
+      .returns<Omit<CapacityMaterial, "used_recently">[]>(),
+    supabase
+      .from("raw_material_movements")
+      .select("material_id, quantity")
+      .eq("source", "auto")
+      .gte("created_at", `${since30}T00:00:00+03:00`)
+      .returns<{ material_id: string; quantity: number }[]>(),
+    supabase.from("production_entries").select("produced_qty, reject_qty").gte("entry_date", since30).returns<{ produced_qty: number; reject_qty: number }[]>(),
+    supabase.from("order_deliveries").select("quantity").eq("kind", "delivery").gte("delivered_on", since60).returns<{ quantity: number }[]>(),
+  ]);
+  const usedBy = new Map<string, number>();
+  for (const u of used ?? []) usedBy.set(u.material_id, (usedBy.get(u.material_id) ?? 0) - Number(u.quantity));
+
+  const produced = (made ?? []).reduce((s, e) => s + Number(e.produced_qty) - Number(e.reject_qty), 0);
+  const deliveredQty = (delivered ?? []).reduce((s, d) => s + Number(d.quantity), 0);
+  const pace = produced > 0 ? produced / 30 : deliveredQty > 0 ? deliveredQty / 60 : null;
+  const paceText = pace
+    ? `${formatQty(pace)} crowns a day: ${produced > 0 ? "good crowns produced over the last 30 days" : "your deliveries over the last 60 days"}`
+    : "no production or deliveries recorded in the last 60 days";
+
+  const c = stockCapacity(
+    (mats ?? []).map((m) => ({ ...m, used_recently: usedBy.get(m.id) ?? 0 })),
+    { stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours },
+    pace,
+    30,
+  );
+  const SCOPE_NOTE: Record<CapacityRow["scope"], string | undefined> = {
+    all: undefined,
+    white_base_coat: "Brands with the white base coat",
+    transparent_base_coat: "Brands with the transparent base coat",
+    base_coat: "Brands with a base coat",
+  };
+  const line = (r: CapacityRow, first: boolean): CapacityLine => {
+    const reorderDate = dateIn(today, r.daysToReorder);
+    const emptyDate = dateIn(today, r.daysToEmpty);
+    return {
+      name: r.name,
+      stock: formatAmount(r.onHand, r.unit),
+      crowns: formatQty(r.crowns),
+      lasts: r.daysToEmpty == null ? "-" : `${daysLabel(r.daysToEmpty)}${emptyDate && r.daysToEmpty >= 1 ? ` · ${formatDate(emptyDate)}` : ""}`,
+      reorder:
+        r.reorderLevel == null
+          ? "No reorder level"
+          : r.onHand <= r.reorderLevel
+            ? "Reorder now"
+            : r.daysToReorder == null
+              ? `At ${formatAmount(r.reorderLevel, r.unit)}`
+              : `In ${daysLabel(r.daysToReorder)}${reorderDate ? ` · ${formatDate(reorderDate)}` : ""}`,
+      urgent: r.reorderLevel != null && (r.onHand <= r.reorderLevel || (r.daysToReorder != null && r.daysToReorder < 14)),
+      first,
+      note: [SCOPE_NOTE[r.scope], r.perDayFrom === "use" ? "lasts: from its own use in the last 30 days" : undefined].filter(Boolean).join(" · ") || undefined,
+    };
+  };
+  const b = c.bottleneck;
+  const lastsDate = b ? dateIn(today, b.daysToEmpty) : null;
+  return {
+    crowns: b ? formatQty(b.crowns) : null,
+    limitedBy: b?.name ?? null,
+    lasts: b && b.daysToEmpty != null ? `${daysLabel(b.daysToEmpty)}${lastsDate && b.daysToEmpty >= 1 ? `, to ${formatDate(lastsDate)}` : ""}` : null,
+    pace: paceText,
+    rows: c.rows.map((r, i) => line(r, i === 0)),
+    coatRows: c.coatRows.map((r) => line(r, false)),
+    noRate: c.noRate.map((m) => m.name),
+    inventoryHref: canInventory ? "/ops/inventory" : null,
+  };
 }
