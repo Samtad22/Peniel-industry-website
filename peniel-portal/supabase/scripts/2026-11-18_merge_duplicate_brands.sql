@@ -10,15 +10,13 @@
 -- compared without case, spaces or punctuation; "Coca-Cola" = "Coca"):
 --   * The one kept: the brand with the most orders (the real POs), then
 --     the most stillages and ink rates, then the oldest.
---   * Moved to it from the others: printed stillages, sample sheets,
---     artwork versions, proofs, the artwork library, and grams of ink per
---     sheet (where it has none for that ink). Orders, finished stock,
---     documents and artwork submissions move too when the two brands are
---     under the same customer; under another customer they stay where they
---     are and are listed below (there should be none after the test orders
---     were cleaned up).
---   * Colours, crown image and finish are copied over when the one kept has
---     none.
+--   * Moved to it from the others: printed stillages, sample sheets and
+--     grams of ink per sheet (where it has none for that ink). Orders,
+--     finished stock, documents, artwork (versions, proofs, the artwork
+--     library) and the crown image move too when the two brands are under
+--     the same customer; under another customer they stay on the old brand
+--     (their files are in that customer's folder) and are listed below.
+--   * Colours and finish are copied over when the one kept has none.
 --   * The others are taken off the list (active = false), not deleted: their
 --     history stays in the activity log.
 -- Then a customer left with no active brand, no orders and no customer
@@ -62,9 +60,6 @@ begin
     loop
       update public.print_runs set brand_id = v_keep where brand_id = d.id;
       update public.sample_sheets set brand_id = v_keep where brand_id = d.id;
-      update public.artwork_versions set brand_id = v_keep where brand_id = d.id;
-      update public.proofs set brand_id = v_keep where brand_id = d.id;
-      update public.brand_artwork_files set brand_id = v_keep where brand_id = d.id;
       insert into public.brand_ink_rates (brand_id, material_id, g_per_sheet)
         select v_keep, r.material_id, r.g_per_sheet from public.brand_ink_rates r where r.brand_id = d.id
         on conflict (brand_id, material_id) do nothing;
@@ -72,6 +67,9 @@ begin
 
       v_left := null;
       if d.company_id = v_keep_company then
+        update public.artwork_versions set brand_id = v_keep where brand_id = d.id;
+        update public.proofs set brand_id = v_keep where brand_id = d.id;
+        update public.brand_artwork_files set brand_id = v_keep where brand_id = d.id;
         update public.orders set brand_id = v_keep where brand_id = d.id;
         update public.finished_stock set brand_id = v_keep where brand_id = d.id;
         update public.documents set brand_id = v_keep where brand_id = d.id;
@@ -81,14 +79,17 @@ begin
                  nullif((select count(*) from public.orders where brand_id = d.id), 0) || ' orders',
                  nullif((select count(*) from public.finished_stock where brand_id = d.id), 0) || ' finished stock lines',
                  nullif((select count(*) from public.documents where brand_id = d.id), 0) || ' documents',
-                 nullif((select count(*) from public.artwork_submissions where brand_id = d.id), 0) || ' artwork submissions'), '')
+                 nullif((select count(*) from public.artwork_submissions where brand_id = d.id), 0) || ' artwork submissions',
+                 nullif((select count(*) from public.artwork_versions where brand_id = d.id), 0) || ' artwork versions',
+                 nullif((select count(*) from public.proofs where brand_id = d.id), 0) || ' proofs',
+                 nullif((select count(*) from public.brand_artwork_files where brand_id = d.id), 0) || ' artwork library files'), '')
           into v_left;
       end if;
 
       -- What the one kept doesn't have yet.
       update public.brands k set
         colours = case when coalesce(cardinality(k.colours), 0) = 0 then o.colours else k.colours end,
-        crown_image_path = coalesce(k.crown_image_path, o.crown_image_path),
+        crown_image_path = coalesce(k.crown_image_path, case when o.company_id = k.company_id then o.crown_image_path end),
         finish = coalesce(k.finish, o.finish)
       from public.brands o
       where k.id = v_keep and o.id = d.id;

@@ -36,6 +36,8 @@ test("duplicates are merged into the brand with the orders; the empty customer g
   );
   await pool.query(`insert into public.orders (company_id, brand_id, po_number, quantity, status) values ($1, $2, 'P1', 35000000, 'in_production'), ($1, $3, 'P1', 44500000, 'in_production')`, [EAB, SPRITE, COCA]);
   await pool.query(`insert into public.print_runs (brand_id, shift, stillage_no, sheets_printed, colours) values ($1, 'A', 'ST-900', 1400, '{}')`, [OLD_SPRITE]);
+  // A file in the old customer's artwork library: it stays there (its file is in that customer's folder).
+  await pool.query(`insert into public.brand_artwork_files (brand_id, kind, title, file_path, file_name, size_bytes) values ($1, 'design', 'Sprite crown', $2, 'sprite.ai', 1000)`, [OLD_SPRITE, `${CCB}/design/sprite.ai`]);
   await pool.query(`insert into public.brand_ink_rates (brand_id, material_id, g_per_sheet) select $1, id, 2.5 from public.raw_materials where ink_name is not null order by name limit 2`, [OLD_COCA]);
 
   const report = await run();
@@ -43,6 +45,7 @@ test("duplicates are merged into the brand with the orders; the empty customer g
     report.map((r) => r.action),
     ["Merged", "Merged", "Customer taken off the list"],
   );
+  assert.match(report.find((r) => r.detail.startsWith("Sprite"))!.detail, /Left on the old brand, under its customer: 1 artwork library files$/);
   const b = async (id: string) =>
     (
       await pool.query(
@@ -50,10 +53,12 @@ test("duplicates are merged into the brand with the orders; the empty customer g
         [id],
       )
     ).rows[0];
-  assert.deepEqual(await b(SPRITE), { active: true, colours: 1, crown_image_path: "x/sprite.png", runs: 1, rates: 0 });
+  // Colours come over; the crown image (in the other customer's folder) doesn't.
+  assert.deepEqual(await b(SPRITE), { active: true, colours: 1, crown_image_path: null, runs: 1, rates: 0 });
   assert.deepEqual(await b(COCA), { active: true, colours: 1, crown_image_path: null, runs: 0, rates: 2 });
   assert.equal((await b(OLD_SPRITE)).active, false);
   assert.equal((await b(OLD_COCA)).active, false);
+  // The old customer has no brand, order or user left: off the list (its retired brand keeps the file).
   assert.equal((await pool.query("select active from public.companies where id = $1", [CCB])).rows[0].active, false);
   // Again: nothing more.
   assert.deepEqual((await run()).map((r) => r.action), ["Nothing to do"]);
