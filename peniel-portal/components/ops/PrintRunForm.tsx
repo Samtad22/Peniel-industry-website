@@ -9,11 +9,15 @@ import { formatQty } from "@/lib/format";
 import InkFields from "@/components/ops/InkFields";
 import { inkKey, type BrandInk } from "@/lib/ink-usage";
 import { parseInk } from "@/lib/inks";
-import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, MAX_STILLAGES_AT_ONCE, stillageNumbers, wholeNumber, type BaseCoat } from "@/lib/print-runs";
+import { BASE_COAT_LABEL, CROWNS_PER_SHEET, crownsFromSheets, formatSpoiledPct, MAX_OVEN_AT_ONCE, MAX_STILLAGES_AT_ONCE, stillageNumbers, wholeNumber, type BaseCoat } from "@/lib/print-runs";
+import { StillagePicker } from "@/components/ops/OvenPass";
 import { SHIFTS } from "@/lib/production-math";
 
 /** A brand whose design can be printed, with its colours and their inks (grams per sheet). */
 export type PrintBrand = { id: string; label: string; colours: string[]; baseCoat?: BaseCoat | null; inks?: BrandInk[] };
+
+/** A base-coated stillage waiting for the print line, to tick when printing several. */
+export type CoatedStillage = { id: string; label: string; brandId: string | null; sheets: number; coat: BaseCoat | null; detail: string };
 
 const fmt = (v: string) => {
   const n = wholeNumber(v);
@@ -31,6 +35,7 @@ export default function PrintRunForm({
   brands,
   nextNo,
   fixed,
+  pick,
   onDone,
 }: {
   today: string;
@@ -38,13 +43,18 @@ export default function PrintRunForm({
   /** The stillage number to suggest (the last one + 1). */
   nextNo: string;
   /** Printing a base-coated stillage that is waiting for the print line. */
-  fixed?: { id: string; brandId: string; stillageNo: string; sheets: number | null };
+  fixed?: { id: string; brandId: string; stillageNo: string; sheets: number | null; coat?: BaseCoat | null };
+  /** Printing several base-coated stillages: tick them from these. */
+  pick?: CoatedStillage[];
   onDone?: () => void;
 }) {
   const { stillage_sheets: STILLAGE_SHEETS } = usePlant();
   // A base-coated stillage with no brand yet: the brand is chosen now.
   const lockBrand = Boolean(fixed?.brandId);
   const [brandId, setBrandIdRaw] = useState(fixed?.brandId || brands[0]?.id || "");
+  // Several base-coated stillages: the ones ticked, and "print anyway" for a coat that isn't the brand's.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [coatOk, setCoatOk] = useState(false);
   const brand = brands.find((b) => b.id === brandId);
   // Colours not printed this time (all are ticked to start with).
   const [off, setOff] = useState<Set<string>>(new Set());
@@ -52,6 +62,9 @@ export default function PrintRunForm({
   const setBrandId = (id: string) => {
     setBrandIdRaw(id);
     setOff(new Set());
+    setCoatOk(false);
+    // Stillages base coated for another brand can't be printed with this one.
+    if (pick) setPicked((was) => new Set([...was].filter((x) => pick.some((p) => p.id === x && (!p.brandId || p.brandId === id)))));
   };
   const [printed, setPrinted] = useState(String(fixed?.sheets ?? STILLAGE_SHEETS));
   const [spoiled, setSpoiled] = useState("");
@@ -60,7 +73,7 @@ export default function PrintRunForm({
   // Cancel: start the form again (nothing is saved), or close the dialog.
   const [formKey, setFormKey] = useState(0);
   const cancel = () => {
-    if (fixed) return onDone?.();
+    if (fixed || pick) return onDone?.();
     setPrinted(String(STILLAGE_SHEETS));
     setSpoiled("");
     setStillage(nextNo);
@@ -72,8 +85,8 @@ export default function PrintRunForm({
   const [state, action, pending] = useActionState<PrintRunState, FormData>(async (prev, fd) => {
     const res = await savePrintRun(prev, fd);
     // Saved: keep the brand and shift; suggest the number after the last one saved.
-    if (res?.ok && fixed) onDone?.();
-    if (res?.ok && !fixed) {
+    if (res?.ok && (fixed || pick)) onDone?.();
+    if (res?.ok && !fixed && !pick) {
       const saved = Math.max(1, wholeNumber(String(fd.get("stillages") ?? "1")) || 1);
       setPrinted(String(STILLAGE_SHEETS));
       setSpoiled("");
@@ -86,9 +99,18 @@ export default function PrintRunForm({
 
   const p = Number.isFinite(wholeNumber(printed)) ? wholeNumber(printed) : 0;
   const sp = Number.isFinite(wholeNumber(spoiled)) ? wholeNumber(spoiled) : 0;
-  const c = fixed ? 1 : Math.min(MAX_STILLAGES_AT_ONCE, Math.max(0, Number.isFinite(wholeNumber(count)) ? wholeNumber(count) : 0));
+  const c = fixed ? 1 : pick ? picked.size : Math.min(MAX_STILLAGES_AT_ONCE, Math.max(0, Number.isFinite(wholeNumber(count)) ? wholeNumber(count) : 0));
+  // Each sheet gets one coat: flag a stillage whose coat isn't the brand's.
+  const brandName = brand?.label.split(" · ")[0] ?? "";
+  const coatWarn = (coat: BaseCoat | null | undefined) =>
+    brand?.baseCoat && coat && coat !== brand.baseCoat ? `${BASE_COAT_LABEL[coat]}: ${brandName} gets the ${BASE_COAT_LABEL[brand.baseCoat].toLowerCase()}` : undefined;
+  const eligible = (pick ?? [])
+    .filter((p) => !p.brandId || p.brandId === brandId)
+    .sort((a, b) => Number(Boolean(coatWarn(a.coat))) - Number(Boolean(coatWarn(b.coat))));
+  const mismatched = pick ? eligible.filter((p) => picked.has(p.id) && coatWarn(p.coat)).map((p) => p.label) : fixed && coatWarn(fixed.coat) ? [fixed.stillageNo] : [];
+  const sizesDiffer = pick ? new Set(eligible.filter((p) => picked.has(p.id)).map((p) => p.sheets)).size > 1 : false;
   const good = p * c;
-  const numbers = c > 1 ? stillageNumbers(stillage, c) : null;
+  const numbers = c > 1 && !pick ? stillageNumbers(stillage, c) : null;
   const step = (d: number) => setCount(String(Math.min(MAX_STILLAGES_AT_ONCE, Math.max(1, (c || 1) + d))));
   // Ink for the colours printed, over every sheet through the printer (good and spoiled).
   const printedKeys = new Set((brand?.colours ?? []).filter((col) => !off.has(col)).map(inkKey));
@@ -120,7 +142,29 @@ export default function PrintRunForm({
         </fieldset>
       </div>
 
-      {fixed && !lockBrand ? (
+      {pick ? (
+        <>
+          <input type="hidden" name="stillage_no" value="base-coated" />
+          <Field label="Brand printed" htmlFor="pr-brand">
+            <select id="pr-brand" name="brand_id" required value={brandId} onChange={(e) => setBrandId(e.target.value)} className="input !min-h-[52px] text-[16px]">
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                  {b.baseCoat ? ` (${b.baseCoat})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <StillagePicker
+            name="id"
+            legend="Base-coated stillages off the print line"
+            max={MAX_OVEN_AT_ONCE}
+            selected={picked}
+            onChange={setPicked}
+            choices={eligible.map((p) => ({ id: p.id, label: p.label, detail: p.detail, warn: coatWarn(p.coat) }))}
+          />
+        </>
+      ) : fixed && !lockBrand ? (
         <>
           <input type="hidden" name="stillage_no" value={stillage} />
           <p className="m-0 text-[14px]">
@@ -165,7 +209,18 @@ export default function PrintRunForm({
         </Field>
       </div>
       )}
-      {!fixed && brand?.baseCoat && (
+      {mismatched.length > 0 && (
+        <div role="alert" className="flex flex-col gap-2 border-l-4 border-accent bg-accent-100 px-3 py-2 text-[13px]">
+          <span>
+            <b>{mismatched.join(", ")}</b> {mismatched.length === 1 ? "has" : "have"} a different base coat from the one {brandName} gets. Each sheet gets one coat only.
+          </span>
+          <label className="flex items-center gap-2 font-bold">
+            <input type="checkbox" name="coat_ok" value="1" checked={coatOk} onChange={(e) => setCoatOk(e.target.checked)} className="size-4 accent-[var(--color-accent)]" />
+            Print anyway
+          </label>
+        </div>
+      )}
+      {!fixed && !pick && brand?.baseCoat && (
         <p role="note" className="m-0 border-l-4 border-accent bg-accent-100 px-3 py-2 text-[13px]">
           {brand.label.split(" · ")[0]} needs a {BASE_COAT_LABEL[brand.baseCoat].toLowerCase()} before printing. Base coat the stillage first
           (&ldquo;00 · Base coat&rdquo;), then print it from &ldquo;Waiting for printing&rdquo;.
@@ -212,7 +267,7 @@ export default function PrintRunForm({
         </fieldset>
       )}
 
-      {!fixed && (
+      {!fixed && !pick && (
         <Field label="Stillages" htmlFor="pr-count" hint={`Each is saved as its own stillage, numbered on from the first. Up to ${MAX_STILLAGES_AT_ONCE} at a time.`}>
           <div className="flex w-full max-w-[280px]">
             <button type="button" aria-label="One stillage less" onClick={() => step(-1)} disabled={c <= 1} className="w-14 shrink-0 cursor-pointer border-2 border-r-0 border-text bg-bg text-[24px] disabled:opacity-40">
@@ -237,7 +292,7 @@ export default function PrintRunForm({
         <Field
           label={fixed ? "Good sheets on the stillage" : "Good sheets per stillage"}
           htmlFor="pr-printed"
-          hint={`About 1,400 to 1,420. Starts at ${STILLAGE_SHEETS.toLocaleString("en-US")}.`}
+          hint={sizesDiffer ? "The ticked stillages hold different sheets: print the odd one on its own." : `About 1,400 to 1,420. Starts at ${STILLAGE_SHEETS.toLocaleString("en-US")}.`}
         >
           <input id="pr-printed" name="sheets_printed" inputMode="numeric" autoComplete="off" value={fmt(printed)} onChange={(e) => setPrinted(e.target.value)} placeholder="0" className={big} />
         </Field>
@@ -279,8 +334,22 @@ export default function PrintRunForm({
         <Button type="button" variant="secondary" onClick={cancel} disabled={pending} icon="✕" className="min-h-[60px] px-5 py-4 text-[17px] text-text">
           Cancel
         </Button>
-        <Button type="submit" disabled={pending || !brandId || !stillage.trim() || p + sp === 0 || c < 1 || (c > 1 && !numbers)} icon="✓" className="min-h-[60px] px-5 py-4 text-[17px]">
-          {pending ? "Saving…" : fixed ? "Save: printed" : c > 1 ? `Save ${c} printed stillages` : "Save printed stillage"}
+        <Button
+          type="submit"
+          disabled={
+            pending ||
+            !brandId ||
+            (!pick && !stillage.trim()) ||
+            p + sp === 0 ||
+            c < 1 ||
+            (c > 1 && !pick && !numbers) ||
+            (pick ? c > MAX_OVEN_AT_ONCE || (c > 1 && p === 0) : false) ||
+            (mismatched.length > 0 && !coatOk)
+          }
+          icon="✓"
+          className="min-h-[60px] px-5 py-4 text-[17px]"
+        >
+          {pending ? "Saving…" : fixed ? "Save: printed" : pick ? `Save ${c} printed stillage${c === 1 ? "" : "s"}` : c > 1 ? `Save ${c} printed stillages` : "Save printed stillage"}
         </Button>
       </div>
     </form>

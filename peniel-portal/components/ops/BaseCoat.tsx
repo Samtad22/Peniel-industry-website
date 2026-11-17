@@ -3,11 +3,11 @@
 import { usePlant } from "@/components/PlantSettings";
 import { useActionState, useState } from "react";
 import { sendToPress, startBaseCoat, undoToPress, type PrintRunState } from "@/app/ops/production/sheets/actions";
-import PrintRunForm, { type PrintBrand } from "@/components/ops/PrintRunForm";
+import PrintRunForm, { type CoatedStillage, type PrintBrand } from "@/components/ops/PrintRunForm";
 import Modal from "@/components/ui/Modal";
 import { Button, Field, FormMessage } from "@/components/ui/form";
 import { InternalOnly } from "@/components/ui/Visibility";
-import { BASE_COAT_LABEL, type BaseCoat } from "@/lib/print-runs";
+import { BASE_COAT_LABEL, MAX_OVEN_AT_ONCE, stillageNumbers, stillagesFromTotal, wholeNumber, type BaseCoat } from "@/lib/print-runs";
 import { SHIFTS } from "@/lib/production-math";
 
 /** `datetime-local` value plus minutes. */
@@ -22,7 +22,7 @@ export function BaseCoatDialog({ brands, nextNo, nowLocal, lastTemp, stock }: { 
   return (
     <Modal
       wide
-      title={stock ? "00 · Base coat only, brand later" : "00 · Base coat a stillage"}
+      title={stock ? "00 · Base coat only, brand later" : "00 · Base coat for a brand"}
       trigger={(open) => (
         <Button type="button" variant="secondary" onClick={open} icon="→" className="w-full whitespace-nowrap text-text">
           {stock ? "00 · Base coat only (brand later)" : "00 · Base coat first, for a brand"}
@@ -59,6 +59,29 @@ function BaseCoatForm({
   const [startedAt, setStartedAt] = useState(nowLocal);
   const [alreadyOut, setAlreadyOut] = useState(false);
   const [finishedAt, setFinishedAt] = useState(nowLocal);
+  // How much: a number of stillages, or the day's total of sheets cut into stillages.
+  const [amount, setAmount] = useState<"stillages" | "total">("stillages");
+  const [count, setCount] = useState("1");
+  const [each, setEach] = useState(String(STILLAGE_SHEETS));
+  const [total, setTotal] = useState("");
+  const [first, setFirst] = useState(nextNo);
+  const per = wholeNumber(each);
+  const sizes =
+    amount === "total"
+      ? stillagesFromTotal(wholeNumber(total), per)
+      : Number.isFinite(wholeNumber(count)) && wholeNumber(count) >= 1 && per > 0
+        ? Array.from({ length: Math.min(wholeNumber(count), MAX_OVEN_AT_ONCE + 1) }, () => per)
+        : [];
+  const numbers = sizes.length ? stillageNumbers(first, sizes.length) : null;
+  const sheetsAll = sizes.reduce((t, x) => t + x, 0);
+  const tooMany = sizes.length > MAX_OVEN_AT_ONCE;
+  const nf = (x: number) => x.toLocaleString("en-US");
+  const shape = (() => {
+    if (!sizes.length) return "";
+    const full = sizes.filter((x) => x === sizes[0]).length;
+    const rest = sizes.length > full ? sizes[sizes.length - 1] : null;
+    return `${full} × ${nf(sizes[0])}${rest ? ` + 1 × ${nf(rest)}` : ""}`;
+  })();
 
   return (
     <form action={action} className="flex flex-col gap-3.5">
@@ -72,8 +95,8 @@ function BaseCoatForm({
             Plain tinplate through the big oven with a white or transparent base coat, before the brand is known. The stillage waits in base-coated stock; the brand is
             chosen when it is printed.
           </p>
-          <Field label="Stillage no." htmlFor="bc-no">
-            <input id="bc-no" name="stillage_no" required maxLength={40} defaultValue={nextNo} className="input min-h-11 sm:max-w-[200px]" />
+          <Field label={sizes.length > 1 ? "First stillage no." : "Stillage no."} htmlFor="bc-no">
+            <input id="bc-no" name="stillage_no" required maxLength={40} value={first} onChange={(e) => setFirst(e.target.value)} className="input min-h-11 sm:max-w-[200px]" />
           </Field>
         </>
       ) : (
@@ -101,8 +124,8 @@ function BaseCoatForm({
             ))}
           </select>
         </Field>
-        <Field label="Stillage no." htmlFor="bc-no">
-          <input id="bc-no" name="stillage_no" required maxLength={40} defaultValue={nextNo} className="input min-h-11" />
+        <Field label={sizes.length > 1 ? "First stillage no." : "Stillage no."} htmlFor="bc-no">
+          <input id="bc-no" name="stillage_no" required maxLength={40} value={first} onChange={(e) => setFirst(e.target.value)} className="input min-h-11" />
         </Field>
       </div>
       </>
@@ -118,10 +141,57 @@ function BaseCoatForm({
           ))}
         </div>
       </fieldset>
-      <div className="grid gap-3.5 sm:grid-cols-3">
-        <Field label="Sheets" htmlFor="bc-sheets">
-          <input id="bc-sheets" name="base_sheets" inputMode="numeric" defaultValue={STILLAGE_SHEETS} className="input min-h-11" />
+      <fieldset className="field m-0 border-0 p-0">
+        <legend className="mb-[5px] p-0 text-[12px] text-text/70">How much</legend>
+        <div className="seg !flex">
+          <label className="seg-opt min-h-11 flex-1 justify-center">
+            <input type="radio" name="amount" value="stillages" checked={amount === "stillages"} onChange={() => setAmount("stillages")} />
+            Stillages
+          </label>
+          <label className="seg-opt min-h-11 flex-1 justify-center">
+            <input
+              type="radio"
+              name="amount"
+              value="total"
+              checked={amount === "total"}
+              onChange={() => {
+                setAmount("total");
+                // A day's total is logged after the fact.
+                if (!alreadyOut) {
+                  setAlreadyOut(true);
+                  if (startedAt === nowLocal) setStartedAt(addMinutes(nowLocal, -OVEN_MINUTES));
+                  setFinishedAt(nowLocal);
+                }
+              }}
+            />
+            Day&apos;s total of sheets
+          </label>
+        </div>
+      </fieldset>
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        {amount === "total" ? (
+          <Field label="Total sheets base coated" htmlFor="bc-total" hint="e.g. the whole day's base coat">
+            <input id="bc-total" name="total_sheets" inputMode="numeric" autoComplete="off" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="e.g. 21,000" className="input min-h-11" />
+          </Field>
+        ) : (
+          <Field label="Stillages" htmlFor="bc-count" hint={`Up to ${MAX_OVEN_AT_ONCE} at a time`}>
+            <input id="bc-count" name="stillages" inputMode="numeric" autoComplete="off" value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, "").slice(0, 3))} className="input min-h-11" />
+          </Field>
+        )}
+        <Field label="Sheets a stillage" htmlFor="bc-sheets" hint={amount === "total" ? "The most one stillage takes into the oven" : undefined}>
+          <input id="bc-sheets" name="base_sheets" inputMode="numeric" autoComplete="off" value={each} onChange={(e) => setEach(e.target.value)} className="input min-h-11" />
         </Field>
+      </div>
+      {sizes.length > 0 && (
+        <p className={`m-0 px-3 py-2 text-[13px] ${tooMany || (sizes.length > 1 && !numbers) ? "bg-accent-100 font-bold text-accent-800" : "bg-surface"}`}>
+          {tooMany
+            ? `That makes ${sizes.length} stillages; up to ${MAX_OVEN_AT_ONCE} at a time.`
+            : sizes.length > 1 && !numbers
+              ? "End the first stillage number with a number (e.g. ST-014) to number them on."
+              : `${sizes.length === 1 ? "1 stillage" : `${sizes.length} stillages (${shape})`}, ${nf(sheetsAll)} sheets${numbers && numbers.length > 1 ? `: ${numbers[0]} to ${numbers[numbers.length - 1]}` : ""}`}
+        </p>
+      )}
+      <div className="grid gap-3.5 sm:grid-cols-2">
         <fieldset className="field m-0 border-0 p-0">
           <legend className="mb-[5px] p-0 text-[12px] text-text/70">Shift</legend>
           <div className="seg !flex">
@@ -162,14 +232,14 @@ function BaseCoatForm({
           }}
           className="size-4 accent-[var(--color-accent)]"
         />
-        It has already come out (log the whole pass now)
+        {sizes.length > 1 ? "They have already come out (log the whole pass now)" : "It has already come out (log the whole pass now)"}
       </label>
       {alreadyOut && (
         <div className="grid gap-3.5 sm:grid-cols-2">
           <Field label="Out of the oven" htmlFor="bc-out">
             <input id="bc-out" name="finished_at" type="datetime-local" required min={startedAt} max={nowLocal} value={finishedAt} onChange={(e) => setFinishedAt(e.target.value)} className="input min-h-11" />
           </Field>
-          <Field label="Sheets spoiled in the base coat" htmlFor="bc-sp">
+          <Field label={sizes.length > 1 ? "Sheets spoiled in the base coat (all)" : "Sheets spoiled in the base coat"} htmlFor="bc-sp">
             <input id="bc-sp" name="sheets_spoiled" inputMode="numeric" placeholder="0" className="input min-h-11" />
           </Field>
         </div>
@@ -183,8 +253,8 @@ function BaseCoatForm({
           {state?.ok ? "Done" : "Cancel"}
         </Button>
         {!state?.ok && (
-          <Button type="submit" disabled={pending || (!stock && !brandId)} icon="→" className="w-[190px]">
-            {pending ? "Saving…" : alreadyOut ? "Save the base coat" : "Into the oven"}
+          <Button type="submit" disabled={pending || (!stock && !brandId) || !sizes.length || tooMany || (sizes.length > 1 && !numbers)} icon="→" className="w-[210px]">
+            {pending ? "Saving…" : alreadyOut ? (sizes.length > 1 ? `Save ${sizes.length} stillages` : "Save the base coat") : "Into the oven"}
           </Button>
         )}
       </div>
@@ -201,7 +271,7 @@ export function PrintItDialog({
 }: {
   today: string;
   brands: PrintBrand[];
-  stillage: { id: string; brandId: string; stillageNo: string; sheets: number | null };
+  stillage: { id: string; brandId: string; stillageNo: string; sheets: number | null; coat?: BaseCoat | null };
   primary?: boolean;
 }) {
   return (
@@ -215,6 +285,23 @@ export function PrintItDialog({
       )}
     >
       {(close) => <PrintRunForm today={today} brands={brands} nextNo={stillage.stillageNo} fixed={stillage} onDone={close} />}
+    </Modal>
+  );
+}
+
+/** Print several base-coated stillages at once: choose the brand, tick the stillages. */
+export function PrintSeveralDialog({ today, brands, stillages }: { today: string; brands: PrintBrand[]; stillages: CoatedStillage[] }) {
+  return (
+    <Modal
+      wide
+      title="01 · Print base-coated stillages"
+      trigger={(open) => (
+        <Button type="button" variant="secondary" onClick={open} icon="→" className="whitespace-nowrap text-text">
+          Print several
+        </Button>
+      )}
+    >
+      {(close) => <PrintRunForm today={today} brands={brands} nextNo="" pick={stillages} onDone={close} />}
     </Modal>
   );
 }

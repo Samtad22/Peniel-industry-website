@@ -28,6 +28,29 @@ export function stillageNumbers(first: string, count: number): string[] | null {
   return Array.from({ length: count }, (_, i) => `${m[1]}${String(Number(m[2]) + i).padStart(m[2].length, "0")}`);
 }
 
+/** Most stillages base coated, or put through the oven, at once (a whole day's base coat fits). */
+export const MAX_OVEN_AT_ONCE = 60;
+
+/**
+ * A day's total of sheets as stillages of `perStillage` sheets each, the last
+ * one taking what is left: 5,000 by 1,400 → [1,400, 1,400, 1,400, 800].
+ * Empty when the figures make no sense.
+ */
+export function stillagesFromTotal(total: number, perStillage: number): number[] {
+  if (!(total > 0) || !(perStillage > 0) || !Number.isInteger(total) || !Number.isInteger(perStillage)) return [];
+  const full = Math.floor(total / perStillage);
+  const rest = total - full * perStillage;
+  return [...Array.from({ length: full }, () => perStillage), ...(rest > 0 ? [rest] : [])];
+}
+
+/** The coat a base coat pass recorded ("White base coat" → white), or null. */
+export function coatOfPass(material: string | null | undefined): BaseCoat | null {
+  const m = (material ?? "").toLowerCase();
+  if (m.includes("white")) return "white";
+  if (m.includes("transparent") || m.includes("clear")) return "transparent";
+  return null;
+}
+
 /** `total` shared over `n` as evenly as whole numbers allow, the first ones taking the remainder: 10, 3 → [4, 3, 3]. */
 export function splitEvenly(total: number, n: number): number[] {
   const base = Math.floor(total / n);
