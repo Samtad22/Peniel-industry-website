@@ -11,6 +11,7 @@ import { loadPresets } from "@/lib/presets";
 import { MEASURES, measureValue, VISUAL_SAMPLE } from "@/lib/qc";
 import { opsRolesFor } from "@/lib/roles";
 import { cartonsLine, formatWastePct, sortingTotals, type SortingRecord } from "@/lib/sorting";
+import { getSettings } from "@/lib/settings-server";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inspection" };
@@ -26,8 +27,9 @@ type Inspection = {
   customer_reason: string | null;
   internal_notes: string | null;
   published: boolean;
+  liner_type_id: string | null;
   qc_defects: { defect_type: string; count: number }[];
-  orders: { order_no: string; companies: { name: string } | null; brands: { name: string } | null } | null;
+  orders: { order_no: string; brand_id: string; companies: { name: string } | null; brands: { name: string; liner: string | null } | null } | null;
 };
 
 /** `2026-09-20T14:30` in Addis Ababa time, for a datetime-local input. */
@@ -60,22 +62,22 @@ export default async function InspectionPage({
   if (!isNew && !/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createClient();
 
-  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets] = await Promise.all([
+  const [{ data: insp }, { data: orders }, { data: defectTypes }, presets, { coa: coaSettings }, { data: lastLiners }] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : supabase
           .from("qc_inspections")
           .select(
-            "id, batch_no, order_id, inspected_at, sample_size, measurements, result, customer_reason, internal_notes, published, qc_defects(defect_type, count), orders(order_no, companies(name), brands(name))",
+            "id, batch_no, order_id, inspected_at, sample_size, measurements, result, customer_reason, internal_notes, published, liner_type_id, qc_defects(defect_type, count), orders(order_no, brand_id, companies(name), brands(name, liner))",
           )
           .eq("id", id)
           .maybeSingle<Inspection>(),
     supabase
       .from("orders")
-      .select("id, order_no, quantity, status, companies(name), brands(name)")
+      .select("id, order_no, quantity, status, brand_id, companies(name), brands(name, liner)")
       .in("status", ["scheduled", "in_production", "quality_check", "on_hold", "ready_for_pickup", "dispatched"])
       .order("order_no", { ascending: false })
-      .returns<{ id: string; order_no: string; quantity: number; companies: { name: string } | null; brands: { name: string } | null }[]>(),
+      .returns<{ id: string; order_no: string; quantity: number; brand_id: string; companies: { name: string } | null; brands: { name: string; liner: string | null } | null }[]>(),
     supabase
       .from("defect_types")
       .select("code, customer_label")
@@ -84,7 +86,21 @@ export default async function InspectionPage({
       .order("customer_label")
       .returns<{ code: string; customer_label: string }[]>(),
     loadPresets(supabase),
+    getSettings(),
+    // The liner type ID each brand's batches had last.
+    supabase
+      .from("qc_inspections")
+      .select("liner_type_id, orders(brand_id)")
+      .not("liner_type_id", "is", null)
+      .order("inspected_at", { ascending: false })
+      .limit(500)
+      .returns<{ liner_type_id: string; orders: { brand_id: string } | null }[]>(),
   ]);
+  const lastLiner = new Map<string, string>();
+  for (const l of lastLiners ?? []) if (l.orders && !lastLiner.has(l.orders.brand_id)) lastLiner.set(l.orders.brand_id, l.liner_type_id);
+  /** What a new inspection of a brand's batch starts with: its last liner, else PVC / the Settings one. */
+  const linerFor = (brandId: string | undefined, liner: string | null | undefined) =>
+    (brandId && lastLiner.get(brandId)) || (liner === "PVC" ? "PVC" : coaSettings.linerTypeId);
   if (!isNew && !insp) notFound();
   // Sorting of this batch's camera rejects (by order and batch number, with or without this inspection).
   // The certificate's signature, if it still matches the results (changing them voids it).
@@ -106,9 +122,14 @@ export default async function InspectionPage({
   const orderOptions = (orders ?? []).map((o) => ({
     id: o.id,
     label: `${o.order_no} · ${o.companies?.name.split(" ")[0] ?? ""} · ${o.brands?.name ?? ""} · ${formatQty(o.quantity)}`,
+    liner: linerFor(o.brand_id, o.brands?.liner),
   }));
   if (insp && !orderOptions.some((o) => o.id === insp.order_id)) {
-    orderOptions.unshift({ id: insp.order_id, label: `${insp.orders?.order_no ?? "Order"} · ${insp.orders?.brands?.name ?? ""}` });
+    orderOptions.unshift({
+      id: insp.order_id,
+      label: `${insp.orders?.order_no ?? "Order"} · ${insp.orders?.brands?.name ?? ""}`,
+      liner: linerFor(insp.orders?.brand_id, insp.orders?.brands?.liner),
+    });
   }
 
   const initial: InspectionInitial = insp
@@ -126,6 +147,8 @@ export default async function InspectionPage({
         customer_reason: insp.customer_reason ?? "",
         internal_notes: insp.internal_notes ?? "",
         published: insp.published,
+        // Empty on older inspections: their certificate prints the Settings one (left so, its signature stands).
+        liner_type_id: insp.liner_type_id ?? "",
       }
     : {
         batch_no: "",
@@ -138,6 +161,7 @@ export default async function InspectionPage({
         customer_reason: "",
         internal_notes: "",
         published: false,
+        liner_type_id: orderOptions.find((o) => o.id === order)?.liner ?? coaSettings.linerTypeId,
       };
 
   return (

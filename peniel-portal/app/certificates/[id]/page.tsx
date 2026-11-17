@@ -34,6 +34,7 @@ type Certificate = {
   brand: string;
   crown_size: string;
   liner: string;
+  liner_type_id: string | null;
   finish: string | null;
   quantity: number | null;
   delivered_at: string | null;
@@ -137,7 +138,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
           {field("Crown Type", [c.crown_size, c.brand, c.finish].filter(Boolean).join(" · "))}
           {field("Analysis Registration Number", `COA-${c.batch_no}`)}
           {field("Batch No.", c.batch_no)}
-          {field("Liner Type ID", c.liner === "PVC" ? "PVC" : coa.linerTypeId)}
+          {field("Liner Type ID", c.liner_type_id || (c.liner === "PVC" ? "PVC" : coa.linerTypeId))}
           {field("Mfg. Date", formatDate(c.inspected_at))}
           <div>Raw materials are <u>Food Grade</u>.</div>
           {field("Best Before date", "")}
