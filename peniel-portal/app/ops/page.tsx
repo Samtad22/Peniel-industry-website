@@ -1,7 +1,7 @@
 import DashboardView, { type CapacityLine, type DashboardData, type StockCapacityView } from "@/components/ops/DashboardView";
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
-import { dateIn, daysLabel, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
+import { dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -265,8 +265,10 @@ async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, 
     ? `${formatQty(pace)} crowns a day: ${produced > 0 ? "good crowns produced over the last 30 days" : "your deliveries over the last 60 days"}`
     : "no production or deliveries recorded in the last 60 days";
 
+  // Only the main materials of a crown (lib/stock-capacity.ts DASHBOARD_MATERIALS).
+  const { picked, missing } = pickDashboardMaterials(mats ?? []);
   const c = stockCapacity(
-    (mats ?? []).map((m) => ({ ...m, used_recently: usedBy.get(m.id) ?? 0 })),
+    picked.map((m) => ({ ...m, used_recently: usedBy.get(m.id) ?? 0 })),
     { stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours },
     pace,
     30,
@@ -308,6 +310,7 @@ async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, 
     rows: c.rows.map((r, i) => line(r, i === 0)),
     coatRows: c.coatRows.map((r) => line(r, false)),
     noRate: c.noRate.map((m) => m.name),
+    missing,
     inventoryHref: canInventory ? "/ops/inventory" : null,
   };
 }

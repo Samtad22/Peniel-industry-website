@@ -32,6 +32,8 @@ export type StockCapacityView = {
   rows: CapacityLine[];
   coatRows: CapacityLine[];
   noRate: string[];
+  /** Main materials not on the Inventory list at all. */
+  missing: string[];
   inventoryHref: string | null;
 };
 export type CapacityLine = { name: string; stock: string; crowns: string; lasts: string; reorder: string; urgent: boolean; first: boolean; note?: string };
@@ -225,7 +227,7 @@ function ProductionFromStock({ c }: { c: StockCapacityView }) {
   );
   return (
     <section className="border-t-2 border-divider px-4 pb-10 pt-7 sm:px-8">
-      <SectionHead title="Production from stock" aside="what the raw material on hand can make" />
+      <SectionHead title="Production from stock" aside="varnish, lacquer, base coats, PVC-free, tinplate, polybag and box" />
       {c.crowns ? (
         <div className="flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-divider py-5">
           <div>
@@ -267,17 +269,17 @@ function ProductionFromStock({ c }: { c: StockCapacityView }) {
           </div>
         </div>
       )}
-      {c.noRate.length > 0 && (
+      {(c.noRate.length > 0 || c.missing.length > 0) && (
         <p className="m-0 mt-3 text-[12px] opacity-70">
-          Not counted, no usage rate: {c.noRate.join(", ")}.{" "}
+          {c.noRate.length > 0 && <>Not counted, no usage rate: {c.noRate.join(", ")}. </>}
+          {c.missing.length > 0 && <>Not on the Inventory list: {c.missing.join(", ")}. </>}
           {c.inventoryHref && (
             <Link href={c.inventoryHref} className="text-text">
-              Set rates in Inventory →
+              Inventory →
             </Link>
           )}
         </p>
       )}
-      <p className="m-0 mt-2 text-[12px] opacity-60">Inks depend on the brand: see the Calculator.</p>
     </section>
   );
 }

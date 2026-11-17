@@ -127,3 +127,40 @@ export function dateIn(todayIso: string, days: number | null): string | null {
   d.setUTCDate(d.getUTCDate() + Math.floor(days));
   return d.toISOString().slice(0, 10);
 }
+
+/**
+ * The materials the dashboard shows, in this order: the main ones that go
+ * into a crown. Each is found on the list by its usual names.
+ */
+export const DASHBOARD_MATERIALS: { key: string; label: string; names: string[]; prefix?: string[] }[] = [
+  { key: "varnish", label: "Varnish", names: ["varnish", "overprintvarnish", "varnish801"] },
+  { key: "lacquer", label: "Lacquer", names: ["adhesivelacquer", "lacquer", "adhesivelacquer606"] },
+  { key: "transparent", label: "Transparent base coat", names: ["transparentbasecoat", "basecoattransparent", "tbc"] },
+  { key: "white", label: "White base coat", names: ["whitebasecoat", "basecoatwhite", "wbc"] },
+  { key: "pvc", label: "PVC-free liner compound", names: ["pvcfreelinercompound", "pvcfreecompound", "pvcfree", "linercompound"] },
+  { key: "tinplate", label: "Tinplate", names: ["tinplate", "tinfreesteelsheet"], prefix: ["tinplate"] },
+  { key: "polybag", label: "Polybag", names: ["polybag", "polybags"] },
+  { key: "box", label: "Box", names: ["box", "boxes", "carton", "cartons"] },
+];
+
+const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * The dashboard's materials from the list: for each, the one on the list by
+ * that name (one with a usage rate first, then the most in stock). `missing`:
+ * those not on the list at all.
+ */
+export function pickDashboardMaterials<T extends CapacityMaterial>(materials: T[]): { picked: T[]; missing: string[] } {
+  const picked: T[] = [];
+  const missing: string[] = [];
+  for (const d of DASHBOARD_MATERIALS) {
+    const matches = materials.filter((m) => {
+      const p = plain(m.name);
+      return d.names.includes(p) || (d.prefix ?? []).some((x) => p.startsWith(x));
+    });
+    const best = matches.sort((a, b) => Number(Number(b.use_rate ?? 0) > 0) - Number(Number(a.use_rate ?? 0) > 0) || Number(b.on_hand) - Number(a.on_hand))[0];
+    if (best) picked.push(best);
+    else missing.push(d.label);
+  }
+  return { picked, missing };
+}
