@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import {
+  deleteMaterial,
   proposePickupTime,
   receiveStock,
   recordCollection,
@@ -513,6 +514,62 @@ function MaterialSettingsForm({ material, close }: { material?: MaterialFields; 
         {!state?.ok && (
           <Button type="submit" disabled={pending} icon="✓" className="w-[150px]">
             {pending ? "Saving…" : "Save"}
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Admin: delete an Inventory item (raw material or ink) for good, with its
+ * whole history. Taking it off the list (its Settings) keeps the history.
+ */
+export function DeleteMaterialDialog({ id, name, ink = false }: { id: string; name: string; ink?: boolean }) {
+  return (
+    <Modal
+      title={`Delete ${name}`}
+      trigger={(open) => (
+        <button type="button" onClick={open} className="cursor-pointer border-0 bg-transparent p-0 text-[12px] text-accent-800 underline underline-offset-2">
+          Delete
+        </button>
+      )}
+    >
+      {(close) => <DeleteMaterialForm id={id} name={name} ink={ink} close={close} />}
+    </Modal>
+  );
+}
+
+function DeleteMaterialForm({ id, name, ink, close }: { id: string; name: string; ink: boolean; close: () => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(deleteMaterial, null);
+  const [sure, setSure] = useState(false);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="material_id" value={id} />
+      {!state?.ok && (
+        <>
+          <p className="m-0 border-l-[3px] border-accent py-1 pl-3 text-[13px]">
+            <b>{name}</b> is deleted for good, with its whole history: deliveries, use and stock counts. The reports won&apos;t show them any more.
+            {ink ? " It is also taken out of the ink used on printed stillages and sample sheets, and its grams per sheet go." : ""}
+          </p>
+          <p className="m-0 text-[12px] opacity-75">
+            To keep the history, take it off the list instead (its Settings: untick &ldquo;On the list&rdquo;).
+            {ink ? " If a brand still prints this colour, the ink comes back (at 0 kg) the next time that brand's colours are changed." : ""}
+          </p>
+          <label className="flex items-center gap-2 text-[13px] font-semibold">
+            <input type="checkbox" name="confirm" checked={sure} onChange={(e) => setSure(e.target.checked)} className="size-4 accent-[var(--color-accent)]" />
+            Delete {name} and its history
+          </label>
+        </>
+      )}
+      <FormMessage state={state} />
+      <div className="dialog-actions">
+        <Button type="button" variant="secondary" onClick={close}>
+          {state?.ok ? "Done" : "Cancel"}
+        </Button>
+        {!state?.ok && (
+          <Button type="submit" disabled={pending || !sure} icon="×" className="w-[150px]">
+            {pending ? "Deleting…" : "Delete"}
           </Button>
         )}
       </div>
