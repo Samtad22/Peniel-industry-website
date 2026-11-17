@@ -143,7 +143,7 @@ function BrandForm({ companyId, brand, close }: { companyId: string; brand?: Bra
         </div>
         <Field label="Base coat before printing (internal)" htmlFor="br-base">
           <select id="br-base" name="base_coat" defaultValue={brand?.base_coat ?? ""} className="input min-h-11">
-            <option value="">None</option>
+            <option value="">{brand ? "None" : "By the rule: Coca-Cola and Habesha transparent, others white"}</option>
             <option value="white">White base coat</option>
             <option value="transparent">Transparent base coat</option>
           </select>

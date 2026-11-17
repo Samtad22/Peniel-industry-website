@@ -2,7 +2,7 @@ import DashboardView, { type CapacityLine, type DashboardData, type StockCapacit
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
 import { plannedPerDay } from "@/lib/settings";
-import { dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
+import { coatShareFrom, dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -266,7 +266,9 @@ export default async function OpsDashboard() {
  * plant's plan (Settings → Plant): presses running x press speed x shifts x
  * hours x output % x working days. With no press running: good crowns
  * produced over the last 30 days, else crowns delivered over the last 60.
- * Base coats (only some brands) last at their own use over the last 30 days.
+ * Each sheet gets one base coat, white or transparent (by brand): each coat
+ * lasts at its share of the pace, the share of the sheets printed over the
+ * last 60 days whose brand has that coat. Never from the POs.
  */
 async function loadCapacity(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -275,7 +277,7 @@ async function loadCapacity(
 ): Promise<{ view: StockCapacityView; pace: number | null }> {
   const since30 = addisDateISO(new Date(), -30);
   const since60 = addisDateISO(new Date(), -60);
-  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }] = await Promise.all([
+  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }, { data: printed }] = await Promise.all([
     getSettings(),
     supabase
       .from("raw_materials")
@@ -294,7 +296,17 @@ async function loadCapacity(
     supabase.from("order_deliveries").select("quantity").eq("kind", "delivery").gte("delivered_on", since60).returns<{ quantity: number }[]>(),
     // The presses (not their liners) and whether they run.
     supabase.from("machines").select("status").eq("category", "press").is("parent_id", null).eq("active", true).returns<{ status: string }[]>(),
+    // The sheets printed over the last 60 days and their brand's coat: how the pace splits between the coats.
+    supabase
+      .from("print_runs")
+      .select("sheets_printed, sheets_spoiled, base_sheets, brands(base_coat)")
+      .not("brand_id", "is", null)
+      .gte("run_date", since60)
+      .returns<{ sheets_printed: number; sheets_spoiled: number; base_sheets: number | null; brands: { base_coat: string | null } | null }[]>(),
   ]);
+  const coatShare = coatShareFrom(
+    (printed ?? []).map((r) => ({ coat: r.brands?.base_coat ?? null, crowns: Number(r.base_sheets ?? Number(r.sheets_printed) + Number(r.sheets_spoiled)) })),
+  );
   const usedBy = new Map<string, number>();
   for (const u of used ?? []) usedBy.set(u.material_id, (usedBy.get(u.material_id) ?? 0) - Number(u.quantity));
 
@@ -318,11 +330,12 @@ async function loadCapacity(
     { stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours },
     pace,
     30,
+    coatShare,
   );
   const SCOPE_NOTE: Record<CapacityRow["scope"], string | undefined> = {
     all: undefined,
-    white_base_coat: "Brands with the white base coat",
-    transparent_base_coat: "Brands with the transparent base coat",
+    white_base_coat: "Brands with the white base coat (all but Coca-Cola and Habesha)",
+    transparent_base_coat: "Brands with the transparent base coat (Coca-Cola and Habesha)",
     base_coat: "Brands with a base coat",
   };
   const line = (r: CapacityRow, first: boolean): CapacityLine => {
@@ -343,7 +356,15 @@ async function loadCapacity(
               : `In ${daysLabel(r.daysToReorder)}${reorderDate ? ` · ${formatDate(reorderDate)}` : ""}`,
       urgent: r.reorderLevel != null && (r.onHand <= r.reorderLevel || (r.daysToReorder != null && r.daysToReorder < 14)),
       first,
-      note: [SCOPE_NOTE[r.scope], r.perDayFrom === "use" ? "lasts: from its own use in the last 30 days" : undefined].filter(Boolean).join(" · ") || undefined,
+      note:
+        [
+          SCOPE_NOTE[r.scope],
+          r.share != null && r.perDayFrom === "share" ? `${Math.round(r.share * 100)}% of the sheets printed in the last 60 days` : undefined,
+          r.perDay != null && r.perDay > 0 ? `uses ${formatAmount(r.perDay, r.unit)} a day${r.perDayFrom === "use" ? " (its own use, last 30 days)" : ""}` : undefined,
+          r.scope !== "all" && r.perDay == null ? "date once printing is logged" : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
     };
   };
   const b = c.bottleneck;
