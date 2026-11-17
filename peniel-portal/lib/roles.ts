@@ -22,6 +22,7 @@ export type OpsArea =
   | "orders"
   | "production"
   | "sheets"
+  | "goods"
   | "quality"
   | "inventory"
   | "artwork"
@@ -48,6 +49,7 @@ export const OPS_NAV: { area: OpsArea; href: string; label: string; short: strin
   { area: "messages", href: "/ops/messages", label: "Messages", short: "Messages", no: "10", group: "work", roles: ["admin", "sales"] },
   { area: "production", href: "/ops/production", label: "Production", short: "Production", no: "04", group: "plant", roles: ["admin", "production", "quality"] },
   { area: "sheets", href: "/ops/production/sheets", label: "Printed sheets", short: "Sheets", no: "04", group: "plant", roles: ["admin", "production", "quality"] },
+  { area: "goods", href: "/ops/production/goods", label: "Produced goods", short: "Goods", no: "04", group: "plant", roles: ["admin", "production", "quality"] },
   { area: "quality", href: "/ops/quality", label: "Quality control", short: "Quality", no: "05", group: "plant", roles: ["admin", "quality"] },
   { area: "inventory", href: "/ops/inventory", label: "Inventory", short: "Inventory", no: "06", group: "plant", roles: ["admin", "production", "warehouse"] },
   { area: "maintenance", href: "/ops/maintenance", label: "Maintenance", short: "Maint.", no: "11", group: "plant", roles: ["admin", "production"] },

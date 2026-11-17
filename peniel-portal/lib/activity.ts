@@ -16,7 +16,7 @@ export type ActivityRow = {
 /** The tables the log covers, as the filter lists them. */
 export const ACTIVITY_AREAS: { key: string; label: string; entities: string[] }[] = [
   { key: "orders", label: "Orders", entities: ["orders", "order_attachments"] },
-  { key: "production", label: "Production", entities: ["production_entries", "print_runs", "stillage_passes"] },
+  { key: "production", label: "Production", entities: ["production_entries", "produced_goods", "print_runs", "stillage_passes"] },
   { key: "quality", label: "Quality", entities: ["qc_inspections", "sorting_records", "coa_signatures"] },
   { key: "stock", label: "Stock & pickups", entities: ["finished_stock", "pickup_bookings"] },
   { key: "artwork", label: "Artwork & documents", entities: ["artwork_versions", "proofs", "artwork_submissions", "brand_artwork_files", "documents"] },
@@ -29,6 +29,7 @@ const THING: Record<string, string> = {
   orders: "Order",
   order_attachments: "Order file",
   production_entries: "Production entry",
+  produced_goods: "Produced goods",
   print_runs: "Stillage",
   stillage_passes: "Oven pass",
   qc_inspections: "Inspection",
