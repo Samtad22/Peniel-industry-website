@@ -220,11 +220,11 @@ export default async function OrderProductionPage({ params }: { params: Promise<
                     ) : (
                       <span className={e.published ? "opacity-70" : "font-extrabold text-accent-700"}>{e.published ? "✓" : "Pending"}</span>
                     )}
-                    {me.role === "admin" && !e.published && (
+                    {me.role === "admin" && (
                       <ConfirmForm
                         action={deleteEntry}
                         fields={{ id: e.id }}
-                        message={`Delete this entry (${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.`}
+                        message={`Delete this entry (${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.${e.published ? " It is published: the customer's output for that day goes down by it." : ""}`}
                         label="Delete"
                         title="Delete this entry"
                         className="cursor-pointer border-0 bg-transparent p-0 text-[12px] underline"
@@ -236,7 +236,7 @@ export default async function OrderProductionPage({ params }: { params: Promise<
             </div>
           </div>
           <p className="mb-0 mt-2 text-[12px] opacity-60">
-            Published entries are frozen. Unpublish one to correct or delete it.
+            Published entries are frozen: unpublish one to correct it. Admin can delete any entry.
           </p>
         </div>
       </div>

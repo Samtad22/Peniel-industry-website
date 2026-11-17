@@ -91,11 +91,11 @@ export default async function ProductionEntryPage() {
                   <span className={e.published ? "opacity-60" : "font-extrabold text-accent-700"}>
                     {e.published ? "Published" : "Not published"}
                   </span>
-                  {!e.published && me.role === "admin" && (
+                  {me.role === "admin" && (
                     <ConfirmForm
                       action={deleteEntry}
                       fields={{ id: e.id }}
-                      message={`Remove this entry (${e.order_no}, ${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.`}
+                      message={`Remove this entry (${e.order_no}, ${e.produced.toLocaleString("en-US")} crowns, shift ${e.shift})? Use this when it was entered by mistake.${e.published ? " It is published: the customer's output for that day goes down by it." : ""}`}
                       label="Remove"
                       className="min-h-9 cursor-pointer border-0 bg-transparent text-[12px] underline"
                     />

@@ -66,7 +66,7 @@ describe("production entries", () => {
     });
   });
 
-  test("a published entry can't be changed or deleted until it is unpublished; only admin deletes", async () => {
+  test("a published entry can't be changed until it is unpublished; only admin deletes, published or not", async () => {
     let id = "";
     await as(staff.production, async (db) => {
       const { rows } = await entry(db, 1000, 5, true);
@@ -85,14 +85,21 @@ describe("production entries", () => {
       await db.query("commit");
     });
     await as(staff.admin, async (db) => {
+      // Admin can't change a published entry either...
       await db.query("savepoint s");
-      await assert.rejects(db.query("delete from public.production_entries where id = $1", [id]), /Unpublish this entry before deleting it/);
+      await assert.rejects(
+        db.query("update public.production_entries set produced_qty = 2000 where id = $1", [id]),
+        /Unpublish this entry before changing it/,
+      );
       await db.query("rollback to savepoint s");
-      await db.query("update public.production_entries set published = false where id = $1", [id]);
+      // ...but deletes it in one step, still published (20261117000004).
       const r = await db.query("delete from public.production_entries where id = $1", [id]);
       assert.equal(r.rowCount, 1);
       await db.query("commit");
     });
+    // It is gone.
+    const { rows } = await pool.query("select (select count(*) from public.production_entries where id = $1)::int as n", [id]);
+    assert.equal(rows[0].n, 0);
   });
 
   test("customers see published totals per day with the publish time, never lines or shifts", async () => {
