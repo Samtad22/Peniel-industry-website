@@ -28,6 +28,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     supabase
       .from("brands")
       .select("id, name, company_id")
+      // Retired brands (e.g. a duplicate merged into another) are not offered.
+      .eq("active", true)
       .order("name")
       .returns<{ id: string; name: string; company_id: string }[]>(),
   ]);

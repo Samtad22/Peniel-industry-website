@@ -8,7 +8,7 @@ import { Button, Field, FormMessage } from "@/components/ui/form";
 import { batchKey, CROWNS_PER_CARTON, parseGoodsQuantity } from "@/lib/produced-goods";
 
 /** An order produced goods can be recorded for, with the batches inspected so far. */
-export type GoodsOrder = { id: string; label: string; batches: { batch_no: string; certificate: boolean }[] };
+export type GoodsOrder = { id: string; label: string; ordered: number; left: number; batches: { batch_no: string; certificate: boolean }[] };
 /** An entry being corrected. */
 export type GoodsEntry = { id: string; order_id: string; batch_no: string; quantity: number; produced_on: string; notes: string | null };
 
@@ -49,6 +49,9 @@ export function ProducedGoodsForm({
   // What is already recorded for this batch, without the entry being corrected.
   const before = (totals[key] ?? 0) - (entry && `${entry.order_id}|${batchKey(entry.batch_no)}` === key ? entry.quantity : 0);
   const inspected = order?.batches.find((b) => batchKey(b.batch_no) === batchKey(batch));
+  // Left to make on the order before this entry (an entry being corrected is put back first).
+  const leftBefore = order ? order.left + (entry && entry.order_id === order.id ? entry.quantity : 0) : 0;
+  const leftAfter = leftBefore - (Number.isFinite(crowns) ? crowns : 0);
   const p = entry ? `pg-${entry.id.slice(0, 8)}` : "pg";
 
   return (
@@ -114,6 +117,24 @@ export function ProducedGoodsForm({
           </div>
         </fieldset>
       </div>
+      {order && (
+        <div className="grid grid-cols-3 border-y-2 border-text text-[13px]" aria-live="polite">
+          {[
+            ["Ordered", order.ordered],
+            ["Left to make", leftBefore],
+            ["Left after this", Math.max(0, leftAfter)],
+          ].map(([label, v], i) => (
+            <div key={String(label)} className={`px-2.5 py-2 ${i ? "border-l border-divider" : ""}`}>
+              <span className="font-mono text-[10px] font-semibold tracking-[.1em] opacity-60">{String(label).toUpperCase()}</span>
+              <b className="block text-[17px] tabular-nums">{n(Number(v))}</b>
+              <span className="text-[11px] opacity-60">{n(Math.round((Number(v) / CROWNS_PER_CARTON) * 10) / 10)} cartons</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {order && leftAfter < 0 && (
+        <p className="m-0 text-[12px] font-extrabold text-accent-800">{n(-leftAfter)} crowns more than what is left on this order. Check the quantity and the order.</p>
+      )}
       <p className="m-0 text-[13px] opacity-80" aria-live="polite">
         {Number.isFinite(crowns) ? (
           <>

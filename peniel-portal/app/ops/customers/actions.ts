@@ -64,6 +64,12 @@ export async function saveCompany(_prev: CustomerState, fd: FormData): Promise<C
   return { ok: "Saved." };
 }
 
+/** A brand name to compare: no case, spaces or punctuation; "Coca-Cola" = "Coca". */
+function brandKey(name: string): string {
+  const k = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return k === "cocacola" ? "coca" : k;
+}
+
 /** Add a brand to a customer, or edit one (admin and sales). */
 export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<CustomerState> {
   await requireStaff(["admin", "sales"]);
@@ -93,6 +99,17 @@ export async function saveBrand(_prev: CustomerState, fd: FormData): Promise<Cus
   };
 
   const supabase = await createClient();
+  // Each brand is on the list once: the same name (without case, spaces or punctuation) under another customer is refused.
+  const key = brandKey(name);
+  const { data: same } = await supabase
+    .from("brands")
+    .select("id, name, companies(name)")
+    .eq("active", true)
+    .neq("company_id", companyId)
+    .returns<{ id: string; name: string; companies: { name: string } | null }[]>();
+  const twin = (same ?? []).find((b) => b.id !== id && brandKey(b.name) === key);
+  if (twin) return { error: `${twin.name} is already on the list under ${twin.companies?.name ?? "another customer"}. Use that one, or retire it first.` };
+
   const { error } = UUID.test(id)
     ? await supabase.from("brands").update(row).eq("id", id).eq("company_id", companyId)
     : await supabase.from("brands").insert(row);

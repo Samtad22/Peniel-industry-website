@@ -57,7 +57,7 @@ export default async function DocumentsPage({
       .order("order_no", { ascending: false })
       .limit(500)
       .returns<{ id: string; company_id: string; order_no: string; brands: { name: string } | null }[]>(),
-    supabase.from("brands").select("id, company_id, name").order("name").returns<{ id: string; company_id: string; name: string }[]>(),
+    supabase.from("brands").select("id, company_id, name").eq("active", true).order("name").returns<{ id: string; company_id: string; name: string }[]>(),
   ]);
 
   const visLink = (v: string) => {
