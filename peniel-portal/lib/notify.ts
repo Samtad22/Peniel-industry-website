@@ -1,5 +1,6 @@
 import "server-only";
 import { after } from "next/server";
+import { saveAndSendCertificate } from "@/lib/coa-issued";
 import { sendEmails, type EmailContent } from "@/lib/email";
 import { formatDate } from "@/lib/format";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/order-status";
@@ -263,6 +264,8 @@ export function notifyCertificateReady(inspectionId: string) {
       },
       { kind: "certificate_ready", companyId: o.company_id, entityId: i.id },
     );
+    // Peniel's copy: the PDF saved in Documents and emailed to the report recipients.
+    await saveAndSendCertificate(db, i.id);
   });
 }
 

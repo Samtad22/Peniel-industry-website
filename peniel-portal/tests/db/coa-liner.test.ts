@@ -60,3 +60,21 @@ test("a batch's own liner type is on its certificate; changing it clears the sig
 test("liner type IDs are at most 60 characters", async () => {
   await assert.rejects(save({ batch_no: "B-LINER-3", liner_type_id: "x".repeat(61) }));
 });
+
+test("the portal's server (service key) reads a certificate to make its PDF; customers still see only their final ones", async () => {
+  const id = await save({ batch_no: "B-LINER-PDF", published: false, liner_type_id: "Actega Svelon 855" });
+  const db = await pool.connect();
+  try {
+    await db.query("begin");
+    await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ role: "service_role" })]);
+    await db.query("set local role service_role");
+    const c = (await db.query("select public.certificate_of_analysis($1) as c", [id])).rows[0].c;
+    assert.equal(c.batch_no, "B-LINER-PDF");
+    assert.equal(c.final, false);
+  } finally {
+    await db.query("rollback");
+    db.release();
+  }
+  // Not published or signed: the customer gets nothing.
+  assert.equal(await coa(habesha, id), null);
+});

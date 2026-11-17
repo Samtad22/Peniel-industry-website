@@ -14,6 +14,10 @@
 -- same as before for them).
 --
 -- Internal column; customers see it only on their batch's certificate.
+--
+-- Also: the portal's server (service key) may read a certificate as staff
+-- do, to make its PDF when it is issued (lib/coa-pdf.ts): emailed to the
+-- report recipients and saved in Documents.
 -- Safe to run more than once.
 -- ============================================================================
 
@@ -140,7 +144,8 @@ declare
     'leaking_pressure_kgcm2', 'release_performance_kgcm2', 'scratch_dust_mg',
     'crown_height_mm', 'outer_diameter_mm'
   ];
-  is_staff boolean := app.is_staff();
+  -- Staff, or the portal's server (service key) making the PDF of an issued certificate.
+  is_staff boolean := app.is_staff() or coalesce(auth.role(), '') = 'service_role';
   fp text := app.coa_fingerprint(p_inspection_id);
   released boolean;
   signed boolean;
@@ -227,3 +232,4 @@ $$;
 
 revoke all on function public.certificate_of_analysis(uuid) from public, anon;
 grant execute on function public.certificate_of_analysis(uuid) to authenticated;
+grant execute on function public.certificate_of_analysis(uuid) to service_role;

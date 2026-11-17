@@ -93,7 +93,12 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         <a href={homeFor(profile)} className="text-[14px]">
           ← Back to the portal
         </a>
-        <PrintButton />
+        <span className="flex flex-wrap items-center gap-2">
+          <a href={`/certificates/${c.id}/pdf`} className="btn btn-secondary text-text">
+            Download PDF
+          </a>
+          <PrintButton />
+        </span>
       </div>
 
       <article className="mx-auto flex max-w-[860px] flex-col gap-5 bg-white p-6 text-[13px] text-text sm:p-10 print:max-w-none print:gap-3 print:p-0 print:text-[10.5px]">
