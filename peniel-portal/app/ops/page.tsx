@@ -1,6 +1,7 @@
 import DashboardView, { type CapacityLine, type DashboardData, type StockCapacityView } from "@/components/ops/DashboardView";
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
+import { plannedPerDay } from "@/lib/settings";
 import { dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
@@ -256,15 +257,16 @@ export default async function OpsDashboard() {
 
 /**
  * "Production from stock": what the raw material on hand can make, the
- * material that runs out first, and how long it lasts. The pace: each
- * material's own use over the last 30 days where there is any; else good
- * crowns produced over the last 30 days; else crowns delivered over the
- * last 60 days.
+ * material that runs out first, and how long it lasts. The pace is the
+ * plant's plan (Settings → Plant): presses running x press speed x shifts x
+ * hours x output % x working days. With no press running: good crowns
+ * produced over the last 30 days, else crowns delivered over the last 60.
+ * Base coats (only some brands) last at their own use over the last 30 days.
  */
 async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, today: string, canInventory: boolean): Promise<StockCapacityView> {
   const since30 = addisDateISO(new Date(), -30);
   const since60 = addisDateISO(new Date(), -60);
-  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }] = await Promise.all([
+  const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }] = await Promise.all([
     getSettings(),
     supabase
       .from("raw_materials")
@@ -281,16 +283,24 @@ async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, 
       .returns<{ material_id: string; quantity: number }[]>(),
     supabase.from("production_entries").select("produced_qty, reject_qty").gte("entry_date", since30).returns<{ produced_qty: number; reject_qty: number }[]>(),
     supabase.from("order_deliveries").select("quantity").eq("kind", "delivery").gte("delivered_on", since60).returns<{ quantity: number }[]>(),
+    // The presses (not their liners) and whether they run.
+    supabase.from("machines").select("status").eq("category", "press").is("parent_id", null).eq("active", true).returns<{ status: string }[]>(),
   ]);
   const usedBy = new Map<string, number>();
   for (const u of used ?? []) usedBy.set(u.material_id, (usedBy.get(u.material_id) ?? 0) - Number(u.quantity));
 
   const produced = (made ?? []).reduce((s, e) => s + Number(e.produced_qty) - Number(e.reject_qty), 0);
   const deliveredQty = (delivered ?? []).reduce((s, d) => s + Number(d.quantity), 0);
-  const pace = produced > 0 ? produced / 30 : deliveredQty > 0 ? deliveredQty / 60 : null;
-  const paceText = pace
-    ? `${formatQty(pace)} crowns a day: ${produced > 0 ? "good crowns produced over the last 30 days" : "your deliveries over the last 60 days"}`
-    : "no production or deliveries recorded in the last 60 days";
+  const running = (presses ?? []).filter((p) => p.status === "running").length;
+  const planned = plannedPerDay(plant, running);
+  const pace = planned > 0 ? planned : produced > 0 ? produced / 30 : deliveredQty > 0 ? deliveredQty / 60 : null;
+  const hours = plant.shifts_per_day * plant.shift_hours;
+  const paceText =
+    planned > 0
+      ? `${formatQty(planned)} good crowns a day on average: ${running} press${running === 1 ? "" : "es"} running × ${formatQty(plant.press_per_hour)} an hour × ${plant.shifts_per_day} shift${plant.shifts_per_day === 1 ? "" : "s"} of ${plant.shift_hours} h (${hours} h a day) × ${plant.output_pct}% output, ${plant.working_days_per_week} days a week (Settings → Plant)`
+      : pace
+        ? `${formatQty(pace)} crowns a day: ${produced > 0 ? "good crowns produced over the last 30 days" : "your deliveries over the last 60 days"} (no press is running in Maintenance)`
+        : "no press running and no production or deliveries in the last 60 days";
 
   // Only the main materials of a crown (lib/stock-capacity.ts DASHBOARD_MATERIALS).
   const { picked, missing } = pickDashboardMaterials(mats ?? []);

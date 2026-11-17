@@ -33,13 +33,29 @@ export async function savePlant(_prev: SettingsState, fd: FormData): Promise<Set
   const sheets = Number(s(fd, "stillage_sheets").replace(/[,\s]/g, ""));
   const perHour = Number(s(fd, "press_per_hour").replace(/[,\s]/g, ""));
   const shiftHours = Number(s(fd, "shift_hours").replace(",", "."));
+  const shifts = Number(s(fd, "shifts_per_day"));
+  const days = Number(s(fd, "working_days_per_week"));
+  const outputPct = Number(s(fd, "output_pct").replace(",", ".").replace("%", ""));
   if (!(limit >= 0.01 && limit <= 20)) return { error: "Camera reject limit: a % from 0.01 to 20." };
   if (!(Number.isInteger(oven) && oven >= 1 && oven <= 240)) return { error: "Oven pass: whole minutes, 1 to 240." };
   if (!(Number.isInteger(sheets) && sheets >= 100 && sheets <= 10_000)) return { error: "Sheets per stillage: a whole number, 100 to 10,000." };
   if (!(Number.isInteger(perHour) && perHour >= 10_000 && perHour <= 2_000_000)) return { error: "Press speed: crowns an hour, 10,000 to 2,000,000." };
   if (!(shiftHours >= 1 && shiftHours <= 24)) return { error: "Shift length: hours, 1 to 24." };
+  if (!(Number.isInteger(shifts) && shifts >= 1 && shifts <= 3)) return { error: "Shifts a day: 1, 2 or 3." };
+  if (shifts * shiftHours > 24) return { error: "Shifts a day x hours in a shift can't be more than 24 hours." };
+  if (!(Number.isInteger(days) && days >= 1 && days <= 7)) return { error: "Working days a week: 1 to 7." };
+  if (!(outputPct >= 10 && outputPct <= 100)) return { error: "Output: a % of the press speed, 10 to 100." };
   return (
-    (await save("plant", { reject_limit_pct: limit, oven_minutes: oven, stillage_sheets: sheets, press_per_hour: perHour, shift_hours: shiftHours })) ?? {
+    (await save("plant", {
+      reject_limit_pct: limit,
+      oven_minutes: oven,
+      stillage_sheets: sheets,
+      press_per_hour: perHour,
+      shift_hours: shiftHours,
+      shifts_per_day: shifts,
+      working_days_per_week: days,
+      output_pct: outputPct,
+    })) ?? {
       ok: "Saved. Forms and pages use the new values now.",
     }
   );

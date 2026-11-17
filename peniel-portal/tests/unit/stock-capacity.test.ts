@@ -47,11 +47,21 @@ test("what each material's stock makes; the one that runs out first sets the fig
   assert.equal(c.coatRows[0].daysToEmpty, null);
 });
 
-test("a material's own recent use wins over the pace", () => {
-  const c = stockCapacity([m({ name: "Varnish", on_hand: 300, use_basis: "varnish_sheet", use_rate: 0.015, used_recently: 90 })], plant, 5_000_000, 30);
+test("the plant's pace wins for materials in every crown; own use for base coats, or with no pace", () => {
+  const varnish = m({ name: "Varnish", on_hand: 300, use_basis: "varnish_sheet", use_rate: 0.015, used_recently: 90 });
+  // 702,000 crowns a day = 1,000 sheets a day = 15 kg a day: 20 days.
+  const planned = stockCapacity([varnish], plant, 702_000, 30);
+  assert.equal(planned.rows[0].perDayFrom, "pace");
+  assert.equal(planned.rows[0].daysToEmpty, 20);
+  // No pace: its own use over 30 days (3 a day).
+  const c = stockCapacity([varnish], plant, null, 30);
   assert.equal(c.rows[0].perDayFrom, "use");
   assert.equal(c.rows[0].perDay, 3);
   assert.equal(c.rows[0].daysToEmpty, 100);
+  // A base coat: its own use even with a pace.
+  const coat = stockCapacity([m({ name: "White base coat", on_hand: 100, use_basis: "white_base_coat_sheet", use_rate: 0.02515, used_recently: 300 })], plant, 702_000, 30);
+  assert.equal(coat.coatRows[0].perDayFrom, "use");
+  assert.equal(coat.coatRows[0].daysToEmpty, 10);
   // Below the reorder level already: 0 days.
   const low = stockCapacity([m({ name: "Box", on_hand: 10, reorder_level: 50, use_basis: "box", use_rate: 1 })], plant, 100_000);
   assert.equal(low.rows[0].daysToReorder, 0);

@@ -54,6 +54,21 @@ export function PlantForm({ plant }: { plant: PlantSettings }) {
           <input id="pl-shift" name="shift_hours" inputMode="decimal" defaultValue={plant.shift_hours} className="input min-h-11" />
         </Field>
       </div>
+      <div className="grid gap-3.5 sm:grid-cols-3">
+        <Field label="Shifts a day" htmlFor="pl-shifts" hint="2 shifts of 8 hours = 16 hours a day.">
+          <input id="pl-shifts" name="shifts_per_day" inputMode="numeric" defaultValue={plant.shifts_per_day} className="input min-h-11" />
+        </Field>
+        <Field label="Working days a week" htmlFor="pl-days" hint="Days the presses run.">
+          <input id="pl-days" name="working_days_per_week" inputMode="numeric" defaultValue={plant.working_days_per_week} className="input min-h-11" />
+        </Field>
+        <Field label="Output (% of press speed)" htmlFor="pl-output" hint="Good crowns over a shift, after stops, changeovers and waste.">
+          <input id="pl-output" name="output_pct" inputMode="decimal" defaultValue={plant.output_pct} className="input min-h-11" />
+        </Field>
+      </div>
+      <p className="m-0 text-[12px] opacity-70">
+        The dashboard&apos;s &ldquo;Production from stock&rdquo; works out how long the stock lasts from these: presses running × press speed × hours a day × output ×
+        working days.
+      </p>
       <SaveRow state={state} pending={pending} />
     </form>
   );
