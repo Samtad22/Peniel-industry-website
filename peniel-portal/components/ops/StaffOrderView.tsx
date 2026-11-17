@@ -1,4 +1,6 @@
 import Link from "next/link";
+import DeliveriesPanel from "@/components/ops/DeliveriesPanel";
+import type { Delivery } from "@/lib/deliveries";
 import { Lock } from "lucide-react";
 import { OpsTopBar } from "@/components/ops/OpsHeader";
 import { NotesForm, StaffReplyForm, StatusControl, type Preset } from "@/components/ops/OrderForms";
@@ -81,12 +83,18 @@ export default function StaffOrderView({
   holdPresets,
   rejectPresets,
   minDate,
+  deliveries,
+  canRecordDeliveries,
+  canDeleteDeliveries,
 }: {
   o: StaffOrder;
   canEdit: boolean;
   holdPresets: Preset[];
   rejectPresets: Preset[];
   minDate: string;
+  deliveries: Delivery[];
+  canRecordDeliveries: boolean;
+  canDeleteDeliveries: boolean;
 }) {
   const p = o.production;
   const current = TRACK.indexOf(o.status);
@@ -179,6 +187,15 @@ export default function StaffOrderView({
               Only Sales and Admin change order status. You can read everything here.
             </p>
           )}
+
+          <DeliveriesPanel
+            orderId={o.id}
+            ordered={o.quantity}
+            deliveries={deliveries}
+            canRecord={canRecordDeliveries}
+            canDelete={canDeleteDeliveries}
+            today={minDate}
+          />
 
           <div className="grid gap-6 md:grid-cols-2">
             <div>

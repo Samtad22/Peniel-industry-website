@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/auth";
 import { addisDateISO } from "@/lib/format";
 import { loadPresets } from "@/lib/presets";
 import { opsRolesFor } from "@/lib/roles";
+import type { Delivery } from "@/lib/deliveries";
 import { loadStaffOrder } from "@/lib/staff-orders";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,7 +15,11 @@ export default async function StaffOrderPage({ params }: { params: Promise<{ id:
   const me = await requireStaff(opsRolesFor("orders"));
   const { id } = await params;
   const supabase = await createClient();
-  const [o, presets] = await Promise.all([loadStaffOrder(supabase, id), loadPresets(supabase)]);
+  const [o, presets, { data: deliveries }] = await Promise.all([
+    loadStaffOrder(supabase, id),
+    loadPresets(supabase),
+    supabase.from("order_deliveries").select("id, order_id, kind, do_no, delivered_on, quantity, notes").eq("order_id", id).returns<Delivery[]>(),
+  ]);
   if (!o) notFound();
 
   const canEdit = me.role === "admin" || me.role === "sales";
@@ -32,6 +37,9 @@ export default async function StaffOrderPage({ params }: { params: Promise<{ id:
       holdPresets={presets.hold}
       rejectPresets={presets.reject}
       minDate={addisDateISO(new Date())}
+      deliveries={deliveries ?? []}
+      canRecordDeliveries={["admin", "sales", "warehouse"].includes(me.role)}
+      canDeleteDeliveries={me.role === "admin"}
     />
   );
 }

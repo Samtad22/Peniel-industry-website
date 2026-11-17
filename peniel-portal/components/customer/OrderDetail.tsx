@@ -9,6 +9,7 @@ import { ATTACHMENT_TYPE_LABELS, fileExt, formatBytes } from "@/lib/files";
 import { formatDate, formatDateTime, formatQty } from "@/lib/format";
 import { crownSizeLine } from "@/lib/inks";
 import type { CustomerOrderDetailData } from "@/lib/customer-orders";
+import { cartonsLabel, deliveryTotals, sortDeliveries } from "@/lib/deliveries";
 
 const PROGRESS_STATUSES = ["in_production", "quality_check", "ready_for_pickup", "dispatched", "delivered"];
 
@@ -108,6 +109,8 @@ export default function OrderDetail({
         </div>
       )}
 
+      {o.deliveries.length > 0 && <Deliveries o={o} />}
+
       <section>
         <h6 className="mb-1 mt-0">Progress</h6>
         <Timeline steps={o.steps} />
@@ -180,5 +183,36 @@ export default function OrderDetail({
         {o.status === "submitted" && <CancelOrderDialog orderId={o.id} orderNo={o.order_no} />}
       </div>
     </div>
+  );
+}
+
+/** Delivered and remaining, and each delivery (DO) of the order. */
+function Deliveries({ o }: { o: CustomerOrderDetailData }) {
+  const t = deliveryTotals(o.quantity, o.deliveries);
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h6 className="m-0">Deliveries</h6>
+      <div className="relative h-2.5 bg-surface">
+        <div className="absolute inset-y-0 left-0 bg-text" style={{ width: `${t.pct}%` }} />
+      </div>
+      <div className="flex flex-wrap justify-between gap-2 text-[13px]">
+        <span>
+          {formatQty(t.delivered)} of {formatQty(o.quantity)} delivered
+        </span>
+        <b>{formatQty(t.remaining)} remaining</b>
+      </div>
+      <div className="border-t border-divider text-[13px]">
+        {sortDeliveries(o.deliveries).map((d) => (
+          <div key={d.id} className="flex items-baseline justify-between gap-3 border-b border-divider py-1.5">
+            <span>
+              {d.delivered_on ? formatDate(d.delivered_on) : "Earlier"}
+              {d.do_no && <span className="opacity-70"> · DO {d.do_no}</span>}
+              {d.kind === "return_exchange" && <span className="opacity-70"> · returned, sorted and sent back</span>}
+            </span>
+            <b className="tabular-nums">{cartonsLabel(d.quantity)}</b>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
