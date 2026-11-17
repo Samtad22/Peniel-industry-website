@@ -15,7 +15,9 @@ export type DashboardData = {
   queue: { kind: QueueKind; title: string; meta: string; cta: string; href: string }[];
   week: { day: string; date: string; today: boolean; chips: { label: string; href: string; kind: "due" | "pickup" | "hold" }[] }[];
   weekSummary: string;
-  volume: { name: string; total: number; stock: number; open: number; hold: number }[];
+  /** Per customer, their open POs: ordered, delivered (DOs) and remaining (on hold apart); finished crowns in stock toward it. */
+  volume: { name: string; ordered: number; delivered: number; remaining: number; hold: number; inStock: number }[];
+  volumeSummary: string;
   /** What the raw material in stock can make, and how long it lasts (null: not shown to this role). */
   capacity: StockCapacityView | null;
 };
@@ -173,24 +175,29 @@ export default function DashboardView({ d }: { d: DashboardData }) {
           </section>
 
           <section>
-            <SectionHead title="Open volume" aside="by customer" />
-            {d.volume.length === 0 && <p className="m-0 py-4 text-[14px] opacity-60">No open orders.</p>}
+            <SectionHead title="Open volume" aside={d.volumeSummary} />
+            {d.volume.length === 0 && <p className="m-0 py-4 text-[14px] opacity-60">Nothing left to deliver on the open POs.</p>}
             {d.volume.map((v) => (
               <div key={v.name} className="flex flex-col gap-2 border-b border-divider py-3.5">
-                <span className="flex justify-between gap-3 text-[14px]">
+                <span className="flex items-baseline justify-between gap-3 text-[14px]">
                   <b className="min-w-0 truncate">{v.name}</b>
-                  <b className="text-[20px]">{formatQty(v.total)}</b>
+                  <span className="shrink-0 text-right">
+                    <b className="text-[20px]">{formatQty(v.remaining + v.hold)}</b>
+                    <span className="text-[12px] opacity-65"> remaining</span>
+                  </span>
                 </span>
-                <div className="flex h-3.5 gap-0.5">
-                  {v.stock > 0 && <div className="bg-text" style={{ flex: v.stock }} />}
-                  {v.open > 0 && <div className="bg-neutral-400" style={{ flex: v.open }} />}
+                <div className="flex h-3.5 gap-0.5" aria-hidden="true">
+                  {v.delivered > 0 && <div className="bg-text" style={{ flex: v.delivered }} />}
+                  {v.remaining > 0 && <div className="bg-neutral-400" style={{ flex: v.remaining }} />}
                   {v.hold > 0 && <div className="bg-accent-800" style={{ flex: v.hold }} />}
                 </div>
                 <span className="text-[11px] opacity-65">
                   {[
-                    `${formatQty(v.stock)} in stock`,
-                    `${formatQty(v.open)} to make or in production`,
+                    `${formatQty(v.ordered)} ordered`,
+                    `${formatQty(v.delivered)} delivered`,
+                    `${formatQty(v.remaining)} to deliver`,
                     v.hold ? `${formatQty(v.hold)} on hold` : null,
+                    v.inStock ? `${formatQty(v.inStock)} of it ready in stock` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
