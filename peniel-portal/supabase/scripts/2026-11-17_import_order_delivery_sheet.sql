@@ -17,9 +17,9 @@
 --   return exchanges: listed, not counted again.
 -- * Dates the sheet had with day and month swapped (Excel read 9/4 as 4 Sep)
 --   are corrected from the DO order: e.g. DO 1661 is 9 Apr, DO 1669 7 May.
--- * BGI's first 500 cartons have no date or DO on the sheet: DO 1682 of
---   10 Jun 2026 (from Peniel). A copy imported before without them is
---   given them here, not added twice.
+-- * BGI's first 500 cartons have no date or DO on the sheet: DO 1679 of
+--   10 Jun 2026 (from Peniel). A copy imported before without them (or with
+--   DO 1682) is corrected here, not added twice.
 -- * Heineken: PO 00019449 (150,000,000: Heineken 6M, Sofi 10M, Bedele Special
 --   4M, Harar 130M) and the new PO PO00020672 (Heineken 3,080,000). Heineken
 --   deliveries fill the original PO first (DO 33 is split: 920,000 on it,
@@ -56,7 +56,7 @@ begin
     ('heineken', '^heineken', 'Heineken Breweries S.C.', 'HNK', '00019449', 'Harar', 130000000, 'in_production'),
     ('heineken', '^heineken', 'Heineken Breweries S.C.', 'HNK', 'PO00020672', 'Heineken', 3080000, 'in_production');
   insert into po_deliveries (po, brand, kind, do_no, delivered_on, quantity, notes) values
-    ('002908', 'Meta', 'delivery', '1682', '2026-06-10'::date, 5000000, 'From the Order and Delivery sheet'),
+    ('002908', 'Meta', 'delivery', '1679', '2026-06-10'::date, 5000000, 'From the Order and Delivery sheet'),
     ('4800182900', 'Feta', 'delivery', '1629', '2026-02-14'::date, 2640000, 'From the Order and Delivery sheet'),
     ('0000000293', 'Dashen', 'delivery', '1633', '2026-02-17'::date, 1700000, 'From the Order and Delivery sheet'),
     ('0000000293', 'Dashen', 'delivery', '1634', '2026-02-19'::date, 1920000, 'From the Order and Delivery sheet'),
@@ -177,11 +177,15 @@ declare
   v_new_order boolean;
   i int;
 begin
-  -- BGI's first 500 cartons, imported earlier without a date or DO: they get them.
-  update public.order_deliveries
-  set do_no = '1682', delivered_on = '2026-06-10', notes = 'From the Order and Delivery sheet'
-  where do_no is null and delivered_on is null and quantity = 5000000
-    and notes like 'From the Order and Delivery sheet: delivered before the dated DOs%';
+  -- BGI's first 500 cartons, imported earlier without a date or DO, or as DO 1682: DO 1679 of 10 Jun 2026.
+  update public.order_deliveries d
+  set do_no = '1679', delivered_on = '2026-06-10', notes = 'From the Order and Delivery sheet'
+  where d.quantity = 5000000
+    and d.order_id in (select o.id from public.orders o where o.po_number = '002908')
+    and (
+      (d.do_no is null and d.delivered_on is null and d.notes like 'From the Order and Delivery sheet: delivered before the dated DOs%')
+      or (d.do_no = '1682' and d.delivered_on = '2026-06-10' and d.notes = 'From the Order and Delivery sheet')
+    );
 
   -- Customer by customer (order numbers follow), each PO's brands as on the sheet.
   for k in select key, pattern, company_name, code from po_orders group by key, pattern, company_name, code order by company_name loop
