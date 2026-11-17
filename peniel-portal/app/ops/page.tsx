@@ -239,6 +239,7 @@ export default async function OpsDashboard() {
     .slice(0, 8);
   const volumeTotals = volume.reduce((t, v) => ({ ordered: t.ordered + v.ordered, delivered: t.delivered + v.delivered, left: t.left + v.remaining + v.hold }), { ordered: 0, delivered: 0, left: 0 });
 
+  const capacity = await loadCapacity(supabase, today, can("inventory"));
   const data: DashboardData = {
     hello: `${greeting(now).toUpperCase()}, ${first.toUpperCase()} · ${helloFmt.format(now).replace("Sept", "Sep").toUpperCase()}`,
     headline,
@@ -248,8 +249,12 @@ export default async function OpsDashboard() {
     week,
     weekSummary: `${due7.length} due · ${formatQty(dueQty)} crowns`,
     volume,
-    volumeSummary: volume.length ? `${formatQty(volumeTotals.left)} remaining of ${formatQty(volumeTotals.ordered)} ordered` : "by customer",
-    capacity: await loadCapacity(supabase, today, can("inventory")),
+    volumeSummary: volume.length
+      ? `${formatQty(volumeTotals.left)} remaining of ${formatQty(volumeTotals.ordered)} ordered${
+          capacity.pace ? ` · all delivered around ${formatDate(dateIn(today, volumeTotals.left / capacity.pace)!)} at the planned output` : ""
+        }`
+      : "by customer",
+    capacity: capacity.view,
   };
 
   return <DashboardView d={data} />;
@@ -263,7 +268,11 @@ export default async function OpsDashboard() {
  * produced over the last 30 days, else crowns delivered over the last 60.
  * Base coats (only some brands) last at their own use over the last 30 days.
  */
-async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, today: string, canInventory: boolean): Promise<StockCapacityView> {
+async function loadCapacity(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  today: string,
+  canInventory: boolean,
+): Promise<{ view: StockCapacityView; pace: number | null }> {
   const since30 = addisDateISO(new Date(), -30);
   const since60 = addisDateISO(new Date(), -60);
   const [{ plant }, { data: mats }, { data: used }, { data: made }, { data: delivered }, { data: presses }] = await Promise.all([
@@ -339,7 +348,8 @@ async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, 
   };
   const b = c.bottleneck;
   const lastsDate = b ? dateIn(today, b.daysToEmpty) : null;
-  return {
+  const view: StockCapacityView = {
+    endsOn: b && b.daysToEmpty != null && lastsDate ? formatDate(lastsDate) : null,
     crowns: b ? formatQty(b.crowns) : null,
     limitedBy: b?.name ?? null,
     lasts: b && b.daysToEmpty != null ? `${daysLabel(b.daysToEmpty)}${lastsDate && b.daysToEmpty >= 1 ? `, to ${formatDate(lastsDate)}` : ""}` : null,
@@ -350,4 +360,5 @@ async function loadCapacity(supabase: Awaited<ReturnType<typeof createClient>>, 
     missing,
     inventoryHref: canInventory ? "/ops/inventory" : null,
   };
+  return { view, pace };
 }

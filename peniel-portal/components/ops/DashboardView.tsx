@@ -29,6 +29,8 @@ export type StockCapacityView = {
   limitedBy: string | null;
   /** "about 2 months, to 14 Jan 2027" at the pace, or null. */
   lasts: string | null;
+  /** "26 Feb 2027": about when the stock runs out at the pace, or null. */
+  endsOn: string | null;
   /** "1.2M crowns a day: your deliveries over the last 60 days". */
   pace: string;
   rows: CapacityLine[];
@@ -241,6 +243,9 @@ function ProductionFromStock({ c }: { c: StockCapacityView }) {
             <span className="font-mono text-[11px] font-semibold tracking-[.1em] opacity-60">YOU CAN MAKE</span>
             <div className="text-[56px] font-extrabold leading-[.9] tracking-[-.05em] sm:text-[80px]">{c.crowns}</div>
             <span className="text-[13px]">crowns with the stock on hand · {c.limitedBy} runs out first</span>
+            {c.endsOn && (
+              <span className="mt-2 block text-[20px] font-extrabold tracking-[-.02em] text-accent-700 sm:text-[24px]">Runs out around {c.endsOn}</span>
+            )}
           </div>
           <div className="max-w-[420px] text-[14px]">
             {c.lasts ? (
