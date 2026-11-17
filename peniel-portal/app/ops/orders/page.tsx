@@ -48,9 +48,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         title="Orders"
         sub={`${rows.length} order${rows.length === 1 ? "" : "s"} · ${formatQty(total)} crowns${f.status === "open" ? " still to deliver" : ""}`}
         actions={
-          <a href={`/ops/orders/export?${query}`} className="btn btn-secondary text-text">
-            Export ↓
-          </a>
+          <span className="flex flex-wrap gap-2">
+            <Link href="/ops/orders/deliveries" className="btn btn-secondary text-text">
+              Deliveries by PO
+            </Link>
+            <a href={`/ops/orders/export?${query}`} className="btn btn-secondary text-text">
+              Export ↓
+            </a>
+          </span>
         }
       />
       <KpiStrip

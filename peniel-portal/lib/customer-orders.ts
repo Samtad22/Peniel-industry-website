@@ -1,4 +1,5 @@
 import "server-only";
+import type { Delivery } from "@/lib/deliveries";
 import type { createClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/lib/order-status";
 import type { AttachmentType } from "@/lib/files";
@@ -61,6 +62,8 @@ export type CustomerOrderDetailData = {
   /** Conversation with Peniel about this order; replies go to `threadId`. */
   threadId: string | null;
   messages: CustomerMessage[];
+  /** The order's deliveries (DOs): customer-facing fields only, no notes. */
+  deliveries: Delivery[];
 };
 
 /**
@@ -76,10 +79,10 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       "id, order_no, po_number, brand_id, brand_name, quantity, completed_qty, reject_pct, due_date, requested_date, status, customer_reason, delivery_method, delivery_address, updated_at",
     )
     .eq("id", id)
-    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "crown" | "colours" | "size" | "steps" | "attachments" | "proofs" | "threadId" | "messages">>();
+    .maybeSingle<Omit<CustomerOrderDetailData, "spec" | "liner" | "crown" | "colours" | "size" | "steps" | "attachments" | "proofs" | "threadId" | "messages" | "deliveries">>();
   if (!o) return null;
 
-  const [{ data: brand }, { data: events }, { data: files }, { data: threads }, { data: proofs }] = await Promise.all([
+  const [{ data: brand }, { data: events }, { data: files }, { data: threads }, { data: proofs }, { data: deliveries }] = await Promise.all([
     supabase.from("customer_brands").select("id, size, finish, liner, colours, crown_image_path").eq("id", o.brand_id).maybeSingle<CustomerBrand>(),
     supabase
       .from("customer_order_timeline")
@@ -106,6 +109,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
       .eq("status", "sent")
       .order("created_at", { ascending: false })
       .returns<CustomerProof[]>(),
+    supabase.from("customer_order_deliveries").select("id, order_id, kind, do_no, delivered_on, quantity").eq("order_id", id).returns<Delivery[]>(),
   ]);
 
   const threadIds = (threads ?? []).map((t) => t.id);
@@ -138,6 +142,7 @@ export async function loadCustomerOrder(supabase: Supabase, id: string): Promise
     proofs: proofs ?? [],
     threadId: threadIds[0] ?? null,
     messages: messages ?? [],
+    deliveries: (deliveries ?? []).map((d) => ({ ...d, quantity: Number(d.quantity) })),
   };
 }
 
@@ -175,7 +180,7 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
     }>();
   if (!o) return null;
 
-  const [{ data: output }, { data: events }, { data: files }, { data: threads }, { data: proofs }, { data: sorted }] = await Promise.all([
+  const [{ data: output }, { data: events }, { data: files }, { data: threads }, { data: proofs }, { data: sorted }, { data: deliveries }] = await Promise.all([
     supabase.from("production_entries").select("produced_qty, reject_qty").eq("order_id", id).eq("published", true),
     supabase
       .from("order_status_events")
@@ -198,6 +203,8 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
       .order("created_at", { ascending: false })
       .returns<Omit<CustomerProof, "brand_name" | "order_no">[]>(),
     supabase.from("sorting_records").select("waste_cartons").eq("order_id", id).returns<{ waste_cartons: number }[]>(),
+    // As customer_order_deliveries: no notes.
+    supabase.from("order_deliveries").select("id, order_id, kind, do_no, delivered_on, quantity").eq("order_id", id).returns<Delivery[]>(),
   ]);
 
   const threadIds = (threads ?? []).map((t) => t.id);
@@ -251,5 +258,6 @@ export async function loadCustomerOrderPreview(supabase: Supabase, id: string): 
       author_name: m.author?.full_name ?? "",
       created_at: m.created_at,
     })),
+    deliveries: (deliveries ?? []).map((d) => ({ ...d, quantity: Number(d.quantity) })),
   };
 }
