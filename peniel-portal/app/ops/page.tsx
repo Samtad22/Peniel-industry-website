@@ -195,22 +195,48 @@ export default async function OpsDashboard() {
     return { day: dayFmt.format(new Date(`${date}T12:00:00+03:00`)).toUpperCase(), date, today: i === 0, chips };
   });
 
+  // Open volume: per customer, what the open POs ordered, what was delivered (DOs) and what remains.
+  // Lines already delivered in full count too when their PO still has open lines, so each PO is whole.
+  const confirmed = orders.filter((x) => x.status !== "submitted");
+  const openPos = [...new Set(confirmed.map((o) => `${o.company_id}|${o.po_number}`))];
+  const { data: poOrders } = openPos.length
+    ? await supabase
+        .from("orders")
+        .select("id, company_id, po_number, quantity, status, companies(name)")
+        .in("po_number", [...new Set(confirmed.map((o) => o.po_number))])
+        .not("status", "in", "(submitted,cancelled,rejected)")
+        .returns<{ id: string; company_id: string; po_number: string; quantity: number; status: OrderStatus; companies: { name: string } | null }[]>()
+    : { data: [] };
+  const lines = (poOrders ?? []).filter((o) => openPos.includes(`${o.company_id}|${o.po_number}`));
+  const { data: delData } = lines.length
+    ? await supabase
+        .from("order_deliveries")
+        .select("order_id, quantity")
+        .eq("kind", "delivery")
+        .in("order_id", lines.map((o) => o.id))
+        .returns<{ order_id: string; quantity: number }[]>()
+    : { data: [] };
+  const deliveredBy = new Map<string, number>();
+  for (const d of delData ?? []) deliveredBy.set(d.order_id, (deliveredBy.get(d.order_id) ?? 0) + Number(d.quantity));
   const stock = new Map<string, number>();
   for (const s of stockData ?? []) stock.set(s.company_id, (stock.get(s.company_id) ?? 0) + Number(s.quantity));
-  const byCompany = new Map<string, { name: string; open: number; hold: number }>();
-  for (const o of orders.filter((x) => x.status !== "submitted")) {
-    const c = byCompany.get(o.company_id) ?? { name: o.companies?.name ?? "-", open: 0, hold: 0 };
-    if (o.status === "on_hold") c.hold += Number(o.quantity);
-    else c.open += Number(o.quantity);
+  const byCompany = new Map<string, { name: string; ordered: number; delivered: number; remaining: number; hold: number }>();
+  for (const o of lines) {
+    const c = byCompany.get(o.company_id) ?? { name: o.companies?.name ?? "-", ordered: 0, delivered: 0, remaining: 0, hold: 0 };
+    const delivered = deliveredBy.get(o.id) ?? 0;
+    const left = Math.max(0, Number(o.quantity) - delivered);
+    c.ordered += Number(o.quantity);
+    c.delivered += Math.min(delivered, Number(o.quantity));
+    if (o.status === "on_hold") c.hold += left;
+    else c.remaining += left;
     byCompany.set(o.company_id, c);
   }
   const volume = [...byCompany.entries()]
-    .map(([id, c]) => {
-      const inStock = Math.min(stock.get(id) ?? 0, c.open);
-      return { name: c.name, total: c.open + c.hold, stock: inStock, open: c.open - inStock, hold: c.hold };
-    })
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
+    .map(([id, c]) => ({ name: c.name, ordered: c.ordered, delivered: c.delivered, remaining: c.remaining, hold: c.hold, inStock: Math.min(stock.get(id) ?? 0, c.remaining) }))
+    .filter((v) => v.remaining + v.hold > 0)
+    .sort((a, b) => b.remaining + b.hold - (a.remaining + a.hold))
+    .slice(0, 8);
+  const volumeTotals = volume.reduce((t, v) => ({ ordered: t.ordered + v.ordered, delivered: t.delivered + v.delivered, left: t.left + v.remaining + v.hold }), { ordered: 0, delivered: 0, left: 0 });
 
   const data: DashboardData = {
     hello: `${greeting(now).toUpperCase()}, ${first.toUpperCase()} · ${helloFmt.format(now).replace("Sept", "Sep").toUpperCase()}`,
@@ -221,6 +247,7 @@ export default async function OpsDashboard() {
     week,
     weekSummary: `${due7.length} due · ${formatQty(dueQty)} crowns`,
     volume,
+    volumeSummary: volume.length ? `${formatQty(volumeTotals.left)} remaining of ${formatQty(volumeTotals.ordered)} ordered` : "by customer",
     capacity: await loadCapacity(supabase, today, can("inventory")),
   };
 
