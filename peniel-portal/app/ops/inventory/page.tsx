@@ -355,7 +355,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                             style={{ background: hex ?? "transparent", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent)" }}
                           />
                           <span className="min-w-0">
-                            <b className="block truncate">{m.ink_name}</b>
+                            <b className="block break-words leading-snug">{m.ink_name}</b>
                             {m.part_no && <span className="block font-mono text-[11px] opacity-60">{m.part_no}</span>}
                           </span>
                         </span>
