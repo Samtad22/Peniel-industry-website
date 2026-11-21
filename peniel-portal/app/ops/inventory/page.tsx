@@ -7,7 +7,9 @@ import { parseInk } from "@/lib/inks";
 import { Pill } from "@/components/ui/StatusBadge";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
-import { formatDate, formatQty } from "@/lib/format";
+import { addisDateISO, formatDate, formatQty } from "@/lib/format";
+import { daysBetween, expiryState, lotStock, type LotStock, type MaterialLot } from "@/lib/material-lots";
+import { LotsDialog } from "@/components/ops/MaterialLots";
 import { STOCK_PILL, type StockStatus } from "@/lib/inventory";
 import { describeUse } from "@/lib/materials";
 import { addDays } from "@/lib/production-math";
@@ -16,7 +18,19 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Inventory" };
 
-type Material = { id: string; name: string; unit: string; on_hand: number; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active: boolean; ink_name: string | null };
+type Material = {
+  id: string;
+  name: string;
+  unit: string;
+  on_hand: number;
+  reorder_level: number | null;
+  use_basis: string | null;
+  use_rate: number | null;
+  active: boolean;
+  ink_name: string | null;
+  part_no: string | null;
+};
+type LotRow = MaterialLot & { material_id: string };
 type InkUse = { inks: InkGrams | null; brands: { name: string } | null };
 type Stock = {
   id: string;
@@ -46,8 +60,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const todayIso = new Date().toISOString().slice(0, 10);
   const weekAgo = `${addDays(todayIso, -7)}T00:00:00+03:00`;
   const monthAgo = addDays(todayIso, -30);
-  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }, { data: rateData }, { data: runInks }, { data: sampleInks }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active, ink_name").order("name").returns<Material[]>(),
+  const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }, { data: rateData }, { data: runInks }, { data: sampleInks }, { data: lotData }] = await Promise.all([
+    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active, ink_name, part_no").order("name").returns<Material[]>(),
     supabase
       .from("finished_stock")
       .select("id, company_id, batch_no, quantity, location, status, customer_reason, ready_since, order_id, companies(name), brands(name), orders(order_no)")
@@ -74,7 +88,29 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     // Ink used over the last 30 days, per brand: printed stillages and sample sheets.
     supabase.from("print_runs").select("inks, brands(name)").gte("run_date", monthAgo).neq("inks", "{}").returns<InkUse[]>(),
     supabase.from("sample_sheets").select("inks, brands(name)").gte("sample_date", monthAgo).neq("inks", "{}").returns<InkUse[]>(),
+    // Deliveries with their production and expiry dates.
+    supabase.from("raw_material_lots").select("id, material_id, received_on, quantity, produced_on, expires_on, lot_no, notes").returns<LotRow[]>(),
   ]);
+  // What of each material's stock is in which delivery, what has expired and what expires next (oldest used first).
+  const addisToday = addisDateISO(new Date());
+  const lotsOf = (id: string) => (lotData ?? []).filter((l) => l.material_id === id);
+  const stockOf = new Map<string, LotStock>((materials ?? []).map((m) => [m.id, lotStock(Number(m.on_hand), lotsOf(m.id), addisToday)]));
+  const expiryLine = (m: Material): { text: string; warn: boolean } | null => {
+    const st = stockOf.get(m.id);
+    if (!st) return null;
+    const state = expiryState(st, addisToday);
+    if (state === "expired")
+      return { text: `${formatQty(st.expired)} ${m.unit} expired (${formatDate(st.expiredSince)})${st.next ? ` · next ${formatDate(st.next.date)}` : ""}`, warn: true };
+    if (state === "undated") return null;
+    const days = daysBetween(addisToday, st.next!.date);
+    return { text: `Expires ${formatDate(st.next!.date)}${state === "soon" ? ` (in ${days} day${days === 1 ? "" : "s"})` : ""}`, warn: state === "soon" };
+  };
+  const expiryWatch = (materials ?? [])
+    .filter((m) => m.active !== false)
+    .map((m) => ({ m, st: stockOf.get(m.id)!, state: expiryState(stockOf.get(m.id)!, addisToday) }))
+    .filter((x) => x.state === "expired" || x.state === "soon")
+    .sort((a, b) => Number(b.state === "expired") - Number(a.state === "expired") || (a.st.expiredSince ?? a.st.next?.date ?? "").localeCompare(b.st.expiredSince ?? b.st.next?.date ?? ""));
+  const canLots = ["admin", "warehouse", "production"].includes(me.role);
   const onList = (materials ?? []).filter((m) => m.active !== false && !m.ink_name);
   const inks = (materials ?? []).filter((m) => m.active !== false && m.ink_name);
   const offList = (materials ?? []).filter((m) => m.active === false);
@@ -99,7 +135,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     if (hex && !brandHex.has(inkKey(c))) brandHex.set(inkKey(c), hex);
   }
   const inkHex = (name: string) => brandHex.get(inkKey(name)) ?? parseInk(name).hex;
-  const INK_COLS = "grid grid-cols-[minmax(0,1.3fr)_110px_110px_110px_minmax(0,1.6fr)_110px] items-center gap-3";
+  const INK_COLS = "grid grid-cols-[minmax(0,1.3fr)_110px_110px_110px_150px_minmax(0,1.6fr)_110px] items-center gap-3";
 
   const q = (sp.q ?? "").trim().toLowerCase();
   const rows = (stock ?? []).filter(
@@ -172,6 +208,22 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <MaterialDialog materials={[...onList, ...inks].map((m) => ({ id: m.id, name: m.name, unit: m.unit }))} />
             </div>
           </div>
+          {expiryWatch.length > 0 && (
+            <div className="mx-4 mt-4 border-l-4 border-accent bg-accent-100 px-3 py-2.5 text-[13px] sm:mx-8">
+              <b className="block">Expiry check · {expiryWatch.filter((x) => x.state === "expired").length} with expired stock, {expiryWatch.filter((x) => x.state === "soon").length} expiring within 60 days</b>
+              <ul className="m-0 mt-1 grid list-none gap-x-6 gap-y-0.5 p-0 sm:grid-cols-2">
+                {expiryWatch.map(({ m, st, state }) => (
+                  <li key={m.id} className="min-w-0 truncate">
+                    <span className={state === "expired" ? "font-bold text-accent-800" : ""}>{m.ink_name ?? m.name}</span>
+                    {": "}
+                    {state === "expired"
+                      ? `${formatQty(st.expired)} ${m.unit} expired ${formatDate(st.expiredSince)}`
+                      : `${formatQty(st.next!.quantity)} ${m.unit} expire ${formatDate(st.next!.date)}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-2 border-t-2 border-text xl:grid-cols-3">
             {onList.map((m, i) => {
               const onHand = Number(m.on_hand);
@@ -186,7 +238,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   key={m.id}
                   className={`flex flex-col gap-3 border-divider px-4 pb-6 pt-[22px] sm:px-6 ${i % 2 ? "max-xl:border-l-2" : ""} ${i % 3 ? "xl:border-l-2" : ""} ${i >= 2 ? "max-xl:border-t-2" : ""} ${i >= 3 ? "xl:border-t-2" : ""} ${low ? "bg-accent-100" : ""}`}
                 >
-                  <h6 className={`m-0 ${low ? "text-accent-800" : ""}`}>{m.name}</h6>
+                  <h6 className={`m-0 ${low ? "text-accent-800" : ""}`}>
+                    {m.name}
+                    {m.part_no && <span className="ml-1.5 font-mono text-[11px] font-normal normal-case tracking-normal opacity-70">{m.part_no}</span>}
+                  </h6>
                   <div className="relative h-[160px] border-2 border-text bg-surface sm:h-[220px]">
                     <div className={`absolute inset-x-0 bottom-0 ${low ? "bg-accent" : "bg-text"}`} style={{ height: `${pct}%` }} />
                     {line != null && (
@@ -210,6 +265,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <span>{onHand < 0 ? "Below zero: a count is due" : low ? "Below reorder level" : "In stock"}</span>
                     <span>{reorder != null ? `reorder at ${reorder.toLocaleString("en-US")} ${m.unit}` : "no reorder level"}</span>
                   </div>
+                  {(() => {
+                    const e = expiryLine(m);
+                    return e ? <div className={`-mt-2 text-[12px] ${e.warn ? "font-extrabold text-accent-800" : "opacity-75"}`}>{e.text}</div> : null;
+                  })()}
                   <div className="flex items-baseline justify-between gap-2 text-[12px]">
                     <span className="opacity-75">
                       {describeUse(m) ? (
@@ -227,9 +286,26 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       {me.role === "admin" && <StockCountDialog id={m.id} name={m.name} unit={m.unit} onHand={onHand} />}
                       {canSetMaterials && (
                         <MaterialSettingsDialog
-                          material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: true }}
+                          material={{
+                            id: m.id,
+                            name: m.name,
+                            unit: m.unit,
+                            reorder_level: m.reorder_level == null ? null : Number(m.reorder_level),
+                            use_basis: m.use_basis,
+                            use_rate: m.use_rate == null ? null : Number(m.use_rate),
+                            active: true,
+                            part_no: m.part_no,
+                          }}
                         />
                       )}
+                      <LotsDialog
+                        material={{ id: m.id, name: m.name, unit: m.unit }}
+                        lots={lotsOf(m.id)}
+                        inStock={stockOf.get(m.id)?.lots ?? []}
+                        today={addisToday}
+                        canAdd={canLots}
+                        canDelete={me.role === "admin"}
+                      />
                       {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.name} />}
                     </span>
                   </div>
@@ -242,7 +318,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <div>
                 <h3 className="m-0 text-[22px] sm:text-[24px]">Inks</h3>
                 <p className="m-0 text-[12px] opacity-70">
-                  One stock per Pantone or ink, in kg, shared by every brand that prints it. Each printed stillage and sample takes its ink off by itself.
+                  One stock per ink (with its part number), in kg, shared by every brand that prints it. Each printed stillage and sample takes its ink off by itself; Dates shows each delivery&apos;s production and expiry date.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -254,12 +330,13 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
               <p className="m-0 py-3 text-[13px] opacity-60">No inks yet. They appear here as soon as brands have colours (Customers → a brand → colours).</p>
             ) : (
               <div className="mt-3 overflow-x-auto">
-                <div className="min-w-[860px]">
+                <div className="min-w-[1010px]">
                   <div className={`${INK_COLS} th-row border-b border-divider py-2`}>
                     <span>Ink</span>
                     <span className="text-right">In stock</span>
                     <span className="text-right">Reorder at</span>
                     <span className="text-right">Used in 7 days</span>
+                    <span>Expiry</span>
                     <span>Brands · grams per sheet</span>
                     <span />
                   </div>
@@ -277,7 +354,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                             className="inline-block size-4 shrink-0 rounded-full"
                             style={{ background: hex ?? "transparent", boxShadow: "inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent)" }}
                           />
-                          <b className="truncate">{m.ink_name}</b>
+                          <span className="min-w-0">
+                            <b className="block truncate">{m.ink_name}</b>
+                            {m.part_no && <span className="block font-mono text-[11px] opacity-60">{m.part_no}</span>}
+                          </span>
                         </span>
                         <span className={`text-right tabular-nums ${low ? "font-extrabold text-accent-800" : ""}`}>
                           <b>{formatInkStock(onHand)}</b>
@@ -285,6 +365,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                         </span>
                         <span className="text-right tabular-nums opacity-80">{reorder != null ? formatInkStock(reorder) : "-"}</span>
                         <span className="text-right tabular-nums">{usedWeek(m.id) > 0 ? formatInkStock(usedWeek(m.id)) : "-"}</span>
+                        {(() => {
+                          const e = expiryLine(m);
+                          return <span className={`text-[12px] ${e?.warn ? "font-extrabold text-accent-800" : "opacity-75"}`}>{e?.text ?? "-"}</span>;
+                        })()}
                         <span className="min-w-0 truncate text-[12px]" title={users.map((u) => `${u.name}${u.g ? ` ${u.g} g` : ""}`).join(" · ")}>
                           {users.length === 0
                             ? <span className="opacity-60">no brand now</span>
@@ -299,9 +383,17 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           {me.role === "admin" && <StockCountDialog id={m.id} name={m.ink_name!} unit={m.unit} onHand={onHand} />}
                           {canSetMaterials && (
                             <MaterialSettingsDialog
-                              material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: reorder, use_basis: null, use_rate: null, active: true, ink: true }}
+                              material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: reorder, use_basis: null, use_rate: null, active: true, ink: true, part_no: m.part_no }}
                             />
                           )}
+                          <LotsDialog
+                            material={{ id: m.id, name: m.ink_name!, unit: m.unit }}
+                            lots={lotsOf(m.id)}
+                            inStock={stockOf.get(m.id)?.lots ?? []}
+                            today={addisToday}
+                            canAdd={canLots}
+                            canDelete={me.role === "admin"}
+                          />
                           {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.ink_name!} ink />}
                         </span>
                       </div>
