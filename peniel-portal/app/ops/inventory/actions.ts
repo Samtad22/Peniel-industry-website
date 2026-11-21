@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
+import { addisDateISO } from "@/lib/format";
 import { addisLocalToIso } from "@/lib/inventory";
 import { parseRate, USE_BASIS } from "@/lib/materials";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,18 @@ const int = (v: string) => {
   const n = Number(v.replace(/[,\s]/g, ""));
   return Number.isInteger(n) ? n : NaN;
 };
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Production and expiry dates and lot number typed on a form; empty ones are null. */
+function lotDates(fd: FormData): { produced_on: string | null; expires_on: string | null; lot_no: string | null } | { error: string } {
+  const produced = s(fd, "produced_on");
+  const expires = s(fd, "expires_on");
+  if (produced && !DATE.test(produced)) return { error: "Production date: choose a date." };
+  if (expires && !DATE.test(expires)) return { error: "Expiry date: choose a date." };
+  if (produced && expires && expires < produced) return { error: "It can't expire before it was made." };
+  return { produced_on: produced || null, expires_on: expires || null, lot_no: s(fd, "lot_no").slice(0, 60) || null };
+}
 
 function refresh() {
   revalidatePath("/ops/inventory", "layout");
@@ -88,12 +101,24 @@ export async function recordMaterial(_prev: InvState, fd: FormData): Promise<Inv
     const { data: m } = await supabase.from("raw_materials").select("unit").eq("id", id).maybeSingle<{ unit: string }>();
     if (m?.unit.toLowerCase() !== "kg") return { error: "Grams only for materials kept in kg." };
   }
+  // A delivery in with its production or expiry date: recorded as a lot too.
+  const lot = dir > 0 ? lotDates(fd) : null;
+  if (lot && "error" in lot) return { error: lot.error };
   const { error } = await supabase
     .from("raw_material_movements")
     .insert({ material_id: id, quantity: dir * qty, reason: reason.slice(0, 200), created_by: me.user_id });
   if (error) return { error: /not_negative/.test(error.message) ? "That's more than is in stock." : "Couldn't record the movement." };
+  if (lot && (lot.produced_on || lot.expires_on || lot.lot_no)) {
+    const { error: lotErr } = await supabase
+      .from("raw_material_lots")
+      .insert({ material_id: id, quantity: qty, received_on: addisDateISO(new Date()), ...lot, notes: reason.slice(0, 300) });
+    if (lotErr) {
+      refresh();
+      return { error: "Recorded, but its dates weren't saved. Add them under Dates." };
+    }
+  }
   refresh();
-  return { ok: "Recorded." };
+  return { ok: lot && (lot.produced_on || lot.expires_on) ? "Recorded, with its dates." : "Recorded." };
 }
 
 /** Set a material's stock on hand after a count (admin only). The difference is recorded as a movement, so the history stays complete. */
@@ -187,9 +212,10 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
   const { data: ink } = UUID.test(id)
     ? await supabase.from("raw_materials").select("name, ink_name").eq("id", id).maybeSingle<{ name: string; ink_name: string | null }>()
     : { data: null };
+  const partNo = s(fd, "part_no").slice(0, 40) || null;
   const row: Record<string, unknown> = ink?.ink_name
-    ? { reorder_level: reorder, active }
-    : { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active };
+    ? { reorder_level: reorder, active, part_no: partNo }
+    : { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active, part_no: partNo };
   const { error } = UUID.test(id) ? await supabase.from("raw_materials").update(row).eq("id", id) : await supabase.from("raw_materials").insert(row);
   if (error) {
     if (error.code === "23505") return { error: `${name} already exists.` };
@@ -258,4 +284,35 @@ export async function deleteMaterial(_prev: InvState, fd: FormData): Promise<Inv
   const moves = r.movements ? ` and its ${r.movements.toLocaleString("en-US")} stock movement${r.movements === 1 ? "" : "s"}` : "";
   const used = r.stillages + r.samples ? ` Taken out of the ink used on ${r.stillages + r.samples} stillage and sample record${r.stillages + r.samples === 1 ? "" : "s"}.` : "";
   return { ok: `${r.name}${moves} deleted.${used}` };
+}
+
+/** A lot (delivery) of a material with its dates (admin, warehouse, production). */
+export async function addLot(_prev: InvState, fd: FormData): Promise<InvState> {
+  await requireStaff(["admin", "warehouse", "production"]);
+  const id = s(fd, "material_id");
+  const qty = Number(s(fd, "quantity").replace(/[,\s]/g, ""));
+  const received = s(fd, "received_on");
+  if (!UUID.test(id)) return { error: "Choose the material." };
+  if (!(qty > 0) || qty > 1_000_000_000) return { error: "Quantity received: enter a number above 0." };
+  if (received && !DATE.test(received)) return { error: "Received: choose a date." };
+  const lot = lotDates(fd);
+  if ("error" in lot) return { error: lot.error };
+  if (!lot.produced_on && !lot.expires_on) return { error: "Enter the production date, the expiry date, or both." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("raw_material_lots")
+    .insert({ material_id: id, quantity: qty, received_on: received || null, ...lot, notes: s(fd, "notes").slice(0, 300) || null });
+  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't add dates." : "Couldn't save. Please try again." };
+  refresh();
+  return { ok: "Saved." };
+}
+
+/** Remove a lot entered by mistake (admin only; RLS enforces it too). */
+export async function deleteLot(fd: FormData): Promise<void> {
+  await requireStaff(["admin"]);
+  const id = s(fd, "id");
+  if (!UUID.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("raw_material_lots").delete().eq("id", id);
+  refresh();
 }

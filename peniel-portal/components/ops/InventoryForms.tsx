@@ -166,6 +166,7 @@ function MaterialForm({ materials, preset, close }: { materials: (Opt & { unit: 
   // Kept in kg (inks, compound): type it in kg or g.
   const inKg = unit.toLowerCase() === "kg";
   const [qtyUnit, setQtyUnit] = useState<"kg" | "g">("kg");
+  const [dir, setDir] = useState<"in" | "out">("in");
   return (
         <form action={action} className="flex flex-col gap-3">
           <div className="field">
@@ -178,8 +179,8 @@ function MaterialForm({ materials, preset, close }: { materials: (Opt & { unit: 
             <fieldset className="field m-0 border-0 p-0">
               <legend className="mb-[5px] p-0 text-[12px] text-text/70">Movement</legend>
               <div className="seg !flex">
-                <label className="seg-opt flex-1 justify-center"><input type="radio" name="direction" value="in" defaultChecked />In</label>
-                <label className="seg-opt flex-1 justify-center"><input type="radio" name="direction" value="out" />Out</label>
+                <label className="seg-opt flex-1 justify-center"><input type="radio" name="direction" value="in" checked={dir === "in"} onChange={() => setDir("in")} />In</label>
+                <label className="seg-opt flex-1 justify-center"><input type="radio" name="direction" value="out" checked={dir === "out"} onChange={() => setDir("out")} />Out</label>
               </div>
             </fieldset>
             <div className="field">
@@ -199,6 +200,22 @@ function MaterialForm({ materials, preset, close }: { materials: (Opt & { unit: 
             <label htmlFor="rm-reason">Reason</label>
             <input id="rm-reason" name="reason" required maxLength={200} placeholder="e.g. Delivery received · issued to Line 2" className="input" />
           </div>
+          {dir === "in" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="field">
+                <label htmlFor="rm-prod">Production date</label>
+                <input id="rm-prod" name="produced_on" type="date" className="input" />
+              </div>
+              <div className="field">
+                <label htmlFor="rm-exp">Expiry date</label>
+                <input id="rm-exp" name="expires_on" type="date" className="input" />
+              </div>
+              <div className="field">
+                <label htmlFor="rm-lot">Lot no. (optional)</label>
+                <input id="rm-lot" name="lot_no" maxLength={60} className="input" />
+              </div>
+            </div>
+          )}
           <p className="m-0 text-[12px] opacity-70">Internal only. Raw materials never reach the customer portal.</p>
           <FormMessage state={state} />
           <div className="dialog-actions">
@@ -307,7 +324,27 @@ function StockCountForm({ id, unit, onHand, close }: { id: string; unit: string;
   );
 }
 
-export type MaterialFields = { id: string; name: string; unit: string; reorder_level: number | null; use_basis: string | null; use_rate: number | null; active?: boolean; ink?: boolean };
+export type MaterialFields = {
+  id: string;
+  name: string;
+  unit: string;
+  reorder_level: number | null;
+  use_basis: string | null;
+  use_rate: number | null;
+  active?: boolean;
+  ink?: boolean;
+  /** The supplier's part number, e.g. UV-H1022. */
+  part_no?: string | null;
+};
+
+function PartNoField({ value }: { value?: string | null }) {
+  return (
+    <div className="field">
+      <label htmlFor="ms-part">Part number (optional)</label>
+      <input id="ms-part" name="part_no" maxLength={40} defaultValue={value ?? ""} placeholder="e.g. UV-H1022" className="input" />
+    </div>
+  );
+}
 
 /** Add a raw material, or edit it: name, unit, reorder level, and how much is used automatically. */
 export function MaterialSettingsDialog({ material }: { material?: MaterialFields }) {
@@ -466,6 +503,7 @@ function MaterialSettingsForm({ material, close }: { material?: MaterialFields; 
           <label htmlFor="ms-reorder">Reorder level in kg (optional)</label>
           <input id="ms-reorder" name="reorder_level" inputMode="decimal" defaultValue={material.reorder_level ?? ""} placeholder="e.g. 5" className="input" />
         </div>
+        <PartNoField value={material.part_no} />
         <label className="flex items-center gap-2 text-[13px]">
           <input type="checkbox" name="active" defaultChecked={material.active !== false} className="size-4 accent-[var(--color-accent)]" />
           On the list (untick to take it off: its history stays in the reports)
@@ -501,6 +539,7 @@ function MaterialSettingsForm({ material, close }: { material?: MaterialFields; 
           <input id="ms-unit" name="unit" required maxLength={20} value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="kg" className="input" />
         </div>
       </div>
+      <PartNoField value={material?.part_no} />
       <div className="field">
         <label htmlFor="ms-reorder">Reorder level (optional)</label>
         <input id="ms-reorder" name="reorder_level" inputMode="decimal" defaultValue={material?.reorder_level ?? ""} className="input" />
