@@ -10,7 +10,7 @@ const materials = [
   m("Adhesive lacquer", "kg", 8400, "lacquer_sheet", 0.015),
   m("White base coat", "kg", 7000, "white_base_coat_sheet", 0.0275),
   m("Transparent base coat", "kg", 1800, "transparent_base_coat_sheet", 0.00714),
-  m("PVC-free liner compound", "kg", 90_600, "thousand_crowns", 0.1818),
+  m("PVC-free liner compound", "kg", 90_600, "thousand_crowns", 0.2427),
   m("Box", "boxes", 64_105, "box", 1),
   m("Polybag", "polybags", 605_500, "box", 1),
   m("Plaster", "pcs", 150, null, null),
@@ -31,9 +31,9 @@ test("500 million crowns: what each material takes and what to order, in packs",
   assert.equal(rows["White base coat"].scope, "white");
   assert.ok(Math.abs(rows["White base coat"].need - (sheets / 2) * 0.0275) < 1e-6);
   assert.deepEqual(rows["White base coat"].packs?.count, 12);
-  // PVC-free: 500,000 × 0.1818 = 90,900 kg; 90,600 on hand → 300 kg = 1 unit of about 600 kg.
-  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 90_900) < 1e-6);
-  assert.equal(rows["PVC-free liner compound"].packs?.count, 1);
+  // PVC-free at production's figure: 500,000 × 0.2427 = 121,350 kg; 90,600 on hand → 30,750 kg = 52 units of about 600 kg.
+  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 121_350) < 1e-6);
+  assert.equal(rows["PVC-free liner compound"].packs?.count, 52);
   // Boxes and polybags: 50,000, both enough in stock.
   assert.equal(rows.Box.need, 50_000);
   assert.equal(rows.Box.toOrder, 0);
@@ -46,7 +46,7 @@ test("spoilage adds sheets (not good crowns); the coat split; the whole amount w
   assert.ok(Math.abs(rows["Tinplate sheet 0.23 mm"].need - 1100) < 1e-9);
   assert.ok(Math.abs(rows["Transparent base coat"].need - 1100 * 0.75 * 0.00714) < 1e-9);
   assert.equal(rows.Box.need, 70.2);
-  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 702 * 0.1818) < 1e-9);
+  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 702 * 0.2427) < 1e-9);
   assert.equal(rows.Box.toOrder, rows.Box.need);
 });
 
