@@ -4,8 +4,7 @@
 // page and the unit tests.
 import { CROWNS_PER_BOX, CROWNS_PER_SHEET, PASSES_PER_STILLAGE, type Plant } from "./calculator.ts";
 
-/** `rate`: the usage rate as set (e.g. 0.173 kg per 1,000 crowns); `wastePct`: the wastage on top of it. */
-export type PlanMaterial = { id: string; name: string; unit: string; onHand: number; basis: string | null; rate: number | null; wastePct?: number | null };
+export type PlanMaterial = { id: string; name: string; unit: string; onHand: number; basis: string | null; rate: number | null };
 
 export type PlanRow = {
   id: string;
@@ -13,11 +12,12 @@ export type PlanRow = {
   unit: string;
   /** Which sheets it goes on: all, or only those with that base coat. */
   scope: "all" | "white" | "transparent";
-  /** The wastage % counted on top of the rate. */
-  wastePct: number;
+  /** What the crowns take at the usage rate. */
   need: number;
+  /** The wastage held on top of it. */
+  wastage: number;
   onHand: number;
-  /** Needed less what is in stock (0 or more); everything needed when stock isn't counted. */
+  /** Needed plus wastage, less what is in stock (0 or more); all of it when stock isn't counted. */
   toOrder: number;
   /** What to order in its packs, rounded up: e.g. 41 barrels of 200 kg. */
   packs: { count: number; size: number; label: string } | null;
@@ -40,30 +40,26 @@ const scopeOf = (basis: string): PlanRow["scope"] => (basis === "white_base_coat
 const SHEET_BASES = new Set(["sheet_in", "sheet_printed", "base_coat_sheet", "white_base_coat_sheet", "transparent_base_coat_sheet", "varnish_sheet", "lacquer_sheet"]);
 
 /**
- * What `crowns` good crowns take of each material with a usage rate.
- * `spoilagePct` adds sheets (and what goes on them) for spoilage; good
- * crowns themselves (PVC-free, boxes, polybags) aren't increased. `whiteShare`
- * (0 to 1) is the part of the sheets that get the white base coat; the rest
- * get the transparent (one coat a sheet). `countStock`: take what is in
- * stock off the order. `waste`: wastage % to use instead of a material's own
- * (material id → %).
+ * What `crowns` good crowns take of each material with a usage rate, and
+ * what to order: that plus `wastagePct` (the wastage expected, on every
+ * material), less what is in stock when `countStock`. `whiteShare` (0 to 1)
+ * is the part of the sheets that get the white base coat; the rest get the
+ * transparent (one coat a sheet).
  */
 export function orderPlan(
   materials: PlanMaterial[],
   plant: Plant,
-  opts: { crowns: number; spoilagePct: number; whiteShare: number; countStock: boolean; waste?: Record<string, number> },
+  opts: { crowns: number; wastagePct: number; whiteShare: number; countStock: boolean },
 ): PlanRow[] {
   const crowns = Math.max(0, opts.crowns || 0);
-  const sheets = (crowns / CROWNS_PER_SHEET) * (1 + Math.max(0, opts.spoilagePct || 0) / 100);
+  const sheets = crowns / CROWNS_PER_SHEET;
   const stillages = plant.stillage_sheets > 0 ? sheets / plant.stillage_sheets : 0;
   const white = Math.min(1, Math.max(0, opts.whiteShare));
+  const waste = Math.min(100, Math.max(0, opts.wastagePct || 0)) / 100;
   const rows: PlanRow[] = [];
   for (const m of materials) {
-    const base = Number(m.rate ?? 0);
-    if (!m.basis || !(base > 0)) continue;
-    const wasteRaw = opts.waste?.[m.id] ?? m.wastePct ?? 0;
-    const wastePct = Math.min(100, Math.max(0, Number(wasteRaw) || 0));
-    const rate = base * (1 + wastePct / 100);
+    const rate = Number(m.rate ?? 0);
+    if (!m.basis || !(rate > 0)) continue;
     const scope = scopeOf(m.basis);
     const share = scope === "white" ? white : scope === "transparent" ? 1 - white : 1;
     let need: number;
@@ -72,16 +68,17 @@ export function orderPlan(
     else if (m.basis === "thousand_crowns") need = (crowns / 1000) * rate;
     else if (m.basis === "box") need = (crowns / CROWNS_PER_BOX) * rate;
     else continue;
+    const wastage = need * waste;
     const onHand = Math.max(0, Number(m.onHand) || 0);
-    const toOrder = Math.max(0, opts.countStock ? need - onHand : need);
+    const toOrder = Math.max(0, opts.countStock ? need + wastage - onHand : need + wastage);
     const pack = packOf(m.name);
     rows.push({
       id: m.id,
       name: m.name,
       unit: m.unit,
       scope,
-      wastePct,
       need,
+      wastage,
       onHand,
       toOrder,
       packs: pack && toOrder > 0 ? { count: Math.ceil(toOrder / pack.size - 1e-9), size: pack.size, label: pack.label } : null,

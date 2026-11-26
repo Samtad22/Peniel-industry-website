@@ -69,7 +69,7 @@ test("materials with a rate are used automatically, and kept in step on edit and
   await pool.query("update public.raw_materials set use_basis = 'sheet_in', use_rate = 1 where name = 'Tinplate sheet 0.23 mm'");
   await pool.query("update public.raw_materials set use_basis = 'sheet_printed', use_rate = 0.002 where name = 'Varnish'");
   await pool.query("update public.raw_materials set use_basis = 'lacquer_sheet', use_rate = 0.01 where name = 'Lacquer'");
-  await pool.query("update public.raw_materials set use_basis = 'thousand_crowns', use_rate = 0.5, waste_pct = 0 where name = 'PVC-free liner compound'");
+  await pool.query("update public.raw_materials set use_basis = 'thousand_crowns', use_rate = 0.5 where name = 'PVC-free liner compound'");
   const tin0 = await onHand("Tinplate sheet 0.23 mm");
   const ink0 = await onHand("Varnish");
   const lac0 = await onHand("Lacquer");

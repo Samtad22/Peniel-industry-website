@@ -10,8 +10,7 @@ const materials = [
   m("Adhesive lacquer", "kg", 8400, "lacquer_sheet", 0.015),
   m("White base coat", "kg", 7000, "white_base_coat_sheet", 0.0275),
   m("Transparent base coat", "kg", 1800, "transparent_base_coat_sheet", 0.00714),
-  // 173 mg a crown + 10% wastage (as the page passes it in).
-  m("PVC-free liner compound", "kg", 90_600, "thousand_crowns", 0.1903),
+  m("PVC-free liner compound", "kg", 90_600, "thousand_crowns", 0.173),
   m("Box", "boxes", 64_105, "box", 1),
   m("Polybag", "polybags", 605_500, "box", 1),
   m("Plaster", "pcs", 150, null, null),
@@ -19,7 +18,7 @@ const materials = [
 const by = (rows: ReturnType<typeof orderPlan>) => Object.fromEntries(rows.map((r) => [r.name, r]));
 
 test("500 million crowns: what each material takes and what to order, in packs", () => {
-  const rows = by(orderPlan(materials, plant, { crowns: 500_000_000, spoilagePct: 0, whiteShare: 0.5, countStock: true }));
+  const rows = by(orderPlan(materials, plant, { crowns: 500_000_000, wastagePct: 0, whiteShare: 0.5, countStock: true }));
   // 500M / 702 = 712,251 sheets.
   const sheets = 500_000_000 / 702;
   assert.ok(Math.abs(rows["Tinplate sheet 0.23 mm"].need - sheets) < 1e-6);
@@ -32,9 +31,9 @@ test("500 million crowns: what each material takes and what to order, in packs",
   assert.equal(rows["White base coat"].scope, "white");
   assert.ok(Math.abs(rows["White base coat"].need - (sheets / 2) * 0.0275) < 1e-6);
   assert.deepEqual(rows["White base coat"].packs?.count, 12);
-  // PVC-free at 0.1903: 500,000 × 0.1903 = 95,150 kg; 90,600 on hand → 4,550 kg = 8 units of about 600 kg.
-  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 95_150) < 1e-6);
-  assert.equal(rows["PVC-free liner compound"].packs?.count, 8);
+  // PVC-free at 173 mg a crown: 500,000 × 0.173 = 86,500 kg; 90,600 on hand is enough.
+  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 86_500) < 1e-6);
+  assert.equal(rows["PVC-free liner compound"].toOrder, 0);
   // Boxes and polybags: 50,000, both enough in stock.
   assert.equal(rows.Box.need, 50_000);
   assert.equal(rows.Box.toOrder, 0);
@@ -42,13 +41,22 @@ test("500 million crowns: what each material takes and what to order, in packs",
   assert.equal(rows.Plaster, undefined);
 });
 
-test("spoilage adds sheets (not good crowns); the coat split; the whole amount without stock", () => {
-  const rows = by(orderPlan(materials, plant, { crowns: 702_000, spoilagePct: 10, whiteShare: 0.25, countStock: false }));
-  assert.ok(Math.abs(rows["Tinplate sheet 0.23 mm"].need - 1100) < 1e-9);
-  assert.ok(Math.abs(rows["Transparent base coat"].need - 1100 * 0.75 * 0.00714) < 1e-9);
-  assert.equal(rows.Box.need, 70.2);
-  assert.ok(Math.abs(rows["PVC-free liner compound"].need - 702 * 0.1903) < 1e-9);
-  assert.equal(rows.Box.toOrder, rows.Box.need);
+test("the wastage held goes on top of what is needed, on every material; the whole amount without stock", () => {
+  const rows = by(orderPlan(materials, plant, { crowns: 500_000_000, wastagePct: 10, whiteShare: 0.5, countStock: true }));
+  // PVC-free: 86,500 kg + 10% = 95,150 kg; 90,600 on hand → 4,550 kg = 8 units of about 600 kg.
+  const pvc = rows["PVC-free liner compound"];
+  assert.ok(Math.abs(pvc.wastage - 8650) < 1e-6);
+  assert.ok(Math.abs(pvc.toOrder - 4550) < 1e-6);
+  assert.equal(pvc.packs?.count, 8);
+  // Tinplate: 712,251 + 10% = 783,476 sheets; 714,077 on hand → 69,399 to order = 50 pallets.
+  const tin = rows["Tinplate sheet 0.23 mm"];
+  assert.ok(Math.abs(tin.toOrder - ((500_000_000 / 702) * 1.1 - 714_077)) < 1e-6);
+  assert.equal(tin.packs?.count, 50);
+  // Without taking stock off: the whole amount with wastage.
+  const all = by(orderPlan(materials, plant, { crowns: 702_000, wastagePct: 10, whiteShare: 0.25, countStock: false }));
+  assert.ok(Math.abs(all["Tinplate sheet 0.23 mm"].toOrder - 1100) < 1e-9);
+  assert.ok(Math.abs(all["Transparent base coat"].need - 1000 * 0.75 * 0.00714) < 1e-9);
+  assert.ok(Math.abs(all.Box.toOrder - 77.22) < 1e-9);
 });
 
 test("packs by name", () => {
@@ -79,17 +87,4 @@ test("ink a sheet takes: from printing, else an average brand", () => {
     ["a", 0.75],
     ["b", 0.2],
   ]);
-});
-
-test("wastage on top of the rate: the material's own, or one typed in the Calculator", () => {
-  const pvc = [{ id: "pvc", name: "PVC-free liner compound", unit: "kg", onHand: 0, basis: "thousand_crowns", rate: 0.173, wastePct: 10 }];
-  const at = (waste?: Record<string, number>) => orderPlan(pvc, plant, { crowns: 500_000_000, spoilagePct: 0, whiteShare: 0.5, countStock: false, waste })[0];
-  // 173 mg a crown + 10%: 95,150 kg for 500 million.
-  assert.ok(Math.abs(at().need - 95_150) < 1e-6);
-  assert.equal(at().wastePct, 10);
-  // 5% typed instead: 90,825 kg.
-  assert.ok(Math.abs(at({ pvc: 5 }).need - 90_825) < 1e-6);
-  assert.equal(at({ pvc: 5 }).wastePct, 5);
-  // Kept within 0 to 100.
-  assert.equal(at({ pvc: 250 }).wastePct, 100);
 });

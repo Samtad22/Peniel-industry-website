@@ -3,8 +3,7 @@ import CalculatorView, { type CalcBrand, type CalcMaterial } from "@/components/
 import OpsHeader from "@/components/ops/OpsHeader";
 import ShipmentPlan, { type PlanInk } from "@/components/ops/ShipmentPlan";
 import { addisDateISO } from "@/lib/format";
-import { effectiveRate } from "@/lib/materials";
-import { inkPerSheet, inkPerSheetFromRates, type PlanMaterial } from "@/lib/order-plan";
+import { inkPerSheet, inkPerSheetFromRates } from "@/lib/order-plan";
 import { coatShareFrom } from "@/lib/stock-capacity";
 import { InternalOnly } from "@/components/ui/Visibility";
 import { requireStaff } from "@/lib/auth";
@@ -15,18 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Calculator" };
 
-type Row = {
-  id: string;
-  name: string;
-  unit: string;
-  on_hand: number;
-  use_basis: string | null;
-  use_rate: number | null;
-  waste_pct: number | null;
-  active: boolean;
-  ink_name: string | null;
-  part_no: string | null;
-};
+type Row = { id: string; name: string; unit: string; on_hand: number; use_basis: string | null; use_rate: number | null; active: boolean; ink_name: string | null; part_no: string | null };
 type InkRun = { sheets_printed: number; sheets_spoiled: number; inks: Record<string, number> | null };
 
 /**
@@ -41,7 +29,7 @@ export default async function CalculatorPage() {
   const since90 = addisDateISO(new Date(), -90);
   const since60 = addisDateISO(new Date(), -60);
   const [{ data: mats }, { data: brandData }, { data: rates }, { data: inkRuns }, { data: inkSamples }, { data: coated }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, use_basis, use_rate, waste_pct, active, ink_name, part_no").eq("active", true).order("name").returns<Row[]>(),
+    supabase.from("raw_materials").select("id, name, unit, on_hand, use_basis, use_rate, active, ink_name, part_no").eq("active", true).order("name").returns<Row[]>(),
     supabase.from("brands").select("id, name, colours, base_coat, companies(name)").eq("active", true).order("name").returns<{ id: string; name: string; colours: string[]; base_coat: "white" | "transparent" | null; companies: { name: string } | null }[]>(),
     supabase.from("brand_ink_rates").select("brand_id, material_id, g_per_sheet").returns<InkRate[]>(),
     // Ink used on printed stillages and sample sheets over the last 90 days: the grams a sheet takes.
@@ -59,12 +47,7 @@ export default async function CalculatorPage() {
   const inks = rows.filter((m) => m.ink_name).map((m) => ({ id: m.id, ink_name: m.ink_name!, active: m.active }));
   const materials: CalcMaterial[] = rows
     .filter((m) => !m.ink_name)
-    // The rate with its wastage allowance (Inventory → Settings, or the Next shipment's wastage).
-    .map((m) => ({ id: m.id, name: m.name, unit: m.unit, onHand: Number(m.on_hand), basis: m.use_basis, rate: effectiveRate(m.use_rate, m.waste_pct) }));
-  // The next shipment: the rate as set and its wastage apart, so the wastage can be changed there.
-  const planMaterials: PlanMaterial[] = rows
-    .filter((m) => !m.ink_name)
-    .map((m) => ({ id: m.id, name: m.name, unit: m.unit, onHand: Number(m.on_hand), basis: m.use_basis, rate: m.use_rate == null ? null : Number(m.use_rate), wastePct: Number(m.waste_pct ?? 0) }));
+    .map((m) => ({ id: m.id, name: m.name, unit: m.unit, onHand: Number(m.on_hand), basis: m.use_basis, rate: m.use_rate == null ? null : Number(m.use_rate) }));
   const brands: CalcBrand[] = (brandData ?? []).map((b) => ({
     id: b.id,
     label: `${b.name} · ${(b.companies?.name ?? "").replace(/\s+(S\.C\.|PLC)$/i, "")}`,
@@ -101,7 +84,7 @@ export default async function CalculatorPage() {
       <section className="flex flex-col gap-4 border-b-2 border-divider px-4 py-6 sm:px-8">
         <ShipmentPlan
           plant={{ stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours }}
-          materials={planMaterials}
+          materials={materials}
           inks={planInks}
           inkSource={inkSource}
           whiteSharePct={whiteSharePct}

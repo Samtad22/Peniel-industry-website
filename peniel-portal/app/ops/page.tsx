@@ -2,7 +2,6 @@ import DashboardView, { type CapacityLine, type DashboardData, type StockCapacit
 import { formatAmount } from "@/lib/calculator";
 import { getSettings } from "@/lib/settings-server";
 import { plannedPerDay } from "@/lib/settings";
-import { effectiveRate } from "@/lib/materials";
 import { coatShareFrom, dateIn, daysLabel, pickDashboardMaterials, stockCapacity, type CapacityMaterial, type CapacityRow } from "@/lib/stock-capacity";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
@@ -282,11 +281,11 @@ async function loadCapacity(
     getSettings(),
     supabase
       .from("raw_materials")
-      .select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, waste_pct")
+      .select("id, name, unit, on_hand, reorder_level, use_basis, use_rate")
       .eq("active", true)
       .is("ink_name", null)
       .order("name")
-      .returns<(Omit<CapacityMaterial, "used_recently"> & { waste_pct: number | null })[]>(),
+      .returns<Omit<CapacityMaterial, "used_recently">[]>(),
     supabase
       .from("raw_material_movements")
       .select("material_id, quantity")
@@ -327,8 +326,7 @@ async function loadCapacity(
   // Only the main materials of a crown (lib/stock-capacity.ts DASHBOARD_MATERIALS).
   const { picked, missing } = pickDashboardMaterials(mats ?? []);
   const c = stockCapacity(
-    // The rate with its wastage allowance (Inventory → Settings).
-    picked.map((m) => ({ ...m, use_rate: effectiveRate(m.use_rate, m.waste_pct), used_recently: usedBy.get(m.id) ?? 0 })),
+    picked.map((m) => ({ ...m, used_recently: usedBy.get(m.id) ?? 0 })),
     { stillage_sheets: plant.stillage_sheets, press_per_hour: plant.press_per_hour, shift_hours: plant.shift_hours },
     pace,
     30,

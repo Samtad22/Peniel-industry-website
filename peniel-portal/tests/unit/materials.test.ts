@@ -12,17 +12,3 @@ test("usage rates read naturally, and are optional", () => {
   assert.ok(Number.isNaN(parseRate("-1")));
   assert.ok(Number.isNaN(parseRate("abc")));
 });
-
-test("wastage on top of the rate", async () => {
-  const { effectiveRate, describeUse, parseWastePct } = await import("../../lib/materials.ts");
-  assert.equal(effectiveRate(0.173, 10), 0.1903);
-  assert.equal(effectiveRate("0.173", null), 0.173);
-  assert.equal(effectiveRate(null, 10), null);
-  assert.equal(effectiveRate(0.173, 500), 0.346);
-  assert.equal(describeUse({ unit: "kg", use_basis: "thousand_crowns", use_rate: 0.173, waste_pct: 10 }), "Uses 0.173 kg per 1,000 crowns + 10% wastage");
-  assert.equal(describeUse({ unit: "kg", use_basis: "thousand_crowns", use_rate: 0.173 }), "Uses 0.173 kg per 1,000 crowns");
-  assert.equal(parseWastePct(""), 0);
-  assert.equal(parseWastePct("10%"), 10);
-  assert.equal(parseWastePct("7,5"), 7.5);
-  assert.ok(Number.isNaN(parseWastePct("150")));
-});

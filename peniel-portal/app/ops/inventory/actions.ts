@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { addisDateISO } from "@/lib/format";
 import { addisLocalToIso } from "@/lib/inventory";
-import { parseRate, parseWastePct, USE_BASIS } from "@/lib/materials";
+import { parseRate, USE_BASIS } from "@/lib/materials";
 import { createClient } from "@/lib/supabase/server";
 
 export type InvState = { error?: string; ok?: string } | null;
@@ -199,14 +199,12 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
   const reorder = reorderRaw ? Number(reorderRaw) : null;
   const basis = s(fd, "use_basis");
   const rate = parseRate(s(fd, "use_rate"));
-  const waste = parseWastePct(s(fd, "waste_pct"));
   if (!name) return { error: "Enter the material's name." };
   if (!unit) return { error: "Enter the unit (e.g. kg, L, sheets)." };
   if (reorder != null && !(reorder >= 0)) return { error: "Reorder level: enter a number, or leave it empty." };
   if (basis && !(basis in USE_BASIS)) return { error: "Choose what it's used per." };
   if (Number.isNaN(rate)) return { error: "Usage: enter a number (e.g. 0.5), or leave it empty." };
   if (basis && rate == null) return { error: "Enter how much is used, or choose “not tracked”." };
-  if (Number.isNaN(waste)) return { error: "Wastage: a % from 0 to 100, or leave it empty." };
   // Unticking "On the list" hides the material (its history stays); a new one is always on the list.
   const active = !UUID.test(id) || fd.get("active") === "on";
   const supabase = await createClient();
@@ -217,7 +215,7 @@ export async function saveMaterial(_prev: InvState, fd: FormData): Promise<InvSt
   const partNo = s(fd, "part_no").slice(0, 40) || null;
   const row: Record<string, unknown> = ink?.ink_name
     ? { reorder_level: reorder, active, part_no: partNo }
-    : { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, waste_pct: basis ? waste : 0, active, part_no: partNo };
+    : { name, unit, reorder_level: reorder, use_basis: basis || null, use_rate: basis ? rate : null, active, part_no: partNo };
   const { error } = UUID.test(id) ? await supabase.from("raw_materials").update(row).eq("id", id) : await supabase.from("raw_materials").insert(row);
   if (error) {
     if (error.code === "23505") return { error: `${name} already exists.` };
@@ -317,20 +315,4 @@ export async function deleteLot(fd: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.from("raw_material_lots").delete().eq("id", id);
   refresh();
-}
-
-/** A material's wastage % (on top of its rate), from the Calculator's Next shipment (admin and warehouse). */
-export async function setMaterialWaste(_prev: InvState, fd: FormData): Promise<InvState> {
-  await requireStaff(["admin", "warehouse"]);
-  const id = s(fd, "material_id");
-  const waste = parseWastePct(s(fd, "waste_pct"));
-  if (!UUID.test(id)) return { error: "Choose the material." };
-  if (Number.isNaN(waste)) return { error: "Wastage: a % from 0 to 100." };
-  const supabase = await createClient();
-  const { error } = await supabase.from("raw_materials").update({ waste_pct: waste }).eq("id", id);
-  if (error) return { error: /row-level|permission/i.test(error.message) ? "Your role can't change raw materials." : "Couldn't save. Please try again." };
-  refresh();
-  revalidatePath("/ops/calculator");
-  revalidatePath("/ops");
-  return { ok: `Saved: ${waste}% wastage.` };
 }
