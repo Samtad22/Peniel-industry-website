@@ -1,0 +1,22 @@
+// PVC-free compound at 173 mg a crown (20261126000001): 0.173 kg per 1,000
+// crowns; the wastage is held when ordering (the Calculator).
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { pool } from "./helpers.ts";
+
+after(() => pool.end());
+
+const MIGRATION = new URL("../../supabase/migrations/20261126000001_pvc_rate_173mg.sql", import.meta.url);
+const rate = async () => (await pool.query("select use_basis, use_rate::float as r from public.raw_materials where name = 'PVC-free liner compound'")).rows[0];
+
+test("PVC-free goes by 173 mg a crown; a rate set by hand stays", async () => {
+  assert.deepEqual(await rate(), { use_basis: "thousand_crowns", r: 0.173 });
+  await pool.query("update public.raw_materials set use_rate = 0.25 where name = 'PVC-free liner compound'");
+  await pool.query(readFileSync(MIGRATION, "utf8"));
+  assert.equal((await rate()).r, 0.25);
+  // The earlier rate is brought up to date.
+  await pool.query("update public.raw_materials set use_rate = 0.1818 where name = 'PVC-free liner compound'");
+  await pool.query(readFileSync(MIGRATION, "utf8"));
+  assert.equal((await rate()).r, 0.173);
+});
