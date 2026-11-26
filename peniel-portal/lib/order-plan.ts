@@ -4,7 +4,8 @@
 // page and the unit tests.
 import { CROWNS_PER_BOX, CROWNS_PER_SHEET, PASSES_PER_STILLAGE, type Plant } from "./calculator.ts";
 
-export type PlanMaterial = { id: string; name: string; unit: string; onHand: number; basis: string | null; rate: number | null };
+/** `rate`: the usage rate as set (e.g. 0.173 kg per 1,000 crowns); `wastePct`: the wastage on top of it. */
+export type PlanMaterial = { id: string; name: string; unit: string; onHand: number; basis: string | null; rate: number | null; wastePct?: number | null };
 
 export type PlanRow = {
   id: string;
@@ -12,6 +13,8 @@ export type PlanRow = {
   unit: string;
   /** Which sheets it goes on: all, or only those with that base coat. */
   scope: "all" | "white" | "transparent";
+  /** The wastage % counted on top of the rate. */
+  wastePct: number;
   need: number;
   onHand: number;
   /** Needed less what is in stock (0 or more); everything needed when stock isn't counted. */
@@ -42,12 +45,13 @@ const SHEET_BASES = new Set(["sheet_in", "sheet_printed", "base_coat_sheet", "wh
  * crowns themselves (PVC-free, boxes, polybags) aren't increased. `whiteShare`
  * (0 to 1) is the part of the sheets that get the white base coat; the rest
  * get the transparent (one coat a sheet). `countStock`: take what is in
- * stock off the order.
+ * stock off the order. `waste`: wastage % to use instead of a material's own
+ * (material id → %).
  */
 export function orderPlan(
   materials: PlanMaterial[],
   plant: Plant,
-  opts: { crowns: number; spoilagePct: number; whiteShare: number; countStock: boolean },
+  opts: { crowns: number; spoilagePct: number; whiteShare: number; countStock: boolean; waste?: Record<string, number> },
 ): PlanRow[] {
   const crowns = Math.max(0, opts.crowns || 0);
   const sheets = (crowns / CROWNS_PER_SHEET) * (1 + Math.max(0, opts.spoilagePct || 0) / 100);
@@ -55,8 +59,11 @@ export function orderPlan(
   const white = Math.min(1, Math.max(0, opts.whiteShare));
   const rows: PlanRow[] = [];
   for (const m of materials) {
-    const rate = Number(m.rate ?? 0);
-    if (!m.basis || !(rate > 0)) continue;
+    const base = Number(m.rate ?? 0);
+    if (!m.basis || !(base > 0)) continue;
+    const wasteRaw = opts.waste?.[m.id] ?? m.wastePct ?? 0;
+    const wastePct = Math.min(100, Math.max(0, Number(wasteRaw) || 0));
+    const rate = base * (1 + wastePct / 100);
     const scope = scopeOf(m.basis);
     const share = scope === "white" ? white : scope === "transparent" ? 1 - white : 1;
     let need: number;
@@ -73,6 +80,7 @@ export function orderPlan(
       name: m.name,
       unit: m.unit,
       scope,
+      wastePct,
       need,
       onHand,
       toOrder,

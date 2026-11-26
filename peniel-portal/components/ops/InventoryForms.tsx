@@ -335,6 +335,8 @@ export type MaterialFields = {
   ink?: boolean;
   /** The supplier's part number, e.g. UV-H1022. */
   part_no?: string | null;
+  /** Wastage allowance in %, on top of the rate. */
+  waste_pct?: number | null;
 };
 
 function PartNoField({ value }: { value?: string | null }) {
@@ -561,6 +563,13 @@ function MaterialSettingsForm({ material, close }: { material?: MaterialFields; 
             {unit || "Units"} used per {USE_BASIS[basis as UseBasis].per}
           </label>
           <input id="ms-rate" name="use_rate" inputMode="decimal" required defaultValue={material?.use_rate ?? ""} placeholder="e.g. 0.5" className="input" />
+        </div>
+      )}
+      {basis && (
+        <div className="field">
+          <label htmlFor="ms-waste">Wastage (%, on top of the rate)</label>
+          <input id="ms-waste" name="waste_pct" inputMode="decimal" defaultValue={material?.waste_pct ? String(material.waste_pct) : ""} placeholder="e.g. 10" className="input" />
+          <span className="mt-1 text-[12px] opacity-70">Used = rate × (1 + wastage). Work it down (or up) as the real figure comes in.</span>
         </div>
       )}
       {material && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
+import { setMaterialWaste, type InvState } from "@/app/ops/inventory/actions";
 import { SectionHead } from "@/components/ops/OpsKit";
 import { CROWNS_PER_BOX, CROWNS_PER_SHEET, fmt, formatAmount, num, type Plant } from "@/lib/calculator";
 import { formatGrams } from "@/lib/ink-usage";
@@ -39,10 +40,18 @@ export default function ShipmentPlan({
   const [whiteText, setWhiteText] = useState(String(whiteSharePct));
   const [countStock, setCountStock] = useState(true);
   const [copied, setCopied] = useState(false);
+  // Wastage % typed here, per material (starts at the one saved in Inventory).
+  const [wasteText, setWasteText] = useState<Record<string, string>>({});
+  const savedWaste = new Map(materials.map((m) => [m.id, Number(m.wastePct ?? 0) || 0]));
+  const wasteOverrides: Record<string, number> = {};
+  for (const [id, t] of Object.entries(wasteText)) {
+    const n = num(t);
+    if (t.trim() !== "" && !Number.isNaN(n)) wasteOverrides[id] = Math.min(100, Math.max(0, n));
+  }
   const crowns = Math.max(0, num(crownsText) || 0);
   const spoil = Math.min(50, Math.max(0, num(spoilText) || 0));
   const white = Math.min(100, Math.max(0, num(whiteText) || 0));
-  const rows = orderPlan(materials, plant, { crowns, spoilagePct: spoil, whiteShare: white / 100, countStock });
+  const rows = orderPlan(materials, plant, { crowns, spoilagePct: spoil, whiteShare: white / 100, countStock, waste: wasteOverrides });
   // The main materials first, in the dashboard's order; the rest after.
   const { picked } = pickDashboardMaterials(
     materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, on_hand: m.onHand, reorder_level: null, use_basis: m.basis, use_rate: m.rate })),
@@ -76,12 +85,13 @@ export default function ShipmentPlan({
     }
   };
 
-  const COLS = "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] items-center gap-3";
+  const COLS = "grid grid-cols-[minmax(0,1.4fr)_130px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] items-center gap-3";
   const table = (list: PlanRow[]) => (
     <div className="overflow-x-auto">
-      <div className="min-w-[720px]">
+      <div className="min-w-[860px]">
         <div className={`${COLS} th-row border-b border-divider py-2`}>
           <span>Material</span>
+          <span>Wastage %</span>
           <span className="text-right">Needed</span>
           <span className="text-right">In stock</span>
           <span className="text-right">{countStock ? "To order" : "Order"}</span>
@@ -97,6 +107,13 @@ export default function ShipmentPlan({
                 </span>
               )}
             </span>
+            <WasteCell
+              id={r.id}
+              name={r.name}
+              value={wasteText[r.id] ?? String(savedWaste.get(r.id) ?? 0)}
+              saved={savedWaste.get(r.id) ?? 0}
+              onChange={(v) => setWasteText((w) => ({ ...w, [r.id]: v }))}
+            />
             <span className="text-right tabular-nums">{formatAmount(r.need, r.unit)}</span>
             <span className="text-right tabular-nums opacity-75">{formatAmount(r.onHand, r.unit)}</span>
             <b className={`text-right tabular-nums ${r.toOrder > 0 ? "" : "opacity-50"}`}>{r.toOrder > 0 ? formatAmount(r.toOrder, r.unit) : "enough in stock"}</b>
@@ -184,9 +201,40 @@ export default function ShipmentPlan({
         <span className="text-[12px] opacity-70">As text, to paste into an email or message to the supplier.</span>
       </div>
       <p className="m-0 text-[12px] opacity-60">
-        From the usage rates in Inventory and the plant settings ({CROWNS_PER_SHEET} crowns a sheet, {CROWNS_PER_BOX.toLocaleString("en-US")} a box). Expired stock counts as in stock; untick
+        Wastage % is on top of each usage rate (PVC-free: 173 mg a crown + its wastage); change it here to try figures, and Save to keep it for the stock and the
+        dashboard too. From the usage rates in Inventory and the plant settings ({CROWNS_PER_SHEET} crowns a sheet, {CROWNS_PER_BOX.toLocaleString("en-US")} a box). Expired stock counts as in stock; untick
         &ldquo;Take off what is in stock&rdquo; to see the whole amount. Nothing is saved.
       </p>
     </>
+  );
+}
+
+/** A material's wastage % to try here; Save keeps it on the material (stock and dashboard use it too). */
+function WasteCell({ id, name, value, saved, onChange }: { id: string; name: string; value: string; saved: number; onChange: (v: string) => void }) {
+  const [state, action, pending] = useActionState<InvState, FormData>(setMaterialWaste, null);
+  const n = num(value);
+  const changed = value.trim() !== "" && !Number.isNaN(n) && n !== saved && n >= 0 && n <= 100;
+  return (
+    <form action={action} className="flex flex-col gap-0.5">
+      <input type="hidden" name="material_id" value={id} />
+      <span className="flex items-center gap-1.5">
+        <input
+          aria-label={`Wastage % for ${name}`}
+          name="waste_pct"
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="input !min-h-9 !w-[64px] px-2 text-right text-[13px]"
+        />
+        {changed && (
+          <button type="submit" disabled={pending} className="cursor-pointer border-0 bg-transparent p-0 text-[12px] font-bold text-accent-700 underline underline-offset-2">
+            {pending ? "…" : "Save"}
+          </button>
+        )}
+      </span>
+      {state?.error && <span className="text-[11px] text-accent-800">{state.error}</span>}
+      {state?.ok && !changed && <span className="text-[11px] opacity-60">Saved</span>}
+    </form>
   );
 }

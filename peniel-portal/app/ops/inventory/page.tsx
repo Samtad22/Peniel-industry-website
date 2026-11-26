@@ -26,6 +26,7 @@ type Material = {
   reorder_level: number | null;
   use_basis: string | null;
   use_rate: number | null;
+  waste_pct: number | null;
   active: boolean;
   ink_name: string | null;
   part_no: string | null;
@@ -61,7 +62,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const weekAgo = `${addDays(todayIso, -7)}T00:00:00+03:00`;
   const monthAgo = addDays(todayIso, -30);
   const [{ data: materials }, { data: stock }, { data: companies }, { data: brands }, { data: orders }, { count: openPickups }, { data: autoUse }, { data: rateData }, { data: runInks }, { data: sampleInks }, { data: lotData }] = await Promise.all([
-    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, active, ink_name, part_no").order("name").returns<Material[]>(),
+    supabase.from("raw_materials").select("id, name, unit, on_hand, reorder_level, use_basis, use_rate, waste_pct, active, ink_name, part_no").order("name").returns<Material[]>(),
     supabase
       .from("finished_stock")
       .select("id, company_id, batch_no, quantity, location, status, customer_reason, ready_since, order_id, companies(name), brands(name), orders(order_no)")
@@ -293,6 +294,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                             reorder_level: m.reorder_level == null ? null : Number(m.reorder_level),
                             use_basis: m.use_basis,
                             use_rate: m.use_rate == null ? null : Number(m.use_rate),
+                            waste_pct: m.waste_pct == null ? 0 : Number(m.waste_pct),
                             active: true,
                             part_no: m.part_no,
                           }}
@@ -444,7 +446,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                 <span key={m.id} className="inline-flex items-baseline gap-1.5">
                   {m.name}
                   <MaterialSettingsDialog
-                    material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), active: false }}
+                    material={{ id: m.id, name: m.name, unit: m.unit, reorder_level: m.reorder_level == null ? null : Number(m.reorder_level), use_basis: m.use_basis, use_rate: m.use_rate == null ? null : Number(m.use_rate), waste_pct: m.waste_pct == null ? 0 : Number(m.waste_pct), active: false }}
                   />
                   {me.role === "admin" && <DeleteMaterialDialog id={m.id} name={m.ink_name ?? m.name} ink={Boolean(m.ink_name)} />}
                 </span>
